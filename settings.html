@@ -321,6 +321,10 @@
                 jobCategories: document.getElementById('jobCategories').value
             };
             localStorage.setItem('cl-settings', JSON.stringify(settings));
+
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.syncToCloud();
+            }
             // Update About section
             if (businessName) {
                 document.getElementById('aboutBusinessName').textContent = businessName;
