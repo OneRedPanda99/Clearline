@@ -256,44 +256,33 @@ const CL_FIREBASE = (function() {
             const userDoc = await db.collection('users').doc(currentUser.uid).get();
             
             if (!userDoc.exists) {
-                // First time user - upload local data
                 console.log('New user - uploading local data');
                 await syncToCloud();
                 return true;
             }
 
             const cloudData = userDoc.data();
-            const localData = CL_DATA.exportAll();
 
-            // Simple conflict resolution: cloud wins if newer
-            // In production, you'd want smarter merging
-            const cloudTime = cloudData.lastSync?.toDate?.() || new Date(0);
-            const localTime = new Date(localStorage.getItem('cl-last-sync') || 0);
+            // Always merge — let mergeFromCloud handle conflict resolution
+            CL_DATA.mergeFromCloud({
+                version: 2,
+                customers: cloudData.customers || [],
+                jobs: cloudData.jobs || [],
+                deletedCustomers: cloudData.deletedCustomers || [],
+                deletedJobs: cloudData.deletedJobs || []
+            });
 
-            if (cloudTime > localTime) {
-                // Cloud is newer - import it
-                CL_DATA.importData({
-                    customers: cloudData.customers || [],
-                    jobs: cloudData.jobs || []
-                });
-
-                if (cloudData.settings) {
-                    const currentSettings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
-                    // Preserve local-only settings
-                    cloudData.settings.firebaseConfig = currentSettings.firebaseConfig;
-                    cloudData.settings.gcalClientId = currentSettings.gcalClientId;
-                    localStorage.setItem('cl-settings', JSON.stringify(cloudData.settings));
-                }
-
-                localStorage.setItem('cl-last-sync', new Date().toISOString());
-                console.log('Data synced from cloud');
-                showSyncToast('Data synced from cloud');
-                
-                // Notify UI to refresh
-                window.dispatchEvent(new CustomEvent('cl-sync-updated'));
-            } else {
-                console.log('Local data is current');
+            if (cloudData.settings) {
+                const currentSettings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
+                cloudData.settings.firebaseConfig = currentSettings.firebaseConfig;
+                cloudData.settings.gcalClientId = currentSettings.gcalClientId;
+                localStorage.setItem('cl-settings', JSON.stringify(cloudData.settings));
             }
+
+            localStorage.setItem('cl-last-sync', new Date().toISOString());
+            console.log('Data synced from cloud');
+            showSyncToast('Data synced from cloud');
+            window.dispatchEvent(new CustomEvent('cl-sync-updated'));
 
             return true;
         } catch (err) {
