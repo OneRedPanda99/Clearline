@@ -321,8 +321,9 @@ const CL_FIREBASE = (function() {
     setInterval(() => {
         if (currentUser && navigator.onLine) {
             syncToCloud();
+            syncFromCloud();
         }
-    }, 5 * 60 * 1000); // Every 5 minutes
+    }, 30 * 1000);
 
     // Get the raw Firebase user object (needed for uid in Firestore queries)
     function getCurrentUser() {
