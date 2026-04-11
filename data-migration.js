@@ -8,19 +8,9 @@ const CL_DATA = {
     CUSTOMERS_KEY: 'cl-customers',
     JOBS_KEY: 'cl-jobs',
     MIGRATED_KEY: 'cl-data-migrated-v2',
-    SYNC_CONFIG_KEY: 'cl-sync-config',
-    SYNC_ENABLED_KEY: 'cl-sync-enabled',
-    LAST_SYNC_KEY: 'cl-sync-last',
-    SYNC_LOG_KEY: 'cl-sync-log',
-    SYNC_STATUS_KEY: 'cl-sync-status',
-    SYNC_CLIENT_ID_KEY: 'cl-sync-client-id',
     DELETED_CUSTOMERS_KEY: 'cl-deleted-customers',
     DELETED_JOBS_KEY: 'cl-deleted-jobs',
     
-    _syncTimer: null,
-    _firebaseReady: null,
-    _db: null,
-    _ref: null,
 
     // Diagnostics helpers
     getClientId() {
@@ -104,13 +94,11 @@ const CL_DATA = {
     // Save customers
     saveCustomers(customers, opts = {}) {
         localStorage.setItem(this.CUSTOMERS_KEY, JSON.stringify(customers));
-        if (!opts.skipSync) this.scheduleSync();
     },
     
     // Save jobs
     saveJobs(jobs, opts = {}) {
         localStorage.setItem(this.JOBS_KEY, JSON.stringify(jobs));
-        if (!opts.skipSync) this.scheduleSync();
     },
 
     // Deleted tombstones
@@ -122,11 +110,9 @@ const CL_DATA = {
     },
     saveDeletedCustomers(deleted, opts = {}) {
         localStorage.setItem(this.DELETED_CUSTOMERS_KEY, JSON.stringify(deleted));
-        if (!opts.skipSync) this.scheduleSync();
     },
     saveDeletedJobs(deleted, opts = {}) {
         localStorage.setItem(this.DELETED_JOBS_KEY, JSON.stringify(deleted));
-        if (!opts.skipSync) this.scheduleSync();
     },
     addTombstone(list, id) {
         const now = Date.now();
@@ -144,14 +130,21 @@ const CL_DATA = {
         const customers = this.getCustomers();
         customers.push(customer);
         this.saveCustomers(customers);
+        // Sync to cloud after saving
+        if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+            CL_FIREBASE.syncToCloud();
+        }
         return customer;
     },
     
-    // Add a job
     addJob(job) {
         const jobs = this.getJobs();
         jobs.push(job);
         this.saveJobs(jobs);
+        // Sync to cloud after saving
+        if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+            CL_FIREBASE.syncToCloud();
+        }
         return job;
     },
     
@@ -436,265 +429,11 @@ const CL_DATA = {
         }
     },
     
-    // ===== Cloud Sync (Firebase Realtime Database) =====
-    getSyncConfig() {
-        try {
-            return JSON.parse(localStorage.getItem(this.SYNC_CONFIG_KEY) || 'null');
-        } catch {
-            return null;
-        }
-    },
-    
-    setSyncConfig(config) {
-        localStorage.setItem(this.SYNC_CONFIG_KEY, JSON.stringify(config));
-    },
-    
-    isSyncEnabled() {
-        return localStorage.getItem(this.SYNC_ENABLED_KEY) === 'true';
-    },
-    
-    async enableSync() {
-        localStorage.setItem(this.SYNC_ENABLED_KEY, 'true');
-        const ready = await this.initCloudSync();
-        if (ready) {
-            await this.pushToCloud();
-        }
-        return ready;
-    },
-    
-    disableSync() {
-        localStorage.removeItem(this.SYNC_ENABLED_KEY);
-        if (this._ref) this._ref.off();
-        this._ref = null;
-        this._db = null;
-        this.setSyncStatus({ status: 'disabled' });
-        this.logSync('disabled');
-    },
-    
-    async initCloudSync() {
-        const config = this.getSyncConfig();
-        if (!config || !this.isSyncEnabled()) return false;
-        if (typeof window === 'undefined') return false;
-
-        const syncKey = (config.syncKey || '').trim();
-        if (!syncKey || !config.apiKey || !config.projectId || !config.databaseURL) {
-            this.logSync('init_fail', 'missing_config');
-            this.setSyncStatus({ status: 'config_missing' });
-            return false;
-        }
-
-        this.logSync('init_start');
-        this.setSyncStatus({ status: 'init' });
-        try {
-            await this.loadFirebaseSDK();
-        } catch (err) {
-            this.logSync('sdk_error', err.message || err);
-            this.setSyncStatus({ status: 'sdk_error', lastError: err.message || String(err) });
-            return false;
-        }
-        if (!window.firebase) {
-            this.logSync('sdk_missing', 'firebase_not_found');
-            this.setSyncStatus({ status: 'sdk_missing' });
-            return false;
-        }
-        
-        const fbConfig = {
-            apiKey: config.apiKey,
-            authDomain: config.authDomain || (config.projectId ? `${config.projectId}.firebaseapp.com` : undefined),
-            projectId: config.projectId,
-            databaseURL: config.databaseURL
-        };
-        
-        if (!firebase.apps.length) {
-            firebase.initializeApp(fbConfig);
-            this.logSync('app_init');
-        }
-
-        try {
-            const auth = firebase.auth();
-            if (!auth.currentUser) {
-                await auth.signInAnonymously();
-            }
-            if (auth.currentUser) {
-                let token = null;
-                try {
-                    token = await auth.currentUser.getIdToken();
-                } catch (e) {
-                    // ignore token errors
-                }
-                this.setSyncStatus({
-                    authUid: auth.currentUser.uid,
-                    authIsAnonymous: !!auth.currentUser.isAnonymous,
-                    authToken: token || null,
-                    authTokenTail: token ? token.slice(-8) : null,
-                    provider: 'rtdb'
-                });
-                this.logSync('auth_ok', { uid: auth.currentUser.uid, anon: !!auth.currentUser.isAnonymous });
-                if (token) this.logSync('token_saved');
-            }
-        } catch (err) {
-            this.logSync('auth_error', err.message || err);
-            this.setSyncStatus({ status: 'auth_error', lastError: err.message || String(err) });
-            return false;
-        }
-        this._db = firebase.database();
-        this._ref = this._db.ref(`cl-data/${syncKey}`);
-        this.setSyncStatus({ status: 'ready', clientId: this.getClientId() });
-        this.logSync('ref_ready', `cl-data/${syncKey}`);
-        
-        this.listenForRemoteChanges();
-        await this.pullFromCloud();
-        return true;
-    },
-    
-    listenForRemoteChanges() {
-        if (!this._ref) return;
-        this._ref.on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
-            const lastSync = parseInt(localStorage.getItem(this.LAST_SYNC_KEY) || '0', 10);
-            const updatedAt = data.updatedAt || 0;
-            if (updatedAt && updatedAt <= lastSync) return;
-            
-            this.mergeFromCloud(data);
-            if (data.settings) {
-                localStorage.setItem('cl-settings', JSON.stringify(data.settings));
-            }
-            localStorage.setItem(this.LAST_SYNC_KEY, String(updatedAt || Date.now()));
-            this.setSyncStatus({ lastRemoteUpdateAt: updatedAt || Date.now() });
-            this.logSync('remote_update', { updatedAt: updatedAt || Date.now() });
-        });
-    },
-    
-    async pullFromCloud() {
-        if (!this._ref) return;
-        try {
-            const snapshot = await this._ref.get();
-            if (!snapshot.exists()) {
-                this.logSync('pull_empty');
-                return;
-            }
-            const data = snapshot.val();
-            const lastSync = parseInt(localStorage.getItem(this.LAST_SYNC_KEY) || '0', 10);
-            const updatedAt = data.updatedAt || 0;
-            if (updatedAt && updatedAt <= lastSync) return;
-            
-            this.mergeFromCloud(data);
-            if (data.settings) {
-                localStorage.setItem('cl-settings', JSON.stringify(data.settings));
-            }
-            localStorage.setItem(this.LAST_SYNC_KEY, String(updatedAt || Date.now()));
-            this.setSyncStatus({ lastPullAt: Date.now() });
-            this.logSync('pull_ok', { updatedAt: updatedAt || Date.now() });
-        } catch (err) {
-            this.logSync('pull_error', err.message || err);
-            this.setSyncStatus({ lastError: err.message || String(err) });
-        }
-    },
-    
-    async pushToCloud() {
-        if (!this.isSyncEnabled()) return;
-        if (!this._ref) await this.initCloudSync();
-        if (!this._ref) return;
-        // Pre-merge remote data to avoid overwriting newer changes or deletions
-        try {
-            const snapshot = await this._ref.get();
-            if (snapshot.exists()) {
-                this.mergeFromCloud(snapshot.val());
-                this.logSync('pre_merge');
-            }
-        } catch (err) {
-            this.logSync('pre_merge_error', err.message || err);
-        }
-
-        const payload = this.exportAll();
-        payload.settings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
-        payload.updatedAt = Date.now();
-        
-        try {
-            await this._ref.set(payload);
-            localStorage.setItem(this.LAST_SYNC_KEY, String(payload.updatedAt));
-            this.setSyncStatus({ lastPushAt: Date.now(), lastError: null });
-            this.logSync('push_ok', { customers: payload.customers?.length || 0, jobs: payload.jobs?.length || 0 });
-        } catch (err) {
-            this.logSync('push_error', err.message || err);
-            this.setSyncStatus({ lastError: err.message || String(err) });
-        }
-    },
-    
-    scheduleSync() {
-        if (!this.isSyncEnabled()) return;
-        clearTimeout(this._syncTimer);
-        this._syncTimer = setTimeout(() => this.pushToCloud(), 1200);
-        this.logSync('sync_scheduled');
-    },
-    
-    async syncNow() {
-        await this.pushToCloud();
-        await this.pullFromCloud();
-    },
-
-    async testCloudSync() {
-        const ready = await this.initCloudSync();
-        if (!ready || !this._db) {
-            this.logSync('test_fail', 'init_failed');
-            return { ok: false, error: 'init_failed' };
-        }
-        const config = this.getSyncConfig() || {};
-        const syncKey = (config.syncKey || '').trim();
-        if (!syncKey) {
-            this.logSync('test_fail', 'missing_syncKey');
-            return { ok: false, error: 'missing_syncKey' };
-        }
-
-        const clientId = this.getClientId();
-        const debugRef = this._db.ref(`cl-debug/${syncKey}/${clientId}`);
-        const payload = {
-            clientId,
-            ts: Date.now(),
-            ua: navigator.userAgent || ''
-        };
-        try {
-            await debugRef.set(payload);
-            const snap = await debugRef.get();
-            const ok = snap.exists();
-            this.logSync('test_ok', ok ? 'read_back' : 'no_data');
-            return { ok, data: snap.val() || null };
-        } catch (err) {
-            this.logSync('test_error', err.message || err);
-            this.setSyncStatus({ lastError: err.message || String(err) });
-            return { ok: false, error: err.message || String(err) };
-        }
-    },
-    
-    loadFirebaseSDK() {
-        if (this._firebaseReady) return this._firebaseReady;
-        this._firebaseReady = new Promise((resolve, reject) => {
-            const loadScript = (src) => new Promise((res, rej) => {
-                if (document.querySelector(`script[src="${src}"]`)) return res();
-                const script = document.createElement('script');
-                script.src = src;
-                script.onload = () => res();
-                script.onerror = () => rej(new Error(`Failed to load ${src}`));
-                document.head.appendChild(script);
-            });
-            
-            loadScript('https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js')
-                .then(() => loadScript('https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js'))
-                .then(() => loadScript('https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js'))
-                .then(resolve)
-                .catch(reject);
-        });
-        return this._firebaseReady;
-    }
 };
 
 // Auto-run migration when script loads
 if (typeof window !== 'undefined') {
     CL_DATA.migrate();
-    if (CL_DATA.isSyncEnabled()) {
-        CL_DATA.initCloudSync();
-    }
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').catch(() => {});
     }
