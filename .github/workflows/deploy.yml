@@ -24,7 +24,7 @@ jobs:
 
       - name: Generate config.js from secrets
         run: |
-          cat > config.js << 'DELIM'
+          cat > config.js << DELIM
           window.CL_SECRETS = {
             firebase: {
               apiKey: "${{ secrets.FIREBASE_API_KEY }}",
