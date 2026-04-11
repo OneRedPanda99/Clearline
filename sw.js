@@ -1,7 +1,9 @@
-const CACHE_NAME = 'clearline-v1';
+const CACHE_NAME = 'clearline-v2';
 
+// Only precache local assets we control. CDN resources (Tailwind, Font Awesome,
+// Leaflet) are cached on-demand by the fetch handler — precaching them fails
+// because addAll() is all-or-nothing and CDNs can CORS-block or 404.
 const STATIC_ASSETS = [
-  // App shell
   '/Clearline/',
   '/Clearline/index.html',
   '/Clearline/jobs.html',
@@ -17,18 +19,8 @@ const STATIC_ASSETS = [
   '/Clearline/utils.js',
   '/Clearline/firebase-sync.js',
   '/Clearline/maps-utils.js',
-  // Styles & scripts
   '/Clearline/app.css',
   '/Clearline/data-migration.js',
-  // CDN — Tailwind
-  'https://cdn.tailwindcss.com',
-  // CDN — Font Awesome
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-regular-400.woff2',
-  // Leaflet (after map.html fix)
-  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
 ];
 
 self.addEventListener('install', event => {
