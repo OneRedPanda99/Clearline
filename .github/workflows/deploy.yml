@@ -24,35 +24,30 @@ jobs:
 
       - name: Generate config.js from secrets
         run: |
-          cat > config.js <<EOF
+          cat > ${{ github.workspace }}/config.js << EOF
           window.CL_SECRETS = {
             firebase: {
-              apiKey: "FIREBASE_API_KEY_PLACEHOLDER",
-              authDomain: "FIREBASE_AUTH_DOMAIN_PLACEHOLDER",
-              databaseURL: "FIREBASE_DATABASE_URL_PLACEHOLDER",
-              projectId: "FIREBASE_PROJECT_ID_PLACEHOLDER",
-              storageBucket: "FIREBASE_STORAGE_BUCKET_PLACEHOLDER",
-              messagingSenderId: "FIREBASE_MESSAGING_SENDER_ID_PLACEHOLDER",
-              appId: "FIREBASE_APP_ID_PLACEHOLDER"
+              apiKey: "${{ secrets.FIREBASE_API_KEY }}",
+              authDomain: "${{ secrets.FIREBASE_AUTH_DOMAIN }}",
+              databaseURL: "${{ secrets.FIREBASE_DATABASE_URL }}",
+              projectId: "${{ secrets.FIREBASE_PROJECT_ID }}",
+              storageBucket: "${{ secrets.FIREBASE_STORAGE_BUCKET }}",
+              messagingSenderId: "${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}",
+              appId: "${{ secrets.FIREBASE_APP_ID }}",
+              measurementId: "${{ secrets.FIREBASE_MEASUREMENT_ID }}"
             },
-            mapsApiKey: "MAPS_API_KEY_PLACEHOLDER"
+            mapsApiKey: "${{ secrets.MAPS_API_KEY }}"
           };
           EOF
-          sed -i "s|FIREBASE_API_KEY_PLACEHOLDER|${{ secrets.FIREBASE_API_KEY }}|g" config.js
-          sed -i "s|FIREBASE_AUTH_DOMAIN_PLACEHOLDER|${{ secrets.FIREBASE_AUTH_DOMAIN }}|g" config.js
-          sed -i "s|FIREBASE_DATABASE_URL_PLACEHOLDER|${{ secrets.FIREBASE_DATABASE_URL }}|g" config.js
-          sed -i "s|FIREBASE_PROJECT_ID_PLACEHOLDER|${{ secrets.FIREBASE_PROJECT_ID }}|g" config.js
-          sed -i "s|FIREBASE_STORAGE_BUCKET_PLACEHOLDER|${{ secrets.FIREBASE_STORAGE_BUCKET }}|g" config.js
-          sed -i "s|FIREBASE_MESSAGING_SENDER_ID_PLACEHOLDER|${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}|g" config.js
-          sed -i "s|FIREBASE_APP_ID_PLACEHOLDER|${{ secrets.FIREBASE_APP_ID }}|g" config.js
-          sed -i "s|MAPS_API_KEY_PLACEHOLDER|${{ secrets.MAPS_API_KEY }}|g" config.js
-          cat config.js
+
+      - name: Verify config.js exists
+        run: ls -la ${{ github.workspace }}/config.js && cat ${{ github.workspace }}/config.js
 
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: ${{ github.workspace }}
 
       - id: deployment
         uses: actions/deploy-pages@v4
