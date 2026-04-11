@@ -12,8 +12,11 @@ const STATIC_ASSETS = [
   '/Clearline/quick-add.html',
   '/Clearline/customer-tracker.html',
   '/Clearline/settings.html',
+  '/Clearline/waiver.html',
   '/Clearline/manifest.json',
   '/Clearline/utils.js',
+  '/Clearline/firebase-sync.js',
+  '/Clearline/maps-utils.js',
   // Styles & scripts
   '/Clearline/app.css',
   '/Clearline/data-migration.js',
