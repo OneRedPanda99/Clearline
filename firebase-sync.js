@@ -318,7 +318,6 @@ const CL_FIREBASE = (function() {
     // Auto-sync periodically when signed in
     setInterval(() => {
         if (currentUser && navigator.onLine) {
-            syncToCloud();
             syncFromCloud();
         }
     }, 5 * 1000);
