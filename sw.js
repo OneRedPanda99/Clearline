@@ -42,6 +42,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const { request } = event;
 
+  if (request.method !== 'GET') return;
+  
   // For HTML pages: network-first (fresh content), fallback to cache
   if (request.mode === 'navigate') {
     event.respondWith(
