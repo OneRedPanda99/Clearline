@@ -237,7 +237,6 @@ const CL_FIREBASE = (function() {
             }, { merge: true });
 
             console.log('Data synced to cloud');
-            showSyncToast('Data synced to cloud');
             return true;
         } catch (err) {
             console.error('Sync to cloud failed:', err);
@@ -281,7 +280,6 @@ const CL_FIREBASE = (function() {
 
             localStorage.setItem('cl-last-sync', new Date().toISOString());
             console.log('Data synced from cloud');
-            showSyncToast('Data synced from cloud');
             window.dispatchEvent(new CustomEvent('cl-sync-updated'));
 
             return true;
