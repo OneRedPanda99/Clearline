@@ -24,7 +24,7 @@ jobs:
 
       - name: Generate config.js from secrets
         run: |
-          cat > config.js <<'EOF'
+          cat > config.js <<EOF
           window.CL_SECRETS = {
             firebase: {
               apiKey: "FIREBASE_API_KEY_PLACEHOLDER",
