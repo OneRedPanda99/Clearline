@@ -323,7 +323,7 @@ const CL_FIREBASE = (function() {
             syncToCloud();
             syncFromCloud();
         }
-    }, 30 * 1000);
+    }, 5 * 1000);
 
     // Get the raw Firebase user object (needed for uid in Firestore queries)
     function getCurrentUser() {
