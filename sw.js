@@ -13,7 +13,6 @@ const STATIC_ASSETS = [
   '/Clearline/customer-tracker.html',
   '/Clearline/settings.html',
   '/Clearline/manifest.json',
-  '/Clearline/config.js',
   '/Clearline/utils.js',
   // Styles & scripts
   '/Clearline/app.css',
