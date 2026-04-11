@@ -2,22 +2,22 @@ const CACHE_NAME = 'clearline-v1';
 
 const STATIC_ASSETS = [
   // App shell
-  './',
-  './index.html',
-  './jobs.html',
-  './calendar.html',
-  './map.html',
-  './estimate.html',
-  './invoice.html',
-  './quick-add.html',
-  './customer-tracker.html',
-  './settings.html',
-  './manifest.json',
-  './config.js',
-  './utils.js',
+  '/Clearline/',
+  '/Clearline/index.html',
+  '/Clearline/jobs.html',
+  '/Clearline/calendar.html',
+  '/Clearline/map.html',
+  '/Clearline/estimate.html',
+  '/Clearline/invoice.html',
+  '/Clearline/quick-add.html',
+  '/Clearline/customer-tracker.html',
+  '/Clearline/settings.html',
+  '/Clearline/manifest.json',
+  '/Clearline/config.js',
+  '/Clearline/utils.js',
   // Styles & scripts
-  './app.css',
-  './data-migration.js',
+  '/Clearline/app.css',
+  '/Clearline/data-migration.js',
   // CDN — Tailwind
   'https://cdn.tailwindcss.com',
   // CDN — Font Awesome
