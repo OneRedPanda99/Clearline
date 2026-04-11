@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Clearline">
+    <meta name="theme-color" content="#020617">
+    <link rel="apple-touch-icon" href="logo.png">
+    <link rel="manifest" href="manifest.json">
+    <title>Clearline</title>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        window.tailwind = {
+            config: {
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: '#0ea5e9',
+                            secondary: '#38bdf8',
+                            dark: '#0f172a',
+                            darker: '#020617',
+                            accent: '#06b6d4',
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="app.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="data-migration.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="app-header-inner">
+            <h1 id="businessTitle">Business Tools</h1>
+            <a href="settings.html" class="header-btn header-btn-right">
+                <i class="fas fa-cog"></i>
+            </a>
+        </div>
+    </header>
+
+    <!-- Content -->
+    <main class="app-content">
+        <div class="content-wrapper">
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <p class="value" style="color: #60a5fa;" id="stat-leads">0</p>
+                    <p class="label">Leads</p>
+                </div>
+                <div class="stat-card">
+                    <p class="value" style="color: #fbbf24;" id="stat-quoted">0</p>
+                    <p class="label">Quoted</p>
+                </div>
+                <div class="stat-card">
+                    <p class="value" style="color: #a78bfa;" id="stat-booked">0</p>
+                    <p class="label">Booked</p>
+                </div>
+                <div class="stat-card">
+                    <p class="value" style="color: #34d399;" id="stat-done">0</p>
+                    <p class="label">Done</p>
+                </div>
+            </div>
+
+            <!-- Revenue -->
+            <div class="glass-card" style="padding: 14px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <p style="font-size: 11px; color: #64748b;">Revenue</p>
+                    <p style="font-size: 24px; font-weight: 700; color: #34d399;">$<span id="revenue">0</span></p>
+                </div>
+                <div style="text-align: right;">
+                    <p style="font-size: 11px; color: #64748b;">Pending</p>
+                    <p style="font-size: 20px; font-weight: 700; color: #fbbf24;">$<span id="pending">0</span></p>
+                </div>
+            </div>
+
+            <!-- Today's Jobs -->
+            <div id="todaySection" class="hidden" style="margin-bottom: 16px;">
+                <p class="section-title">Today's Jobs</p>
+                <div id="todayJobs" class="glass-card" style="overflow: hidden;"></div>
+            </div>
+
+            <!-- Quick Add -->
+            <p class="section-title">Quick Add</p>
+            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <a href="customer-tracker.html?action=add" class="action-btn" style="flex: 1; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 14px 12px; border-radius: 14px; text-align: center; text-decoration: none; font-weight: 600; font-size: 13px;">
+                    <i class="fas fa-user-plus" style="display: block; font-size: 20px; margin-bottom: 4px;"></i>
+                    Customer
+                </a>
+                <a href="quick-add.html?type=lead" class="action-btn" style="flex: 1; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 14px 12px; border-radius: 14px; text-align: center; text-decoration: none; font-weight: 600; font-size: 13px;">
+                    <i class="fas fa-clipboard-list" style="display: block; font-size: 20px; margin-bottom: 4px;"></i>
+                    Lead
+                </a>
+                <a href="quick-add.html" class="action-btn" style="flex: 1; background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 14px 12px; border-radius: 14px; text-align: center; text-decoration: none; font-weight: 600; font-size: 13px;">
+                    <i class="fas fa-calendar-plus" style="display: block; font-size: 20px; margin-bottom: 4px;"></i>
+                    Job
+                </a>
+            </div>
+
+            <!-- Quick Actions -->
+            <p class="section-title">Navigation</p>
+            <div class="quick-grid" style="margin-bottom: 20px;">
+                <a href="jobs.html" class="quick-btn">
+                    <i class="fas fa-briefcase" style="color: #fb923c;"></i>
+                    <span>Jobs</span>
+                </a>
+                <a href="calendar.html" class="quick-btn">
+                    <i class="fas fa-calendar-alt" style="color: #a78bfa;"></i>
+                    <span>Calendar</span>
+                </a>
+                <a href="map.html" class="quick-btn">
+                    <i class="fas fa-map-marked-alt" style="color: #f87171;"></i>
+                    <span>Map</span>
+                </a>
+            </div>
+
+            <!-- Forms & Documents -->
+            <p class="section-title">Forms & Documents</p>
+            <div class="glass-card" style="overflow: hidden; margin-bottom: 20px;">
+                <a href="estimate.html" class="list-item" style="text-decoration: none; color: inherit;">
+                    <i class="fas fa-file-invoice-dollar" style="color: #fbbf24; width: 24px; margin-right: 12px;"></i>
+                    <div style="flex: 1;">
+                        <p style="font-weight: 600; font-size: 15px;">Create Estimate</p>
+                        <p style="font-size: 12px; color: #64748b;">Generate a quote for customers</p>
+                    </div>
+                    <i class="fas fa-chevron-right" style="color: #475569;"></i>
+                </a>
+                <a href="invoice.html" class="list-item" style="text-decoration: none; color: inherit;">
+                    <i class="fas fa-receipt" style="color: #34d399; width: 24px; margin-right: 12px;"></i>
+                    <div style="flex: 1;">
+                        <p style="font-weight: 600; font-size: 15px;">Create Invoice</p>
+                        <p style="font-size: 12px; color: #64748b;">Bill for completed work</p>
+                    </div>
+                    <i class="fas fa-chevron-right" style="color: #475569;"></i>
+                </a>
+            </div>
+
+            <!-- Tools -->
+            <p class="section-title">Tools</p>
+            <div class="glass-card" style="overflow: hidden; margin-bottom: 20px;">
+                <button onclick="openPricing()" class="list-item" style="width: 100%; background: none; border: none; cursor: pointer; text-align: left; color: inherit;">
+                    <i class="fas fa-calculator" style="color: #22d3ee; width: 24px; margin-right: 12px;"></i>
+                    <div style="flex: 1;">
+                        <p style="font-weight: 600; font-size: 15px;">Price Calculator</p>
+                        <p style="font-size: 12px; color: #64748b;">Quick pricing estimates</p>
+                    </div>
+                    <i class="fas fa-chevron-right" style="color: #475569;"></i>
+                </button>
+                <button onclick="openChecklist()" class="list-item" style="width: 100%; background: none; border: none; cursor: pointer; text-align: left; color: inherit;">
+                    <i class="fas fa-clipboard-check" style="color: #fb923c; width: 24px; margin-right: 12px;"></i>
+                    <div style="flex: 1;">
+                        <p style="font-weight: 600; font-size: 15px;">Pre-Job Checklist</p>
+                        <p style="font-size: 12px; color: #64748b;">Equipment check</p>
+                    </div>
+                    <i class="fas fa-chevron-right" style="color: #475569;"></i>
+                </button>
+            </div>
+
+            <!-- Contact -->
+            <p class="section-title">Quick Contact</p>
+            <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+                <a id="contactCall" href="tel:8032728118" class="action-btn" style="flex: 1; background: #16a34a; color: white; padding: 12px; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 600; font-size: 14px;">
+                    <i class="fas fa-phone"></i> Call
+                </a>
+                <a id="contactText" href="sms:8032728118" class="action-btn" style="flex: 1; background: #2563eb; color: white; padding: 12px; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 600; font-size: 14px;">
+                    <i class="fas fa-comment"></i> Text
+                </a>
+                <a id="contactEmail" href="mailto:clearline@gmail.com" class="action-btn" style="flex: 1; background: #7c3aed; color: white; padding: 12px; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 600; font-size: 14px;">
+                    <i class="fas fa-envelope"></i> Email
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Tab Bar -->
+    <nav class="tab-bar">
+        <div class="tab-bar-inner">
+            <a href="index.html" class="tab-item active">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </a>
+            <a href="jobs.html" class="tab-item">
+                <i class="fas fa-briefcase"></i>
+                <span>Jobs</span>
+            </a>
+            <a href="quick-add.html" class="tab-item tab-item-add">
+                <div class="tab-add-btn">
+                    <i class="fas fa-plus"></i>
+                </div>
+                <span>Add</span>
+            </a>
+            <a href="calendar.html" class="tab-item">
+                <i class="fas fa-calendar"></i>
+                <span>Calendar</span>
+            </a>
+            <a href="customer-tracker.html" class="tab-item">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Price Calculator Modal -->
+    <div id="pricingModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pricingModal-title" hidden>
+        <div class="modal-content glass-card" role="document" style="width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header" style="padding: 16px; border-bottom: 0.5px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
+                <h2 id="pricingModal-title" style="font-size: 18px; font-weight: 600;"><i class="fas fa-calculator" style="color: #22d3ee; margin-right: 8px;"></i>Price Calculator</h2>
+                <button class="modal-close-btn" onclick="closeModal('pricingModal')" aria-label="Close dialog" style="background: none; border: none; color: #64748b; font-size: 24px; cursor: pointer;">&times;</button>
+            </div>
+            <div style="padding: 16px;">
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 4px;">Service Type</label>
+                    <select id="calcService" onchange="calculate()" style="width: 100%;">
+                        <option value="driveway">Driveway</option>
+                        <option value="house">House Wash</option>
+                        <option value="deck">Deck/Patio</option>
+                        <option value="fence">Fence</option>
+                        <option value="roof">Roof (Soft Wash)</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 4px;">Square Footage</label>
+                    <input type="number" id="calcSqft" min="1" step="1" oninput="calculate()" placeholder="e.g. 500">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+                    <div>
+                        <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 4px;">Min $/sqft</label>
+                        <input type="number" id="calcMin" value="0.15" min="0.01" step="0.01" oninput="calculate()">
+                    </div>
+                    <div>
+                        <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 4px;">Max $/sqft</label>
+                        <input type="number" id="calcMax" value="0.25" min="0.01" step="0.01" oninput="calculate()">
+                    </div>
+                </div>
+                <div id="calcError" role="alert" style="color:#EF4444;font-size:13px;margin-bottom:8px;min-height:18px;"></div>
+                <div style="background: rgba(34, 197, 94, 0.1); border-radius: 12px; padding: 16px; text-align: center;">
+                    <p style="font-size: 12px; color: #64748b;">Estimated Price</p>
+                    <p id="calcResult" style="font-size: 28px; font-weight: 700; color: #34d399;">—</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checklist Modal -->
+    <div id="checklistModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="checklistModal-title" hidden>
+        <div class="modal-content glass-card" role="document" style="width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header" style="padding: 16px; border-bottom: 0.5px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
+                <h2 id="checklistModal-title" style="font-size: 18px; font-weight: 600;"><i class="fas fa-clipboard-check" style="color: #fb923c; margin-right: 8px;"></i>Pre-Job Checklist</h2>
+                <button class="modal-close-btn" onclick="closeModal('checklistModal')" aria-label="Close dialog" style="background: none; border: none; color: #64748b; font-size: 24px; cursor: pointer;">&times;</button>
+            </div>
+            <div id="checklistItems" style="padding: 16px;"></div>
+            <div style="padding: 16px; border-top: 0.5px solid rgba(255,255,255,0.1); display: flex; gap: 10px;">
+                <button onclick="resetChecklist()" class="btn-secondary" style="flex: 1;">Reset</button>
+                <button onclick="closeChecklist()" class="btn-primary" style="flex: 1;">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load and display data
+        function loadDashboard() {
+            const jobs = CL_DATA.getJobs();
+            
+            // Stats
+            document.getElementById('stat-leads').textContent = jobs.filter(j => j.status === 'new').length;
+            document.getElementById('stat-quoted').textContent = jobs.filter(j => j.status === 'quoted').length;
+            document.getElementById('stat-booked').textContent = jobs.filter(j => j.status === 'scheduled').length;
+            document.getElementById('stat-done').textContent = jobs.filter(j => j.status === 'completed').length;
+            
+            // Revenue
+            const completedRevenue = jobs.filter(j => j.status === 'completed' && j.quoteAmount)
+                .reduce((sum, j) => sum + parseFloat(j.quoteAmount || 0), 0);
+            const pendingRevenue = jobs.filter(j => (j.status === 'quoted' || j.status === 'scheduled') && j.quoteAmount)
+                .reduce((sum, j) => sum + parseFloat(j.quoteAmount || 0), 0);
+            
+            document.getElementById('revenue').textContent = completedRevenue.toFixed(0);
+            document.getElementById('pending').textContent = pendingRevenue.toFixed(0);
+            
+            // Today's jobs
+            const today = new Date().toISOString().split('T')[0];
+            const todayJobs = jobs.filter(j => j.jobDate === today && j.status === 'scheduled');
+            
+            if (todayJobs.length > 0) {
+                document.getElementById('todaySection').classList.remove('hidden');
+                document.getElementById('todayJobs').innerHTML = todayJobs.map(j => `
+                    <div class="list-item" style="flex-direction: column; align-items: flex-start;">
+                        <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 8px;">
+                            <span style="font-weight: 600;">${j.customerName}</span>
+                            ${j.quoteAmount ? `<span style="color: #34d399; font-weight: 600;">$${j.quoteAmount}</span>` : ''}
+                        </div>
+                        <p style="font-size: 13px; color: #94a3b8;">${j.serviceType || 'Pressure Wash'}</p>
+                        ${j.address ? `<p style="font-size: 12px; color: #64748b; margin-top: 4px;"><i class="fas fa-map-marker-alt" style="margin-right: 4px;"></i>${j.address}</p>` : ''}
+                        <div style="display: flex; gap: 8px; margin-top: 10px; width: 100%;">
+                            ${j.customerPhone ? `<a href="tel:${j.customerPhone}" style="flex: 1; background: #16a34a; color: white; padding: 8px; border-radius: 8px; text-align: center; text-decoration: none; font-size: 13px;"><i class="fas fa-phone"></i> Call</a>` : ''}
+                            ${j.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(j.address)}" target="_blank" style="flex: 1; background: #2563eb; color: white; padding: 8px; border-radius: 8px; text-align: center; text-decoration: none; font-size: 13px;"><i class="fas fa-directions"></i> Navigate</a>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function applyContactSettings() {
+            const settings = safeGet('cl-settings', {});
+            const businessName = settings.businessName || 'Business Tools';
+            const phone = settings.businessPhone || '';
+            const email = settings.businessEmail || '';
+            const phoneDigits = phone.replace(/\D/g, '');
+
+            // Update business name in header
+            const titleEl = document.getElementById('businessTitle');
+            if (titleEl) titleEl.textContent = businessName;
+            document.title = businessName;
+
+            const callLink = document.getElementById('contactCall');
+            const textLink = document.getElementById('contactText');
+            const emailLink = document.getElementById('contactEmail');
+
+            if (callLink) callLink.href = phoneDigits ? `tel:${phoneDigits}` : 'tel:';
+            if (textLink) textLink.href = phoneDigits ? `sms:${phoneDigits}` : 'sms:';
+            if (emailLink) emailLink.href = email ? `mailto:${email}` : 'mailto:';
+
+            const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (!isMobile && textLink) textLink.style.display = 'none';
+        }
+
+        // Price Calculator
+        function openPricing() {
+            openModal('pricingModal');
+            calculate();
+        }
+        
+        function closePricing() {
+            closeModal('pricingModal');
+        }
+        
+        function calculate() {
+            const sqft = parseFloat(document.getElementById('calcSqft').value) || 0;
+            const min = parseFloat(document.getElementById('calcMin').value) || 0;
+            const max = parseFloat(document.getElementById('calcMax').value) || 0;
+            const errorEl = document.getElementById('calcError');
+            const resultEl = document.getElementById('calcResult');
+
+            // Clear previous errors
+            if (errorEl) errorEl.textContent = '';
+
+            // Validation
+            const errors = [];
+            if (sqft <= 0)  errors.push('Square footage must be greater than 0.');
+            if (min <= 0)   errors.push('Min rate must be greater than 0.');
+            if (max <= 0)   errors.push('Max rate must be greater than 0.');
+            if (min > max)  errors.push('Min rate cannot exceed max rate.');
+
+            if (errors.length) {
+                if (errorEl) errorEl.innerHTML = errors.join('<br>');
+                if (resultEl) resultEl.textContent = '—';
+                return;
+            }
+
+            let minPrice = Math.round(sqft * min);
+            let maxPrice = Math.round(sqft * max);
+            
+            if (minPrice > 0 && minPrice < 75) minPrice = 75;
+            if (maxPrice > 0 && maxPrice < 100) maxPrice = 100;
+            
+            if (resultEl) resultEl.textContent = `$${minPrice.toLocaleString()} – $${maxPrice.toLocaleString()}`;
+        }
+
+        // Checklist
+        const checklistData = [
+            { id: 'fuel', label: 'Gas tank full', icon: 'fa-gas-pump' },
+            { id: 'water', label: 'Water tank filled', icon: 'fa-tint' },
+            { id: 'hoses', label: 'Hoses connected', icon: 'fa-grip-lines' },
+            { id: 'nozzles', label: 'Nozzles packed', icon: 'fa-spray-can' },
+            { id: 'chem', label: 'Chemicals loaded', icon: 'fa-flask' },
+            { id: 'ppe', label: 'Safety gear', icon: 'fa-hard-hat' },
+            { id: 'phone', label: 'Phone charged', icon: 'fa-mobile-alt' },
+            { id: 'address', label: 'Address saved', icon: 'fa-map-marker-alt' }
+        ];
+
+        function openChecklist() {
+            const saved = safeGet('cl-checklist', {});
+            document.getElementById('checklistItems').innerHTML = checklistData.map(item => `
+                <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: ${saved[item.id] ? 'rgba(34,197,94,0.15)' : 'rgba(51,65,85,0.5)'}; border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
+                    <input type="checkbox" ${saved[item.id] ? 'checked' : ''} onchange="toggleCheck('${item.id}', this.checked)" style="width: 20px; height: 20px;">
+                    <i class="fas ${item.icon}" style="color: #64748b; width: 20px;"></i>
+                    <span style="${saved[item.id] ? 'text-decoration: line-through; color: #64748b;' : ''}">${item.label}</span>
+                </label>
+            `).join('');
+            openModal('checklistModal');
+        }
+        
+        function closeChecklist() {
+            closeModal('checklistModal');
+        }
+        
+        function toggleCheck(id, checked) {
+            const saved = safeGet('cl-checklist', {});
+            saved[id] = checked;
+            safeSet('cl-checklist', saved);
+            openChecklist();
+        }
+        
+        function resetChecklist() {
+            safeRemove('cl-checklist');
+            openChecklist();
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            applyContactSettings();
+            loadDashboard();
+            setActiveNav();
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                applyContactSettings();
+                loadDashboard();
+            }
+        });
+    </script>
+</body>
+</html>

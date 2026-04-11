@@ -1,0 +1,1936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Estimate Generator - Pressure Point Powerwashing</title>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <link rel="manifest" href="manifest.json">
+    <script>
+        window.tailwind = {
+            config: {
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: '#0ea5e9',
+                            secondary: '#38bdf8',
+                            dark: '#0f172a',
+                            darker: '#020617',
+                            accent: '#06b6d4',
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="app.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="data-migration.js"></script>
+    <script src="firebase-sync.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+   * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: white;
+            color: black;
+            padding: 0;
+            line-height: 1.4;
+        }
+        .main-content {
+            padding: 16px 20px 90px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 500px 1fr;
+            gap: 40px;
+        }
+        
+        .input-section {
+            border: 1px solid black;
+            padding: 20px;
+        }
+        
+        .input-section h2 {
+            border-bottom: 2px solid black;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid black;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            height: 60px;
+        }
+        
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: 2px solid black;
+        }
+        
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .service-item {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f9f9f9;
+        }
+        
+        .service-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .service-header h4 {
+            margin: 0;
+        }
+        
+        .remove-service {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .remove-service:hover {
+            background: #c82333;
+        }
+        
+        .add-service-btn {
+            width: 100%;
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        
+        .add-service-btn:hover {
+            background: #218838;
+        }
+        
+        .calc-button {
+            width: 100%;
+            background: black;
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .calc-button:hover {
+            background: #333;
+        }
+        
+        .section-header {
+            background: #f0f0f0;
+            padding: 8px;
+            margin: 15px -20px 15px -20px;
+            border-left: 4px solid black;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .dirt-level-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            padding: 5px;
+            background: #f8f9fa;
+            border-left: 3px solid #28a745;
+        }
+        
+        .results-section {
+            border: 1px solid black;
+            min-height: 500px;
+        }
+        
+        .estimate-content {
+            padding: 20px;
+        }
+        
+        .estimate-header {
+            text-align: center;
+            border-bottom: 2px solid black;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .estimate-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .estimate-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        .estimate-table th,
+        .estimate-table td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .estimate-table th {
+            background: black;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .total-row {
+            font-weight: bold;
+            border-top: 2px solid black;
+        }
+        
+        .subtotal-row {
+            font-weight: bold;
+            border-top: 1px solid black;
+        }
+        
+        .service-group-header {
+            background: #f0f0f0;
+            font-weight: bold;
+        }
+        
+        .download-btn {
+            background: black;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        
+        .download-btn:hover {
+            background: #333;
+        }
+        
+        .share-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        
+        .share-btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .share-btn.sms {
+            background: #25D366;
+            color: white;
+        }
+        
+        .share-btn.email {
+            background: #0078D4;
+            color: white;
+        }
+        
+        .share-btn.copy {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .share-btn:hover {
+            opacity: 0.9;
+        }
+        
+        .notes-section {
+            margin-top: 20px;
+            border-top: 1px solid #ccc;
+            padding-top: 15px;
+        }
+
+        /* ── Customer Autocomplete ── */
+        .customer-name-wrapper { position: relative; }
+        .customer-autocomplete {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            background: #1e293b;
+            color: white;
+            border: 1px solid #334155;
+            border-top: none;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .customer-autocomplete.open { display: block; }
+        .customer-autocomplete-row {
+            padding: 10px 12px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            border-bottom: 1px solid #334155;
+            font-size: 14px;
+        }
+        .customer-autocomplete-row:hover,
+        .customer-autocomplete-row:active {
+            background: #334155;
+        }
+
+        /* ── Measurement Calculator ── */
+        .measure-row {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #f0f8ff;
+        }
+        .measure-row .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .measure-result { font-weight: bold; margin-top: 6px; font-size: 14px; }
+        .measure-result.error { color: #dc3545; }
+        .measure-actions { display: flex; gap: 6px; margin-top: 6px; }
+        .measure-actions button {
+            padding: 8px 12px;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            border-radius: 4px;
+            min-height: 44px;
+        }
+        .measure-use-btn { background: #0ea5e9; color: white; }
+        .measure-remove-btn { background: #dc3545; color: white; }
+        #measureTotalDisplay {
+            font-weight: bold;
+            font-size: 16px;
+            padding: 8px 0;
+        }
+        
+        @media (max-width: 1000px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* ── Print / PDF Export (iOS Safari safe) ──────────────────────────── */
+        @media print {
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
+            #printable-area {
+                position: absolute;
+                top: 0; left: 0;
+                width: 100%;
+                padding: 10mm 12mm;
+            }
+            #printable-area .no-print { visibility: hidden !important; }
+            body {
+                background: #fff !important;
+                color: #000 !important;
+                font-size: 9pt !important;
+                margin: 0;
+                padding: 0 !important;
+                line-height: 1.3 !important;
+            }
+            .estimate-header {
+                padding-bottom: 8px !important;
+                margin-bottom: 10px !important;
+            }
+            .estimate-header h1 {
+                font-size: 16pt !important;
+                margin-bottom: 2px !important;
+            }
+            .estimate-header p {
+                margin: 1px 0 !important;
+                font-size: 8.5pt !important;
+            }
+            .estimate-details {
+                gap: 10px !important;
+                margin-bottom: 10px !important;
+            }
+            .estimate-details h3 {
+                font-size: 9pt !important;
+                margin-bottom: 3px !important;
+            }
+            .estimate-details p {
+                margin: 1px 0 !important;
+                font-size: 8.5pt !important;
+            }
+            .estimate-table {
+                margin-bottom: 10px !important;
+            }
+            .estimate-table th,
+            .estimate-table td {
+                padding: 4px 6px !important;
+                font-size: 8.5pt !important;
+            }
+            .notes-section {
+                margin-top: 10px !important;
+                padding-top: 8px !important;
+            }
+            .notes-section h3 {
+                font-size: 9pt !important;
+            }
+            table { page-break-inside: avoid; width: 100%; }
+            tr    { page-break-inside: avoid; }
+            thead { display: table-header-group; }
+            h1, h2, h3 { page-break-after: avoid; }
+            p           { orphans: 3; widows: 3; }
+            * {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            a[href]::after { content: none; }
+            @page {
+                size: letter portrait;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <div class="app-header-inner">
+            <h1>Estimate</h1>
+        </div>
+    </header>
+    <main class="app-content">
+        <div class="main-content">
+            <div class="container">
+        <div class="input-section">
+            <h2>PRESSURE POINT POWERWASHING - ESTIMATE GENERATOR</h2>
+            
+            <form id="estimateForm">
+                <div class="section-header">CUSTOMER INFORMATION</div>
+                
+                <!-- Customer Quick Actions -->
+                <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                    <button type="button" onclick="openCustomerSearch()" style="flex: 1; background: #0ea5e9; color: white; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600;">
+                        <i class="fas fa-users" style="margin-right: 6px;"></i>Select Customer
+                    </button>
+                    <label style="flex: 1; background: #10b981; color: white; padding: 10px; border-radius: 8px; text-align: center; cursor: pointer; font-weight: 600;">
+                        <i class="fas fa-file-import" style="margin-right: 6px;"></i>Import VCF
+                        <input type="file" accept=".vcf,text/vcard" onchange="importVCFToEstimate(this)" style="display: none;">
+                    </label>
+                </div>
+                
+                <input type="hidden" id="selectedCustomerId" value="">
+                <div class="form-group customer-name-wrapper">
+                    <label for="customerName">Customer Name:</label>
+                    <input type="text" id="customerName" placeholder="Enter customer name" required autocomplete="off">
+                    <div id="customerAutocomplete" class="customer-autocomplete"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="customerAddress">Customer Address (Optional):</label>
+                    <textarea id="customerAddress" placeholder="Enter customer address"></textarea>
+                </div>
+                
+                <div class="section-header">PRICING & MATERIALS</div>
+                
+                <div class="two-column">
+                    <div class="form-group">
+                        <label for="gasCost">Gas Price ($/gal):</label>
+                        <input type="number" id="gasCost" step="0.01" value="3.50" required>
+                    </div>
+
+                </div>
+                
+                <div class="form-group">
+                    <label for="chemicalName">Chemical Name:</label>
+                    <input type="text" id="chemicalName" value="Krud Kutter" required>
+                </div>
+                
+                <div class="two-column">
+                    <div class="form-group">
+                        <label for="chemicalCost">Chemical Price ($/gal):</label>
+                        <input type="number" id="chemicalCost" step="0.01" value="15.00" required>
+                    </div>
+                </div>
+                
+                <div class="section-header">MEASUREMENT CALCULATOR</div>
+                <div id="measureContainer"></div>
+                <button type="button" class="add-service-btn" onclick="addMeasurement()" style="background:#0ea5e9;margin-bottom:10px;">+ Add Measurement Section</button>
+                <div id="measureTotalDisplay" style="display:none;">Total Measured: 0 sq ft</div>
+
+                <div class="section-header">SERVICES</div>
+                
+                <div id="servicesContainer">
+                    <div class="service-item" data-service-id="1">
+                        <div class="service-header">
+                            <h4>Service 1</h4>
+                            <button type="button" class="remove-service" onclick="removeService(1)" style="display: none;">Remove</button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Property/Area Description:</label>
+                            <input type="text" name="description" placeholder="e.g. Main House, Driveway, Pool Deck" required>
+                        </div>
+                        
+                        <div class="two-column">
+                            <div class="form-group">
+                                <label>Square Footage:</label>
+                                <input type="number" name="squareFootage" placeholder="Enter sq ft" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Price per Sq Ft ($):</label>
+                                <input type="number" name="pricePerSqFt" step="0.01" placeholder="0.30" value="0.30" required>
+                            </div>
+                        </div>
+                        
+                        <div class="two-column">
+                            <div class="form-group">
+                                <label>Number of Workers:</label>
+                                <select name="numWorkers" required>
+                                    <option value="1">1 Worker</option>
+                                    <option value="2">2 Workers</option>
+                                </select>
+                            </div>
+                        <div class="form-group">
+                            <label>Dirt Level:</label>
+                            <div style="margin: 10px 0;">
+                                <input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="3.5" 
+                                       style="width: 100%;" oninput="updateDirtDisplay(this)">
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 5px;">
+                                    <span>Light Work</span>
+                                    <span>Heavy Work</span>
+                                </div>
+                                <div style="text-align: center; margin-top: 5px;">
+                                    <span name="dirtDisplay" style="font-weight: bold; color: #333;">Level 3.5</span>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+                        
+                        <div class="dirt-level-info">
+                            <strong>Dirt Level Guide:</strong><br>
+                            Level 1: Maintenance cleaning, minimal buildup<br>
+                            Level 2: Light cleaning, some dust/dirt<br>
+                            Level 3: Normal residential cleaning<br>
+                            Level 3.5: Heavy buildup, typical baseline (2000 sq ft ≈ 10 hours)<br>
+                            Level 4: Very dirty, requires extra time<br>
+                            Level 5: Extreme conditions, maximum time needed
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="button" class="add-service-btn" onclick="addService()">+ Add Another Service</button>
+                
+                <div class="section-header">OVERALL ADJUSTMENTS</div>
+                
+                <div class="two-column">
+                    <div class="form-group">
+                        <label for="discount">Overall Discount (%):</label>
+                        <input type="number" id="discount" step="1" placeholder="0" min="0" max="100" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="additionalCost">Additional Cost ($):</label>
+                        <input type="number" id="additionalCost" step="0.01" placeholder="0" min="0" value="0">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="discountReason">Discount Reason:</label>
+                    <input type="text" id="discountReason" placeholder="e.g. Loyal Customer Discount">
+                </div>
+                
+                <div class="form-group">
+                    <label for="additionalReason">Additional Cost Reason:</label>
+                    <input type="text" id="additionalReason" placeholder="e.g. Travel fee, Special equipment">
+                </div>
+                
+                <div class="form-group">
+                    <label for="notes">Notes (Optional):</label>
+                    <textarea id="notes" placeholder="Any additional notes or terms"></textarea>
+                </div>
+                
+                <button type="button" class="calc-button" onclick="generateEstimate()">
+                    GENERATE ESTIMATE
+                </button>
+                
+                <div class="section-header" style="margin-top: 20px;">SAVE & LOAD</div>
+                
+                <input type="hidden" id="firestoreDocId" value="">
+                <input type="hidden" id="docStatus" value="draft">
+                
+                <div class="form-group" style="margin-bottom: 5px;">
+                    <label for="estimateName">Estimate Name (for saving):</label>
+                    <input type="text" id="estimateName" placeholder="Enter name for this estimate">
+                </div>
+                
+                <div id="finalizedBanner" style="display:none;background:#fef3c7;border:2px solid #f59e0b;padding:12px;margin-bottom:10px;text-align:center;font-weight:bold;">
+                    This estimate is finalized.
+                    <button type="button" onclick="reopenEstimate()" style="margin-left:10px;background:#f59e0b;color:white;border:none;padding:6px 12px;cursor:pointer;border-radius:4px;">Edit / Reopen</button>
+                </div>
+                
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                    <button type="button" class="add-service-btn" onclick="saveDraftToCloud()" style="flex:1;margin-bottom:0;background:#0ea5e9;">☁️ Save Draft</button>
+                    <button type="button" class="add-service-btn" onclick="markAsFinal()" style="flex:1;margin-bottom:0;background:#f59e0b;">✅ Mark as Final</button>
+                </div>
+                <div class="two-column">
+                    <button type="button" class="add-service-btn" onclick="saveEstimate()" style="margin-bottom: 5px;">
+                        💾 Save to File
+                    </button>
+                    <button type="button" class="add-service-btn" onclick="document.getElementById('loadFile').click()" style="margin-bottom: 5px;">
+                        📁 Load from File
+                    </button>
+                </div>
+                
+                <input type="file" id="loadFile" accept=".json" style="display: none;" onchange="loadEstimate(event)">
+                
+                <div id="cloudSignInMsg" style="display:none;background:#e0f2fe;padding:10px;border-radius:8px;text-align:center;margin-bottom:10px;">
+                    <p style="margin-bottom:8px;">Sign in to save to cloud</p>
+                    <button type="button" onclick="CL_FIREBASE.signInWithGoogle()" style="background:#0ea5e9;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600;">Sign in with Google</button>
+                </div>
+                
+                <div id="savedEstimatesList" style="margin-top:10px;"></div>
+            </form>
+        </div>
+        
+        <div id="printable-area">
+        <div class="results-section">
+            <div class="estimate-content" id="estimateContent">
+                <p style="text-align: center; color: #666; margin: 50px 0;">
+                    Fill out the form to generate estimate
+                </p>
+            </div>
+        </div>
+        </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Tab Bar -->
+    <nav class="tab-bar no-print">
+        <div class="tab-bar-inner">
+            <a href="index.html" class="tab-item">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </a>
+            <a href="jobs.html" class="tab-item">
+                <i class="fas fa-briefcase"></i>
+                <span>Jobs</span>
+            </a>
+            <a href="quick-add.html" class="tab-item tab-item-add">
+                <div class="tab-add-btn">
+                    <i class="fas fa-plus"></i>
+                </div>
+                <span>Add</span>
+            </a>
+            <a href="calendar.html" class="tab-item">
+                <i class="fas fa-calendar"></i>
+                <span>Calendar</span>
+            </a>
+            <a href="customer-tracker.html" class="tab-item">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </a>
+        </div>
+    </nav>
+
+    <script>
+        let serviceCounter = 1;
+        
+        function addService() {
+            serviceCounter++;
+            const container = document.getElementById('servicesContainer');
+            
+            const serviceDiv = document.createElement('div');
+            serviceDiv.className = 'service-item';
+            serviceDiv.setAttribute('data-service-id', serviceCounter);
+            
+            serviceDiv.innerHTML = `
+                <div class="service-header">
+                    <h4>Service ${serviceCounter}</h4>
+                    <button type="button" class="remove-service" onclick="removeService(${serviceCounter})">Remove</button>
+                </div>
+                
+                <div class="form-group">
+                    <label>Property/Area Description:</label>
+                    <input type="text" name="description" placeholder="e.g. Main House, Driveway, Pool Deck" required>
+                </div>
+                
+                <div class="two-column">
+                    <div class="form-group">
+                        <label>Square Footage:</label>
+                        <input type="number" name="squareFootage" placeholder="Enter sq ft" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Price per Sq Ft ($):</label>
+                        <input type="number" name="pricePerSqFt" step="0.01" placeholder="0.30" value="0.30" required>
+                    </div>
+                </div>
+                
+                <div class="two-column">
+                    <div class="form-group">
+                        <label>Number of Workers:</label>
+                        <select name="numWorkers" required>
+                            <option value="1">1 Worker</option>
+                            <option value="2">2 Workers</option>
+                        </select>
+                    </div>
+                        <div class="form-group">
+                            <label>Dirt Level:</label>
+                            <div style="margin: 10px 0;">
+                                <input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="3.5" 
+                                       style="width: 100%;" oninput="updateDirtDisplay(this)">
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 5px;">
+                                    <span>Light Work</span>
+                                    <span>Heavy Work</span>
+                                </div>
+                                <div style="text-align: center; margin-top: 5px;">
+                                    <span name="dirtDisplay" style="font-weight: bold; color: #333;">Level 3.5</span>
+                                </div>
+                            </div>
+                        </div>
+                </div>
+                
+                <div class="dirt-level-info">
+                    <strong>Dirt Level Guide:</strong><br>
+                    Level 1: Maintenance cleaning, minimal buildup<br>
+                    Level 2: Light cleaning, some dust/dirt<br>
+                    Level 3: Normal residential cleaning<br>
+                    Level 3.5: Heavy buildup, typical baseline (2000 sq ft ≈ 10 hours)<br>
+                    Level 4: Very dirty, requires extra time<br>
+                    Level 5: Extreme conditions, maximum time needed
+                </div>
+            `;
+            
+            container.appendChild(serviceDiv);
+            updateRemoveButtons();
+        }
+        
+        function removeService(serviceId) {
+            const serviceItem = document.querySelector(`[data-service-id="${serviceId}"]`);
+            serviceItem.remove();
+            updateRemoveButtons();
+        }
+        
+        function updateRemoveButtons() {
+            const services = document.querySelectorAll('.service-item');
+            services.forEach((service, index) => {
+                const removeBtn = service.querySelector('.remove-service');
+                if (services.length > 1) {
+                    removeBtn.style.display = 'inline-block';
+                } else {
+                    removeBtn.style.display = 'none';
+                }
+            });
+        }
+        
+        function updateDirtDisplay(slider) {
+            const value = parseFloat(slider.value);
+            const display = slider.parentNode.querySelector('[name="dirtDisplay"]');
+            display.textContent = `Level ${value.toFixed(1)}`;
+        }
+        
+        function calculateTimeFromDirtLevel(squareFootage, dirtLevel, numWorkers) {
+            // Baseline: 2000 sq ft at dirt level 3.5 = 10 hours with 1 worker
+            const baseSquareFootage = 2000;
+            const baseDirtLevel = 3.5;
+            const baseHours = 10;
+            
+            // Calculate time multipliers
+            const squareFootageRatio = squareFootage / baseSquareFootage;
+            
+            // Dirt level multiplier (exponential scaling)
+            let dirtMultiplier;
+            if (dirtLevel <= 1) {
+                dirtMultiplier = 0.5; // Level 1: 50% of baseline time
+            } else if (dirtLevel <= 2) {
+                dirtMultiplier = 0.7; // Level 2: 70% of baseline time
+            } else if (dirtLevel <= 3) {
+                dirtMultiplier = 0.85; // Level 3: 85% of baseline time
+            } else if (dirtLevel <= 3.5) {
+                dirtMultiplier = 1.0; // Level 3.5: 100% baseline
+            } else if (dirtLevel <= 4) {
+                dirtMultiplier = 1.25; // Level 4: 125% of baseline time
+            } else {
+                dirtMultiplier = 1.6; // Level 5: 160% of baseline time
+            }
+            
+            // Calculate base time for 1 worker
+            let estimatedHours = baseHours * squareFootageRatio * dirtMultiplier;
+            
+            // Adjust for multiple workers (efficiency factor)
+            if (numWorkers === 2) {
+                estimatedHours = estimatedHours * 0.6; // 2 workers are 60% as efficient per person but total faster
+            }
+            
+            return estimatedHours;
+        }
+        
+        function generateEstimate() {
+            // Get pricing and materials info
+            const gasCost = parseFloat(document.getElementById('gasCost').value);
+            const chemicalName = document.getElementById('chemicalName').value || 'Chemical';
+            const chemicalCost = parseFloat(document.getElementById('chemicalCost').value);
+            
+            // Get customer info
+            const customerName = document.getElementById('customerName').value || 'Customer';
+            const customerAddress = document.getElementById('customerAddress').value;
+            const discountPercent = parseFloat(document.getElementById('discount').value) || 0;
+            const discountReason = document.getElementById('discountReason').value || 'Discount';
+            const additionalCost = parseFloat(document.getElementById('additionalCost').value) || 0;
+            const additionalReason = document.getElementById('additionalReason').value || 'Additional Cost';
+            const notes = document.getElementById('notes').value;
+            
+            // Validate inputs
+            if (!customerName.trim()) {
+                alert('Please enter a customer name');
+                return;
+            }
+            
+            if (!gasCost || !chemicalCost) {
+                alert('Please fill in all pricing and materials information');
+                return;
+            }
+            
+            // Get all services
+            const services = [];
+            const serviceItems = document.querySelectorAll('.service-item');
+            
+            let hasValidService = false;
+            serviceItems.forEach((item, index) => {
+                const description = item.querySelector('[name="description"]').value;
+                const squareFootage = parseFloat(item.querySelector('[name="squareFootage"]').value);
+                const pricePerSqFt = parseFloat(item.querySelector('[name="pricePerSqFt"]').value);
+                const numWorkers = parseInt(item.querySelector('[name="numWorkers"]').value);
+                const dirtLevel = parseFloat(item.querySelector('[name="dirtLevel"]').value);
+                
+                if (description && squareFootage && pricePerSqFt && numWorkers && dirtLevel) {
+                    services.push({
+                        description,
+                        squareFootage,
+                        pricePerSqFt,
+                        numWorkers,
+                        dirtLevel
+                    });
+                    hasValidService = true;
+                } else if (description || squareFootage || pricePerSqFt) {
+                    alert(`Please complete all fields for Service ${index + 1} or remove it`);
+                    return;
+                }
+            });
+            
+            if (!hasValidService) {
+                alert('Please add at least one complete service');
+                return;
+            }
+            
+            // Calculate totals
+            let totalPressureWashing = 0;
+            let totalFuelCost = 0;
+            let totalChemicalCost = 0;
+            let totalEstimatedTime = 0;
+            let totalSquareFootage = 0;
+            let totalFuelGallons = 0;
+            let totalChemical = 0;
+            
+            let tableRows = '';
+            
+            services.forEach((service, index) => {
+                // Calculate time based on dirt level
+                const estimatedHours = calculateTimeFromDirtLevel(
+                    service.squareFootage, 
+                    service.dirtLevel, 
+                    service.numWorkers
+                );
+                
+                // Calculate chemical usage (0.3 gal per 1000 sq ft)
+                const estimatedChemical = (service.squareFootage / 1000) * 0.3;
+                
+                // Calculate fuel usage
+                const fuelRatePerHour = 0.675; // gallons per hour per machine
+                const serviceFuelGallons = fuelRatePerHour * service.numWorkers * estimatedHours;
+                
+                // Calculate costs
+                const serviceFuelCost = serviceFuelGallons * gasCost;
+                const serviceChemicalCost = estimatedChemical * chemicalCost;
+                const servicePressureWashingCost = service.squareFootage * service.pricePerSqFt;
+                
+                // Add to totals
+                totalPressureWashing += servicePressureWashingCost;
+                totalFuelCost += serviceFuelCost;
+                totalChemicalCost += serviceChemicalCost;
+                totalEstimatedTime += estimatedHours;
+                totalSquareFootage += service.squareFootage;
+                totalFuelGallons += serviceFuelGallons;
+                totalChemical += estimatedChemical;
+                
+                // Add service group header
+                if (services.length > 1) {
+                    tableRows += `
+                        <tr class="service-group-header">
+                            <td colspan="4"><strong>${service.description} (Level ${service.dirtLevel} Dirt)</strong></td>
+                        </tr>`;
+                }
+                
+                // Add service rows
+                tableRows += `
+                    <tr>
+                        <td>${services.length > 1 ? '  ' : ''}Pressure Washing${services.length > 1 ? ' - ' + service.description : ''}</td>
+                        <td>${service.squareFootage.toLocaleString()} sq ft</td>
+                        <td>${service.pricePerSqFt.toFixed(2)}/sq ft</td>
+                        <td>${servicePressureWashingCost.toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                        <td>${services.length > 1 ? '  ' : ''}Gas Fee (${service.numWorkers} machine${service.numWorkers > 1 ? 's' : ''})</td>
+                        <td>${serviceFuelGallons.toFixed(1)} gal</td>
+                        <td>${gasCost.toFixed(2)}/gal</td>
+                        <td>${serviceFuelCost.toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                        <td>${services.length > 1 ? '  ' : ''}${chemicalName}</td>
+                        <td>${estimatedChemical.toFixed(2)} gal</td>
+                        <td>${chemicalCost.toFixed(2)}/gal</td>
+                        <td>${serviceChemicalCost.toFixed(2)}</td>
+                    </tr>`;
+            });
+            
+            // Calculate final totals
+            const subtotal = totalPressureWashing + totalFuelCost + totalChemicalCost + additionalCost;
+            const discountAmount = subtotal * (discountPercent / 100);
+            const totalAfterDiscount = subtotal - discountAmount;
+            
+            // Add additional cost row if there's an additional cost
+            if (additionalCost > 0) {
+                tableRows += `
+                    <tr>
+                        <td>${additionalReason}</td>
+                        <td>1</td>
+                        <td>$${additionalCost.toFixed(2)}</td>
+                        <td>$${additionalCost.toFixed(2)}</td>
+                    </tr>`;
+            }
+            
+            tableRows += `
+                <tr class="subtotal-row">
+                    <td colspan="3"><strong>Subtotal</strong></td>
+                    <td><strong>$${subtotal.toFixed(2)}</strong></td>
+                </tr>`;
+            
+            if (discountPercent > 0) {
+                tableRows += `
+                    <tr>
+                        <td>Discount: ${discountReason}</td>
+                        <td>1</td>
+                        <td>${discountPercent}% off</td>
+                        <td>-$${discountAmount.toFixed(2)}</td>
+                    </tr>`;
+            }
+            
+            tableRows += `
+                <tr class="total-row">
+                    <td colspan="3"><strong>ESTIMATED TOTAL</strong></td>
+                    <td><strong>$${totalAfterDiscount.toFixed(2)}</strong></td>
+                </tr>`;
+            
+            // Generate estimate number and date
+            const estimateNum = 'EST-' + new Date().getFullYear() + '-' + 
+                              String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+            const today = new Date().toLocaleDateString();
+            
+            // Count unique number of workers needed
+            const uniqueWorkers = Math.max(...services.map(s => s.numWorkers));
+            
+            // Generate service details text
+            let serviceDetailsText = '';
+            if (services.length > 1) {
+                serviceDetailsText = `Multiple Services (${services.length}):<br>`;
+                services.forEach(service => {
+                    serviceDetailsText += `• ${service.description}: ${service.squareFootage.toLocaleString()} sq ft (Level ${service.dirtLevel})<br>`;
+                });
+            } else {
+                const service = services[0];
+                serviceDetailsText = `Pressure Washing<br>Area: ${totalSquareFootage.toLocaleString()} sq ft<br>Dirt Level: ${service.dirtLevel}<br>`;
+            }
+            
+            // Generate complete estimate HTML
+            const estimateHTML = `
+                <div class="estimate-header">
+                    <p style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#555;margin-bottom:4px;">Pressure Point Pressure Washing</p>
+                    <h1 style="font-size:26px;margin-bottom:4px;">ESTIMATE</h1>
+                    <p>Estimate #: ${estimateNum} &nbsp;|&nbsp; Date: ${today}</p>
+                </div>
+                
+                <div class="estimate-details">
+                    <div>
+                        <h3>ESTIMATE FOR:</h3>
+                        <p><strong>${customerName}</strong></p>
+                        ${customerAddress ? `<p>${customerAddress.replace(/\n/g, '<br>')}</p>` : ''}
+                    </div>
+                    <div>
+                        <h3>SERVICE DETAILS:</h3>
+                        <p>${serviceDetailsText}</p>
+                        <p>Total Area: ${totalSquareFootage.toLocaleString()} sq ft</p>
+                        <p>Estimated Time: ${totalEstimatedTime.toFixed(1)} hrs &nbsp;|&nbsp; Workers: ${uniqueWorkers}</p>
+                        ${additionalCost > 0 ? `<p>Additional: ${additionalReason}</p>` : ''}
+                    </div>
+                </div>
+                
+                <table class="estimate-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Qty</th>
+                            <th>Rate</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRows}
+                    </tbody>
+                </table>
+                
+                ${notes ? `
+                <div class="notes-section">
+                    <h3>Notes:</h3>
+                    <p>${notes.replace(/\n/g, '<br>')}</p>
+                </div>
+                ` : ''}
+                
+                <p style="margin-top: 14px; font-style: italic; color: #666; font-size: 11px;">
+                    * This is an estimate. Actual costs may vary based on job conditions and dirt levels.
+                </p>
+                <div class="print-footer" style="margin-top: 18px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 11px; color: #555; display: flex; justify-content: space-between;">
+                    <span>Pressure Point Pressure Washing — Columbia, SC</span>
+                    <span>Thank you for your business!</span>
+                </div>
+                
+                <button class="download-btn" onclick="window.print()">PRINT ESTIMATE</button>
+                
+                ${jobId ? `<button class="download-btn" style="background:#10b981;margin-top:10px;" onclick="saveEstimateToJob()"><i class="fas fa-save" style="margin-right:8px;"></i>SAVE TO JOB</button>` : ''}
+                
+                <div class="share-buttons">
+                    <button class="share-btn sms" onclick="shareViaSMS()">
+                        📱 Text to Customer
+                    </button>
+                    <button class="share-btn email" onclick="shareViaEmail()">
+                        ✉️ Email to Customer
+                    </button>
+                    <button class="share-btn copy" onclick="copyEstimateText()">
+                        📋 Copy Text
+                    </button>
+                </div>
+            `;
+            
+            // Save data for sharing
+            lastEstimateData = {
+                estimateNum,
+                date: today,
+                customerName,
+                customerAddress,
+                services,
+                totalSquareFootage,
+                totalEstimatedTime,
+                total: totalAfterDiscount,
+                notes
+            };
+            
+            document.getElementById('estimateContent').innerHTML = estimateHTML;
+        }
+        
+        // Share functions
+        let lastEstimateData = null;
+        
+        function shareViaSMS() {
+            if (!lastEstimateData) {
+                alert('Please generate an estimate first');
+                return;
+            }
+            const text = generateShareText();
+            const smsUrl = `sms:?body=${encodeURIComponent(text)}`;
+            window.location.href = smsUrl;
+        }
+        
+        function shareViaEmail() {
+            if (!lastEstimateData) {
+                alert('Please generate an estimate first');
+                return;
+            }
+            const text = generateShareText();
+            const subject = `Estimate from Clearline - ${lastEstimateData.customerName}`;
+            const emailUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+            window.location.href = emailUrl;
+        }
+        
+        function copyEstimateText() {
+            if (!lastEstimateData) {
+                alert('Please generate an estimate first');
+                return;
+            }
+            const text = generateShareText();
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Estimate copied to clipboard!');
+            }).catch(err => {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('Estimate copied to clipboard!');
+            });
+        }
+        
+        function generateShareText() {
+            const d = lastEstimateData;
+            let text = `SC PRESSURE POINT - ESTIMATE\n`;
+            text += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+            text += `Estimate #: ${d.estimateNum}\n`;
+            text += `Date: ${d.date}\n\n`;
+            text += `Customer: ${d.customerName}\n`;
+            if (d.customerAddress) text += `Address: ${d.customerAddress}\n`;
+            text += `\n`;
+            
+            text += `SERVICES:\n`;
+            d.services.forEach(s => {
+                text += `• ${s.description}: ${s.squareFootage.toLocaleString()} sq ft\n`;
+            });
+            text += `\nTotal Area: ${d.totalSquareFootage.toLocaleString()} sq ft\n`;
+            text += `Est. Time: ${d.totalEstimatedTime.toFixed(1)} hours\n\n`;
+            
+            text += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+            text += `ESTIMATED TOTAL: $${d.total.toFixed(2)}\n`;
+            text += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+            
+            if (d.notes) text += `Notes: ${d.notes}\n\n`;
+            
+            text += `Questions? Call or text:\n`;
+            text += `📞 ${CL_CONFIG.phoneDisplay}\n`;
+            text += `✉️ ${CL_CONFIG.email}\n`;
+            text += `\nThank you for choosing Clearline!`;
+            
+            return text;
+        }
+        
+        // Initialize
+        updateRemoveButtons();
+        
+        // Check for prefill data from customer tracker
+        const prefillData = safeGet('cl-estimate-prefill', null);
+        if (prefillData) {
+            if (prefillData.name) document.getElementById('customerName').value = prefillData.name;
+            if (prefillData.address) document.getElementById('customerAddress').value = prefillData.address;
+            if (prefillData.serviceType) {
+                const descInput = document.querySelector('[name="description"]');
+                if (descInput) descInput.value = prefillData.serviceType;
+            }
+            if (prefillData.squareFootage) {
+                const sqFtInput = document.querySelector('[name="squareFootage"]');
+                if (sqFtInput) sqFtInput.value = prefillData.squareFootage;
+            }
+            if (prefillData.notes) {
+                const notesEl = document.getElementById('notes');
+                if (notesEl && !notesEl.value) notesEl.value = prefillData.notes;
+            }
+            safeRemove('cl-estimate-prefill');
+        }
+        
+        // Save and Load Functions
+        function saveEstimate() {
+            const estimateName = document.getElementById('estimateName').value || 'Unnamed_Estimate';
+            
+            // Collect all form data
+            const estimateData = {
+                version: '1.0',
+                savedDate: new Date().toISOString(),
+                estimateName: estimateName,
+                customerInfo: {
+                    name: document.getElementById('customerName').value,
+                    address: document.getElementById('customerAddress').value
+                },
+                pricing: {
+                    gasCost: document.getElementById('gasCost').value,
+                    chemicalName: document.getElementById('chemicalName').value,
+                    chemicalCost: document.getElementById('chemicalCost').value
+                },
+                services: [],
+                adjustments: {
+                    discount: document.getElementById('discount').value,
+                    discountReason: document.getElementById('discountReason').value,
+                    additionalCost: document.getElementById('additionalCost').value,
+                    additionalReason: document.getElementById('additionalReason').value,
+                    notes: document.getElementById('notes').value
+                }
+            };
+            
+            // Collect all services
+            const serviceItems = document.querySelectorAll('.service-item');
+            serviceItems.forEach((item) => {
+                const service = {
+                    description: item.querySelector('[name="description"]').value,
+                    squareFootage: item.querySelector('[name="squareFootage"]').value,
+                    pricePerSqFt: item.querySelector('[name="pricePerSqFt"]').value,
+                    numWorkers: item.querySelector('[name="numWorkers"]').value,
+                    dirtLevel: item.querySelector('[name="dirtLevel"]').value
+                };
+                estimateData.services.push(service);
+            });
+            
+            // Create and download file
+            const dataStr = JSON.stringify(estimateData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `${estimateName.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            alert(`Estimate "${estimateName}" saved successfully!`);
+        }
+        
+        function loadEstimate(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const estimateData = JSON.parse(e.target.result);
+                    
+                    // Validate the file format
+                    if (!estimateData.version || !estimateData.customerInfo || !estimateData.services) {
+                        alert('Invalid estimate file format');
+                        return;
+                    }
+                    
+                    // Load customer info
+                    document.getElementById('customerName').value = estimateData.customerInfo.name || '';
+                    document.getElementById('customerAddress').value = estimateData.customerInfo.address || '';
+                    
+                    // Load pricing
+                    if (estimateData.pricing) {
+                        document.getElementById('gasCost').value = estimateData.pricing.gasCost || '3.50';
+                        document.getElementById('chemicalName').value = estimateData.pricing.chemicalName || 'Krud Kutter';
+                        document.getElementById('chemicalCost').value = estimateData.pricing.chemicalCost || '15.00';
+                    }
+                    
+                    // Load adjustments
+                    if (estimateData.adjustments) {
+                        document.getElementById('discount').value = estimateData.adjustments.discount || '0';
+                        document.getElementById('discountReason').value = estimateData.adjustments.discountReason || '';
+                        document.getElementById('additionalCost').value = estimateData.adjustments.additionalCost || '0';
+                        document.getElementById('additionalReason').value = estimateData.adjustments.additionalReason || '';
+                        document.getElementById('notes').value = estimateData.adjustments.notes || '';
+                    }
+                    
+                    // Load estimate name
+                    document.getElementById('estimateName').value = estimateData.estimateName || '';
+                    
+                    // Clear existing services
+                    const container = document.getElementById('servicesContainer');
+                    container.innerHTML = '';
+                    serviceCounter = 0;
+                    
+                    // Load services
+                    estimateData.services.forEach((serviceData, index) => {
+                        serviceCounter++;
+                        
+                        const serviceDiv = document.createElement('div');
+                        serviceDiv.className = 'service-item';
+                        serviceDiv.setAttribute('data-service-id', serviceCounter);
+                        
+                        serviceDiv.innerHTML = `
+                            <div class="service-header">
+                                <h4>Service ${serviceCounter}</h4>
+                                <button type="button" class="remove-service" onclick="removeService(${serviceCounter})">Remove</button>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Property/Area Description:</label>
+                                <input type="text" name="description" placeholder="e.g. Main House, Driveway, Pool Deck" value="${serviceData.description || ''}" required>
+                            </div>
+                            
+                            <div class="two-column">
+                                <div class="form-group">
+                                    <label>Square Footage:</label>
+                                    <input type="number" name="squareFootage" placeholder="Enter sq ft" value="${serviceData.squareFootage || ''}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Price per Sq Ft ($):</label>
+                                    <input type="number" name="pricePerSqFt" step="0.01" placeholder="0.30" value="${serviceData.pricePerSqFt || '0.30'}" required>
+                                </div>
+                            </div>
+                            
+                            <div class="two-column">
+                                <div class="form-group">
+                                    <label>Number of Workers:</label>
+                                    <select name="numWorkers" required>
+                                        <option value="1" ${serviceData.numWorkers === '1' ? 'selected' : ''}>1 Worker</option>
+                                        <option value="2" ${serviceData.numWorkers === '2' ? 'selected' : ''}>2 Workers</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Dirt Level:</label>
+                                    <div style="margin: 10px 0;">
+                                        <input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="${serviceData.dirtLevel || '3.5'}" 
+                                               style="width: 100%;" oninput="updateDirtDisplay(this)">
+                                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 5px;">
+                                            <span>Light Work</span>
+                                            <span>Heavy Work</span>
+                                        </div>
+                                        <div style="text-align: center; margin-top: 5px;">
+                                            <span name="dirtDisplay" style="font-weight: bold; color: #333;">Level ${serviceData.dirtLevel || '3.5'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="dirt-level-info">
+                                <strong>Dirt Level Guide:</strong><br>
+                                Level 1: Maintenance cleaning, minimal buildup<br>
+                                Level 2: Light cleaning, some dust/dirt<br>
+                                Level 3: Normal residential cleaning<br>
+                                Level 3.5: Heavy buildup, typical baseline (2000 sq ft ≈ 10 hours)<br>
+                                Level 4: Very dirty, requires extra time<br>
+                                Level 5: Extreme conditions, maximum time needed
+                            </div>
+                        `;
+                        
+                        container.appendChild(serviceDiv);
+                    });
+                    
+                    // Update remove buttons
+                    updateRemoveButtons();
+                    
+                    // Clear the file input
+                    event.target.value = '';
+                    
+                    alert(`Estimate "${estimateData.estimateName || 'Unnamed'}" loaded successfully!\nSaved on: ${new Date(estimateData.savedDate).toLocaleString()}`);
+                    
+                } catch (error) {
+                    alert('Error loading estimate file: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+        // ── Measurement Calculator ──────────────────────────────────
+        let measureCounter = 0;
+
+        function feetInchesToDecimal(val) {
+            const str = String(val).trim();
+            if (!str) return NaN;
+            const dotIndex = str.indexOf('.');
+            if (dotIndex === -1) {
+                // No decimal — just feet
+                const feet = parseInt(str);
+                return isNaN(feet) ? NaN : feet;
+            }
+            let feet = parseInt(str.substring(0, dotIndex)) || 0;
+            // Read digits after the dot as literal inches (e.g. 12.5 = 12ft 5in, 22.11 = 22ft 11in)
+            let inches = parseInt(str.substring(dotIndex + 1)) || 0;
+            // Handle overflow: 4.12 = 12 inches = 1 foot → 5ft 0in
+            if (inches >= 12) {
+                feet += Math.floor(inches / 12);
+                inches = inches % 12;
+            }
+            return feet + (inches / 12);
+        }
+
+        function parseMeasurement(input) {
+            let str = input.trim();
+            if (!str) return { sqft: 0, note: '' };
+
+            // Extract trailing modifier: /2, /3, X2, X3 etc.
+            let modifier = 1;
+            const modMatch = str.match(/\s+(\/|X)(\d+)\s*$/i);
+            if (modMatch) {
+                const op = modMatch[1];
+                const n = parseInt(modMatch[2]);
+                if (op === '/') modifier = 1 / n;
+                else modifier = n; // X or x
+                str = str.substring(0, modMatch.index).trim();
+            }
+
+            // Split remaining by spaces to get measurement pairs
+            const tokens = str.split(/\s+/);
+            let totalArea = 0;
+            let hasLinearOnly = false;
+
+            for (const token of tokens) {
+                // Check if it's a WxH pair (case-insensitive x)
+                const parts = token.split(/x/i);
+                if (parts.length === 2 && parts[0] && parts[1]) {
+                    const w = feetInchesToDecimal(parts[0]);
+                    const h = feetInchesToDecimal(parts[1]);
+                    if (isNaN(w) || isNaN(h)) return { sqft: 0, note: 'Could not parse \u2014 check format' };
+                    totalArea += w * h;
+                } else if (parts.length === 1) {
+                    // Single dimension — linear feet, not area
+                    const v = feetInchesToDecimal(parts[0]);
+                    if (isNaN(v)) return { sqft: 0, note: 'Could not parse \u2014 check format' };
+                    hasLinearOnly = true;
+                    totalArea += v;
+                } else {
+                    return { sqft: 0, note: 'Could not parse \u2014 check format' };
+                }
+            }
+
+            totalArea *= modifier;
+            const note = hasLinearOnly ? 'Note: single dimension treated as linear feet, not area' : '';
+            return { sqft: Math.round(totalArea * 10) / 10, note };
+        }
+
+        function addMeasurement() {
+            measureCounter++;
+            const id = measureCounter;
+            const container = document.getElementById('measureContainer');
+            const row = document.createElement('div');
+            row.className = 'measure-row';
+            row.setAttribute('data-measure-id', id);
+            row.innerHTML = `
+                <div class="two-column">
+                    <div class="form-group">
+                        <label>Name:</label>
+                        <input type="text" class="measure-name" placeholder="e.g. Driveway, Pool Area">
+                    </div>
+                    <div class="form-group">
+                        <label>Measurements:</label>
+                        <input type="text" class="measure-input" placeholder="e.g. 13.4x69.8" oninput="updateMeasurement(${id})">
+                    </div>
+                </div>
+                <div class="measure-result" id="measureResult_${id}"></div>
+                <div class="measure-actions">
+                    <button type="button" class="measure-use-btn" onclick="useMeasurementInService(${id})">&rarr; Use in Service</button>
+                    <button type="button" class="measure-remove-btn" onclick="removeMeasurement(${id})">&times; Remove</button>
+                </div>
+            `;
+            container.appendChild(row);
+            updateMeasureTotal();
+        }
+
+        function updateMeasurement(id) {
+            const row = document.querySelector(`[data-measure-id="${id}"]`);
+            if (!row) return;
+            const input = row.querySelector('.measure-input').value;
+            const result = parseMeasurement(input);
+            const display = document.getElementById('measureResult_' + id);
+            if (result.note && result.sqft === 0) {
+                display.className = 'measure-result error';
+                display.textContent = result.note;
+            } else {
+                display.className = 'measure-result';
+                display.textContent = result.sqft + ' sq ft' + (result.note ? ' (' + result.note + ')' : '');
+            }
+            updateMeasureTotal();
+        }
+
+        function removeMeasurement(id) {
+            const row = document.querySelector(`[data-measure-id="${id}"]`);
+            if (row) row.remove();
+            updateMeasureTotal();
+        }
+
+        function updateMeasureTotal() {
+            const rows = document.querySelectorAll('.measure-row');
+            const totalEl = document.getElementById('measureTotalDisplay');
+            if (rows.length === 0) {
+                totalEl.style.display = 'none';
+                return;
+            }
+            totalEl.style.display = 'block';
+            let total = 0;
+            rows.forEach(row => {
+                const input = row.querySelector('.measure-input').value;
+                const result = parseMeasurement(input);
+                total += result.sqft;
+            });
+            totalEl.textContent = 'Total Measured: ' + (Math.round(total * 10) / 10) + ' sq ft';
+        }
+
+        function useMeasurementInService(id) {
+            const row = document.querySelector(`[data-measure-id="${id}"]`);
+            if (!row) return;
+            const name = row.querySelector('.measure-name').value || 'Measurement';
+            const input = row.querySelector('.measure-input').value;
+            const result = parseMeasurement(input);
+            if (result.sqft <= 0) return;
+
+            addService();
+            // Fill the last service added
+            const services = document.querySelectorAll('.service-item');
+            const lastService = services[services.length - 1];
+            if (lastService) {
+                lastService.querySelector('[name="description"]').value = name;
+                lastService.querySelector('[name="squareFootage"]').value = result.sqft;
+            }
+        }
+
+        // ── Customer Autocomplete ──────────────────────────────────
+        function setupCustomerAutocomplete() {
+            const nameInput = document.getElementById('customerName');
+            const dropdown = document.getElementById('customerAutocomplete');
+
+            nameInput.addEventListener('input', function() {
+                const val = this.value.trim().toLowerCase();
+                document.getElementById('selectedCustomerId').value = '';
+                if (val.length < 2) {
+                    dropdown.classList.remove('open');
+                    dropdown.innerHTML = '';
+                    return;
+                }
+                const matches = customers.filter(c =>
+                    c.name && c.name.toLowerCase().includes(val)
+                ).slice(0, 6);
+                if (matches.length === 0) {
+                    dropdown.classList.remove('open');
+                    dropdown.innerHTML = '';
+                    return;
+                }
+                dropdown.innerHTML = matches.map(c => {
+                    const addr = c.address ? ' \u2014 ' + c.address : '';
+                    return `<div class="customer-autocomplete-row" data-customer-id="${c.id}">${c.name}${addr}</div>`;
+                }).join('');
+                dropdown.classList.add('open');
+            });
+
+            dropdown.addEventListener('click', function(e) {
+                const row = e.target.closest('.customer-autocomplete-row');
+                if (!row) return;
+                const cid = row.getAttribute('data-customer-id');
+                const c = customers.find(c => c.id === cid);
+                if (c) {
+                    document.getElementById('customerName').value = c.name || '';
+                    document.getElementById('customerAddress').value = c.address || '';
+                    document.getElementById('selectedCustomerId').value = c.id;
+                }
+                dropdown.classList.remove('open');
+                dropdown.innerHTML = '';
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.customer-name-wrapper')) {
+                    dropdown.classList.remove('open');
+                }
+            });
+        }
+
+        // Customer Search Functions
+        let customers = [];
+        function loadCustomers() {
+            customers = CL_DATA.getCustomers();
+        }
+        loadCustomers();
+        setupCustomerAutocomplete();
+
+        function openCustomerSearch() {
+            renderCustomerSearchList();
+            document.getElementById('customerSearchModal').classList.remove('hidden');
+            document.getElementById('customerSearchModal').classList.add('flex');
+            document.getElementById('estCustomerSearch').value = '';
+            document.getElementById('estCustomerSearch').focus();
+        }
+
+        function closeCustomerSearch() {
+            document.getElementById('customerSearchModal').classList.add('hidden');
+            document.getElementById('customerSearchModal').classList.remove('flex');
+        }
+
+        function renderCustomerSearchList(search = '') {
+            let filtered = customers;
+            if (search) {
+                const q = search.toLowerCase();
+                filtered = customers.filter(c => 
+                    c.name.toLowerCase().includes(q) || 
+                    (c.phone && c.phone.includes(q)) ||
+                    (c.address && c.address.toLowerCase().includes(q))
+                );
+            }
+            filtered.sort((a, b) => a.name.localeCompare(b.name));
+            const container = document.getElementById('estCustomerList');
+            if (filtered.length === 0) {
+                container.innerHTML = '<p style="text-align:center;color:#888;padding:20px;">No customers found</p>';
+                return;
+            }
+            container.innerHTML = filtered.map(c => `
+                <button onclick="selectCustomerForEstimate('${c.id}')" style="width:100%;text-align:left;padding:12px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;background:#f9f9f9;cursor:pointer;">
+                    <strong>${c.name}</strong><br>
+                    <small style="color:#666;">${c.phone || ''} ${c.address ? '• ' + c.address : ''}</small>
+                </button>
+            `).join('');
+        }
+
+        function filterCustomerSearch() {
+            const q = document.getElementById('estCustomerSearch').value;
+            renderCustomerSearchList(q);
+        }
+
+        function selectCustomerForEstimate(id) {
+            const c = customers.find(c => c.id === id);
+            if (c) {
+                document.getElementById('customerName').value = c.name || '';
+                document.getElementById('customerAddress').value = c.address || '';
+                document.getElementById('selectedCustomerId').value = c.id;
+            }
+            closeCustomerSearch();
+        }
+
+        
+
+        function importVCFToEstimate(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const contact = parseVCFBasic(e.target.result);
+                if (contact.name) document.getElementById('customerName').value = contact.name;
+                if (contact.address) document.getElementById('customerAddress').value = contact.address;
+                alert('Contact imported!');
+            };
+            reader.readAsText(file);
+            input.value = '';
+        }
+
+        function parseVCFBasic(text) {
+            const contact = {};
+            const lines = text.split(/\r?\n/);
+            for (const line of lines) {
+                if (line.startsWith('FN:')) contact.name = line.substring(3).trim();
+                else if (line.startsWith('N:') && !contact.name) {
+                    const parts = line.substring(2).split(';');
+                    contact.name = `${parts[1] || ''} ${parts[0] || ''}`.trim();
+                }
+                else if ((line.startsWith('ADR') || line.includes('ADR;')) && !contact.address) {
+                    const match = line.match(/:(.+)/);
+                    if (match) contact.address = match[1].split(';').filter(p => p.trim()).join(', ');
+                }
+            }
+            return contact;
+        }
+
+        // Get job ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const jobId = urlParams.get('jobId');
+
+        // Save estimate to job
+        async function saveEstimateToJob() {
+            if (!jobId) {
+                alert('No job associated with this estimate');
+                return;
+            }
+            
+            if (!lastEstimateData) {
+                alert('Please generate an estimate first');
+                return;
+            }
+            
+            const preview = document.getElementById('estimateContent');
+            
+            try {
+                const canvas = await html2canvas(preview, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff'
+                });
+                
+                const pdfDataUrl = canvas.toDataURL('image/png');
+                
+                const estimateDoc = {
+                    id: Date.now().toString(),
+                    createdAt: new Date().toISOString(),
+                    estimateNumber: lastEstimateData.estimateNum,
+                    customerName: lastEstimateData.customerName,
+                    total: lastEstimateData.total,
+                    pdfDataUrl: pdfDataUrl
+                };
+                
+                const jobs = CL_DATA.getJobs();
+                const job = jobs.find(j => j.id === jobId);
+                
+                if (job) {
+                    if (!job.documents) {
+                        job.documents = { estimates: [], invoices: [], waivers: [] };
+                    }
+                    if (!job.documents.estimates) {
+                        job.documents.estimates = [];
+                    }
+                    job.documents.estimates.push(estimateDoc);
+                    CL_DATA.updateJob(job.id, { documents: job.documents });
+                    
+                    alert('Estimate saved to job!');
+                    window.location.href = 'jobs.html';
+                } else {
+                    alert('Job not found');
+                }
+            } catch (err) {
+                console.error('Error saving estimate:', err);
+                alert('Error saving estimate. Please try again.');
+            }
+        }
+        // ── Firebase Cloud Save/Load ───────────────────────────────
+        function collectFormState() {
+            const services = [];
+            document.querySelectorAll('.service-item').forEach(item => {
+                services.push({
+                    description: item.querySelector('[name="description"]').value,
+                    squareFootage: item.querySelector('[name="squareFootage"]').value,
+                    pricePerSqFt: item.querySelector('[name="pricePerSqFt"]').value,
+                    numWorkers: item.querySelector('[name="numWorkers"]').value,
+                    dirtLevel: item.querySelector('[name="dirtLevel"]').value
+                });
+            });
+            return {
+                type: 'estimate',
+                status: document.getElementById('docStatus').value || 'draft',
+                customerId: document.getElementById('selectedCustomerId').value || null,
+                customerName: document.getElementById('customerName').value,
+                customerAddress: document.getElementById('customerAddress').value,
+                services: services,
+                discount: document.getElementById('discount').value,
+                discountReason: document.getElementById('discountReason').value,
+                additionalCost: document.getElementById('additionalCost').value,
+                additionalReason: document.getElementById('additionalReason').value,
+                notes: document.getElementById('notes').value,
+                gasCost: document.getElementById('gasCost').value,
+                chemicalName: document.getElementById('chemicalName').value,
+                chemicalCost: document.getElementById('chemicalCost').value,
+                estimateName: document.getElementById('estimateName').value,
+                totalAmount: lastEstimateData ? lastEstimateData.total : 0,
+                updatedAt: new Date().toISOString()
+            };
+        }
+
+        function loadFormState(data) {
+            if (data.customerName) document.getElementById('customerName').value = data.customerName;
+            if (data.customerAddress) document.getElementById('customerAddress').value = data.customerAddress;
+            if (data.customerId) document.getElementById('selectedCustomerId').value = data.customerId;
+            if (data.gasCost) document.getElementById('gasCost').value = data.gasCost;
+            if (data.chemicalName) document.getElementById('chemicalName').value = data.chemicalName;
+            if (data.chemicalCost) document.getElementById('chemicalCost').value = data.chemicalCost;
+            if (data.discount) document.getElementById('discount').value = data.discount;
+            if (data.discountReason) document.getElementById('discountReason').value = data.discountReason;
+            if (data.additionalCost) document.getElementById('additionalCost').value = data.additionalCost;
+            if (data.additionalReason) document.getElementById('additionalReason').value = data.additionalReason;
+            if (data.notes) document.getElementById('notes').value = data.notes;
+            if (data.estimateName) document.getElementById('estimateName').value = data.estimateName;
+            if (data.status) document.getElementById('docStatus').value = data.status;
+
+            // Load services
+            if (data.services && data.services.length) {
+                const container = document.getElementById('servicesContainer');
+                container.innerHTML = '';
+                serviceCounter = 0;
+                data.services.forEach(sd => {
+                    serviceCounter++;
+                    const div = document.createElement('div');
+                    div.className = 'service-item';
+                    div.setAttribute('data-service-id', serviceCounter);
+                    div.innerHTML = `
+                        <div class="service-header"><h4>Service ${serviceCounter}</h4><button type="button" class="remove-service" onclick="removeService(${serviceCounter})">Remove</button></div>
+                        <div class="form-group"><label>Property/Area Description:</label><input type="text" name="description" value="${sd.description||''}" required></div>
+                        <div class="two-column"><div class="form-group"><label>Square Footage:</label><input type="number" name="squareFootage" value="${sd.squareFootage||''}" required></div><div class="form-group"><label>Price per Sq Ft ($):</label><input type="number" name="pricePerSqFt" step="0.01" value="${sd.pricePerSqFt||'0.30'}" required></div></div>
+                        <div class="two-column"><div class="form-group"><label>Number of Workers:</label><select name="numWorkers" required><option value="1" ${sd.numWorkers==='1'?'selected':''}>1 Worker</option><option value="2" ${sd.numWorkers==='2'?'selected':''}>2 Workers</option></select></div>
+                        <div class="form-group"><label>Dirt Level:</label><div style="margin:10px 0"><input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="${sd.dirtLevel||'3.5'}" style="width:100%" oninput="updateDirtDisplay(this)"><div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-top:5px"><span>Light Work</span><span>Heavy Work</span></div><div style="text-align:center;margin-top:5px"><span name="dirtDisplay" style="font-weight:bold;color:#333">Level ${sd.dirtLevel||'3.5'}</span></div></div></div></div>
+                        <div class="dirt-level-info"><strong>Dirt Level Guide:</strong><br>Level 1: Maintenance<br>Level 2: Light<br>Level 3: Normal<br>Level 3.5: Heavy (baseline)<br>Level 4: Very dirty<br>Level 5: Extreme</div>
+                    `;
+                    container.appendChild(div);
+                });
+                updateRemoveButtons();
+            }
+
+            // Apply finalized state
+            applyFinalizedState(data.status === 'final');
+        }
+
+        function applyFinalizedState(isFinal) {
+            const banner = document.getElementById('finalizedBanner');
+            const form = document.getElementById('estimateForm');
+            if (isFinal) {
+                banner.style.display = 'block';
+                form.querySelectorAll('input:not([type=hidden]),select,textarea').forEach(el => el.disabled = true);
+            } else {
+                banner.style.display = 'none';
+                form.querySelectorAll('input:not([type=hidden]),select,textarea').forEach(el => el.disabled = false);
+            }
+        }
+
+        async function saveDraftToCloud() {
+            if (!CL_FIREBASE.isSignedIn) {
+                document.getElementById('cloudSignInMsg').style.display = 'block';
+                showToast('Sign in to save to cloud', 'info');
+                return;
+            }
+            const db = CL_FIREBASE.getFirestore();
+            const user = CL_FIREBASE.getCurrentUser();
+            if (!db || !user) return;
+
+            const data = collectFormState();
+            data.userId = user.uid;
+            data.status = 'draft';
+            document.getElementById('docStatus').value = 'draft';
+
+            const docId = document.getElementById('firestoreDocId').value;
+            try {
+                if (docId) {
+                    await db.collection('estimates').doc(docId).set(data, { merge: true });
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    const ref = await db.collection('estimates').add(data);
+                    document.getElementById('firestoreDocId').value = ref.id;
+                }
+                showToast('Draft saved');
+                loadSavedEstimates();
+            } catch (err) {
+                console.error('Save error:', err);
+                showToast('Save failed', 'error');
+            }
+        }
+
+        async function markAsFinal() {
+            if (!CL_FIREBASE.isSignedIn) {
+                document.getElementById('cloudSignInMsg').style.display = 'block';
+                return;
+            }
+            const db = CL_FIREBASE.getFirestore();
+            let docId = document.getElementById('firestoreDocId').value;
+            const data = collectFormState();
+            data.userId = CL_FIREBASE.getCurrentUser().uid;
+            data.status = 'final';
+            document.getElementById('docStatus').value = 'final';
+            try {
+                if (docId) {
+                    await db.collection('estimates').doc(docId).set(data, { merge: true });
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    const ref = await db.collection('estimates').add(data);
+                    document.getElementById('firestoreDocId').value = ref.id;
+                }
+                applyFinalizedState(true);
+                showToast('Estimate finalized');
+                loadSavedEstimates();
+            } catch (err) {
+                console.error(err);
+                showToast('Error finalizing', 'error');
+            }
+        }
+
+        function reopenEstimate() {
+            document.getElementById('docStatus').value = 'draft';
+            applyFinalizedState(false);
+            saveDraftToCloud();
+        }
+
+        async function loadSavedEstimates() {
+            const container = document.getElementById('savedEstimatesList');
+            if (!CL_FIREBASE.isSignedIn) {
+                container.innerHTML = '';
+                document.getElementById('cloudSignInMsg').style.display = 'block';
+                return;
+            }
+            document.getElementById('cloudSignInMsg').style.display = 'none';
+            const db = CL_FIREBASE.getFirestore();
+            const user = CL_FIREBASE.getCurrentUser();
+            if (!db || !user) return;
+            try {
+                const snap = await db.collection('estimates').where('userId', '==', user.uid).orderBy('updatedAt', 'desc').limit(20).get();
+                if (snap.empty) {
+                    container.innerHTML = '<p style="color:#888;text-align:center;padding:10px;">No saved estimates</p>';
+                    return;
+                }
+                container.innerHTML = '<p style="font-weight:bold;margin-bottom:8px;">Saved Estimates:</p>' +
+                    snap.docs.map(doc => {
+                        const d = doc.data();
+                        const date = d.updatedAt ? new Date(d.updatedAt).toLocaleDateString() : '';
+                        const statusBadge = d.status === 'final'
+                            ? '<span style="background:#f59e0b;color:white;padding:2px 6px;border-radius:4px;font-size:11px;">Final</span>'
+                            : '<span style="background:#0ea5e9;color:white;padding:2px 6px;border-radius:4px;font-size:11px;">Draft</span>';
+                        return `<button onclick="loadEstimateFromCloud('${doc.id}')" style="width:100%;text-align:left;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#f9f9f9;cursor:pointer;min-height:44px;">
+                            <strong>${d.estimateName || 'Untitled'}</strong> — ${d.customerName || ''} — ${date} ${statusBadge}
+                        </button>`;
+                    }).join('');
+            } catch (err) {
+                console.error('Load error:', err);
+                container.innerHTML = '<p style="color:#dc3545;">Error loading saved estimates</p>';
+            }
+        }
+
+        async function loadEstimateFromCloud(docId) {
+            const db = CL_FIREBASE.getFirestore();
+            if (!db) return;
+            try {
+                const doc = await db.collection('estimates').doc(docId).get();
+                if (!doc.exists) { showToast('Not found', 'error'); return; }
+                document.getElementById('firestoreDocId').value = docId;
+                loadFormState(doc.data());
+                showToast('Estimate loaded');
+            } catch (err) {
+                console.error(err);
+                showToast('Load error', 'error');
+            }
+        }
+
+        // Load saved list on auth change
+        window.addEventListener('cl-auth-change', () => { loadSavedEstimates(); });
+        // Initial load
+        setTimeout(() => { if (CL_FIREBASE.isSignedIn) loadSavedEstimates(); }, 2000);
+
+        // Set active nav
+        setActiveNav();
+    </script>
+
+    <!-- Customer Search Modal -->
+    <div id="customerSearchModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;align-items:center;justify-content:center;padding:20px;">
+        <div style="background:white;border-radius:12px;width:100%;max-width:400px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;">
+            <div style="padding:16px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;">
+                <h3 style="margin:0;">Select Customer</h3>
+                <button onclick="closeCustomerSearch()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;">&times;</button>
+            </div>
+            <div style="padding:12px;border-bottom:1px solid #ddd;">
+                <input type="text" id="estCustomerSearch" oninput="filterCustomerSearch()" placeholder="Search by name or phone..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;">
+            </div>
+            <div id="estCustomerList" style="flex:1;overflow-y:auto;padding:12px;"></div>
+        </div>
+    </div>
+</body>
+</html>

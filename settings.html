@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="theme-color" content="#020617">
+    <title>Settings - Clearline</title>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        window.tailwind = {
+            config: {
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: '#0ea5e9',
+                            secondary: '#38bdf8',
+                            dark: '#0f172a',
+                            darker: '#020617',
+                            accent: '#06b6d4',
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="app.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="data-migration.js"></script>
+    <script src="firebase-sync.js"></script>
+    <style>
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 0.5px solid rgba(255,255,255,0.05);
+        }
+
+        .setting-item:last-child { border-bottom: none; }
+        .setting-item:active { background: rgba(255,255,255,0.03); }
+        .toggle {
+            width: 50px;
+            height: 28px;
+            background: #334155;
+            border-radius: 14px;
+            position: relative;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+        .toggle.on { background: #0ea5e9; }
+        .toggle::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s;
+        }
+        .toggle.on::after { transform: translateX(22px); }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <div class="app-header-inner">
+            <a href="index.html" class="header-btn header-btn-left">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+            <h1>Settings</h1>
+        </div>
+    </header>
+
+    <main class="app-content">
+        <div class="content-wrapper">
+            <!-- Business Info -->
+            <p class="section-title mb-2 px-1">Business Info</p>
+            <div class="glass-card rounded-2xl overflow-hidden mb-4">
+                <div class="setting-item p-4 border-b border-white/5">
+                    <label class="text-xs text-gray-400">Business Name</label>
+                    <input type="text" id="businessName" placeholder="Your Business Name" class="w-full bg-transparent text-white mt-1 outline-none">
+                </div>
+                <div class="setting-item p-4 border-b border-white/5">
+                    <label class="text-xs text-gray-400">Phone Number</label>
+                    <input type="tel" id="businessPhone" placeholder="555-123-4567" class="w-full bg-transparent text-white mt-1 outline-none">
+                </div>
+                <div class="setting-item p-4">
+                    <label class="text-xs text-gray-400">Email</label>
+                    <input type="email" id="businessEmail" placeholder="you@business.com" class="w-full bg-transparent text-white mt-1 outline-none">
+                </div>
+            </div>
+
+            <!-- Default Pricing -->
+            <p class="section-title mb-2 px-1">Default Pricing ($/sqft)</p>
+            <div class="glass-card rounded-2xl overflow-hidden mb-4">
+                <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
+                    <span>Driveway</span>
+                    <input type="number" id="priceDriveway" value="0.15" step="0.01" class="w-20 bg-slate-700 rounded-lg p-2 text-right text-sm">
+                </div>
+                <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
+                    <span>House Wash</span>
+                    <input type="number" id="priceHouse" value="0.25" step="0.01" class="w-20 bg-slate-700 rounded-lg p-2 text-right text-sm">
+                </div>
+                <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
+                    <span>Deck/Patio</span>
+                    <input type="number" id="priceDeck" value="0.30" step="0.01" class="w-20 bg-slate-700 rounded-lg p-2 text-right text-sm">
+                </div>
+                <div class="setting-item p-4 flex justify-between items-center">
+                    <span>Minimum Job</span>
+                    <input type="number" id="priceMin" value="75" class="w-20 bg-slate-700 rounded-lg p-2 text-right text-sm">
+                </div>
+            </div>
+
+            <!-- Preferences -->
+            <p class="section-title mb-2 px-1">Preferences</p>
+            <div class="glass-card rounded-2xl overflow-hidden mb-4">
+                <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
+                    <div>
+                        <p>Default Job Duration</p>
+                        <p class="text-xs text-gray-400">Hours per job</p>
+                    </div>
+                    <select id="defaultDuration" class="bg-slate-700 rounded-lg p-2 text-sm">
+                        <option value="1">1 hour</option>
+                        <option value="1.5">1.5 hours</option>
+                        <option value="2" selected>2 hours</option>
+                        <option value="3">3 hours</option>
+                        <option value="4">4 hours</option>
+                    </select>
+                </div>
+                <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
+                    <div>
+                        <p>Calendar View</p>
+                        <p class="text-xs text-gray-400">Default calendar display</p>
+                    </div>
+                    <select id="calendarView" class="bg-slate-700 rounded-lg p-2 text-sm">
+                        <option value="month" selected>Month</option>
+                        <option value="week">Week</option>
+                        <option value="day">Day</option>
+                    </select>
+                </div>
+                <div class="setting-item p-4 flex justify-between items-center">
+                    <div>
+                        <p>Job Reminders</p>
+                        <p class="text-xs text-gray-400">Calendar event reminders</p>
+                    </div>
+                    <div id="toggleReminders" class="toggle on" onclick="toggleSetting('reminders')"></div>
+                </div>
+            </div>
+
+            <!-- Service Types -->
+            <p class="section-title mb-2 px-1">Service Types</p>
+            <div class="glass-card rounded-2xl overflow-hidden mb-4">
+                <div class="p-4">
+                    <p class="text-xs text-gray-400 mb-2">Customize the services you offer (comma-separated)</p>
+                    <textarea id="serviceTypes" rows="2" class="w-full p-3 rounded-lg bg-slate-700 text-sm" placeholder="Driveway, House, Deck, Patio, Fence..."></textarea>
+                </div>
+            </div>
+
+            <!-- Job Categories -->
+            <p class="section-title mb-2 px-1">Job Categories</p>
+            <div class="glass-card rounded-2xl overflow-hidden mb-4">
+                <div class="p-4">
+                    <p class="text-xs text-gray-400 mb-2">Categories for organizing jobs (comma-separated)</p>
+                    <textarea id="jobCategories" rows="2" class="w-full p-3 rounded-lg bg-slate-700 text-sm" placeholder="Pressure Washing, Soft Wash, Landscaping..."></textarea>
+                </div>
+            </div>
+
+            <!-- Google Calendar -->
+            <p class="section-title mb-2 px-1">Google Calendar</p>
+            <div class="glass-card rounded-2xl overflow-hidden mb-4">
+                <div class="setting-item p-4 flex justify-between items-center">
+                    <div>
+                        <p>Connection Status</p>
+                        <p class="text-xs text-gray-400" id="gcalStatus">Not connected</p>
+                    </div>
+                    <button onclick="manageGoogleConnection()" id="gcalBtn" class="bg-white text-gray-800 px-4 py-2 rounded-xl text-sm font-semibold">
+                        Connect
+                    </button>
+                </div>
+            </div>
+
+            <!-- Cloud Sync -->
+            <p class="section-title mb-2 px-1">Cloud Sync</p>
+            <div class="glass-card rounded-2xl overflow-hidden mb-4">
+                <div class="p-4">
+                    <div id="syncSignedOut">
+                        <p class="text-sm text-gray-300 mb-3">Sign in with Google to sync your data across all your devices.</p>
+                        <button onclick="CL_FIREBASE.signInWithGoogle()" class="w-full bg-white text-gray-800 py-3 rounded-lg font-semibold flex items-center justify-center gap-2">
+                            <img src="https://www.google.com/favicon.ico" alt="" class="w-5 h-5">
+                            Sign in with Google
+                        </button>
+                    </div>
+                    <div id="syncSignedIn" class="hidden">
+                        <div class="flex items-center gap-3 mb-3">
+                            <img id="syncUserPhoto" src="" alt="" class="w-10 h-10 rounded-full">
+                            <div>
+                                <p id="syncUserName" class="font-semibold"></p>
+                                <p id="syncUserEmail" class="text-xs text-gray-400"></p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="CL_FIREBASE.syncToCloud()" class="flex-1 bg-primary text-white py-2 rounded-lg font-semibold text-sm">
+                                <i class="fas fa-cloud-upload-alt mr-1"></i> Sync Now
+                            </button>
+                            <button onclick="CL_FIREBASE.signOut()" class="flex-1 bg-slate-600 text-white py-2 rounded-lg font-semibold text-sm">
+                                Sign Out
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2 text-center">Data syncs automatically when you sign in</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Management -->
+            <p class="section-title mb-2 px-1">Data</p>
+            <p style="font-size: 12px; color: #94a3b8; margin-bottom: 8px; padding-left: 4px;">To move data between devices: Export on one device, then Import on the other.</p>
+            <div class="glass-card rounded-2xl overflow-hidden mb-4">
+                <button onclick="exportData()" class="setting-item p-4 border-b border-white/5 w-full text-left flex justify-between items-center">
+                    <div>
+                        <p>Export Data</p>
+                        <p class="text-xs text-gray-400">Download all customer data</p>
+                    </div>
+                    <i class="fas fa-download text-primary"></i>
+                </button>
+                <button onclick="importData()" class="setting-item p-4 border-b border-white/5 w-full text-left flex justify-between items-center">
+                    <div>
+                        <p>Import Data</p>
+                        <p class="text-xs text-gray-400">Restore from backup</p>
+                    </div>
+                    <i class="fas fa-upload text-primary"></i>
+                </button>
+                <button onclick="confirmClearData()" class="setting-item p-4 w-full text-left flex justify-between items-center">
+                    <div>
+                        <p class="text-red-400">Clear All Data</p>
+                        <p class="text-xs text-gray-400">Delete all customers & jobs</p>
+                    </div>
+                    <i class="fas fa-trash text-red-400"></i>
+                </button>
+            </div>
+
+            <!-- Marketing Materials -->
+            <p class="section-title mb-2 px-1">Marketing</p>
+            <div class="glass-card rounded-2xl overflow-hidden mb-4">
+                <a href="flyer.html" class="setting-item p-4 w-full text-left flex justify-between items-center" style="text-decoration:none; color: inherit;">
+                    <div>
+                        <p>Printable Flyer</p>
+                        <p class="text-xs text-gray-400">Open the marketing flyer</p>
+                    </div>
+                    <i class="fas fa-file-lines text-primary"></i>
+                </a>
+            </div>
+
+            <!-- App Info -->
+            <p class="section-title mb-2 px-1">About</p>
+            <div class="glass-card rounded-2xl overflow-hidden mb-4">
+                <div class="p-4 text-center">
+                    <i class="fas fa-briefcase text-4xl text-primary mb-2"></i>
+                    <p id="aboutBusinessName" class="font-semibold">Business Tools</p>
+                    <p class="text-xs text-gray-400">Job Management PWA v1.0</p>
+                    <p class="text-xs text-gray-500 mt-2">Built for small business owners</p>
+                </div>
+            </div>
+
+            <input type="file" id="importFile" accept=".json" class="hidden" onchange="handleImport(this)">
+        </div>
+    </main>
+
+    <script>
+        // Default service types
+        const DEFAULT_SERVICES = 'Driveway, House, Deck, Patio, Fence, Sidewalk, Roof, Gutter, Commercial';
+        const DEFAULT_CATEGORIES = 'Pressure Washing, Soft Wash, Other';
+
+        // Load saved settings
+        document.addEventListener('DOMContentLoaded', () => {
+            const settings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
+            
+            if (settings.businessName) {
+                document.getElementById('businessName').value = settings.businessName;
+                document.getElementById('aboutBusinessName').textContent = settings.businessName;
+            }
+            if (settings.businessPhone) document.getElementById('businessPhone').value = settings.businessPhone;
+            if (settings.businessEmail) document.getElementById('businessEmail').value = settings.businessEmail;
+            if (settings.priceDriveway) document.getElementById('priceDriveway').value = settings.priceDriveway;
+            if (settings.priceHouse) document.getElementById('priceHouse').value = settings.priceHouse;
+            if (settings.priceDeck) document.getElementById('priceDeck').value = settings.priceDeck;
+            if (settings.priceMin) document.getElementById('priceMin').value = settings.priceMin;
+            if (settings.defaultDuration) document.getElementById('defaultDuration').value = settings.defaultDuration;
+            if (settings.calendarView) document.getElementById('calendarView').value = settings.calendarView;
+            if (settings.reminders === false) document.getElementById('toggleReminders').classList.remove('on');
+
+            // Load service types and categories
+            document.getElementById('serviceTypes').value = settings.serviceTypes || DEFAULT_SERVICES;
+            document.getElementById('jobCategories').value = settings.jobCategories || DEFAULT_CATEGORIES;
+
+            // Check Google Calendar connection
+            const token = localStorage.getItem('gcal-token');
+            const expiry = localStorage.getItem('gcal-token-expiry');
+            if (token && expiry > Date.now()) {
+                document.getElementById('gcalStatus').textContent = 'Connected';
+                document.getElementById('gcalBtn').textContent = 'Disconnect';
+                document.getElementById('gcalBtn').classList.remove('bg-white', 'text-gray-800');
+                document.getElementById('gcalBtn').classList.add('bg-red-600', 'text-white');
+            }
+
+            // Auto-save on change
+            document.querySelectorAll('input, select, textarea').forEach(el => {
+                el.addEventListener('change', saveSettings);
+            });
+
+            // Check auth state and update sync UI
+            updateSyncUI();
+            
+            // Listen for auth changes
+            window.addEventListener('cl-auth-change', (e) => updateSyncUI(e.detail.user));
+
+            setActiveNav();
+        });
+
+        function saveSettings() {
+            const existing = JSON.parse(localStorage.getItem('cl-settings') || '{}');
+            const businessName = document.getElementById('businessName').value;
+            const settings = {
+                ...existing,
+                businessName: businessName,
+                businessPhone: document.getElementById('businessPhone').value,
+                businessEmail: document.getElementById('businessEmail').value,
+                priceDriveway: document.getElementById('priceDriveway').value,
+                priceHouse: document.getElementById('priceHouse').value,
+                priceDeck: document.getElementById('priceDeck').value,
+                priceMin: document.getElementById('priceMin').value,
+                defaultDuration: document.getElementById('defaultDuration').value,
+                calendarView: document.getElementById('calendarView').value,
+                reminders: document.getElementById('toggleReminders').classList.contains('on'),
+                serviceTypes: document.getElementById('serviceTypes').value,
+                jobCategories: document.getElementById('jobCategories').value
+            };
+            localStorage.setItem('cl-settings', JSON.stringify(settings));
+            // Update About section
+            if (businessName) {
+                document.getElementById('aboutBusinessName').textContent = businessName;
+            }
+        }
+
+        // Sync UI functions
+        function updateSyncUI(user) {
+            user = user || CL_FIREBASE.user;
+            const signedOut = document.getElementById('syncSignedOut');
+            const signedIn = document.getElementById('syncSignedIn');
+            
+            if (user) {
+                signedOut.classList.add('hidden');
+                signedIn.classList.remove('hidden');
+                document.getElementById('syncUserName').textContent = user.displayName || 'User';
+                document.getElementById('syncUserEmail').textContent = user.email;
+                if (user.photoURL) {
+                    document.getElementById('syncUserPhoto').src = user.photoURL;
+                }
+            } else {
+                signedOut.classList.remove('hidden');
+                signedIn.classList.add('hidden');
+            }
+        }
+
+        function toggleSetting(setting) {
+            const toggle = document.getElementById('toggle' + setting.charAt(0).toUpperCase() + setting.slice(1));
+            toggle.classList.toggle('on');
+            saveSettings();
+        }
+
+        function manageGoogleConnection() {
+            const settings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
+            if (!settings.gcalClientId) {
+                const next = prompt('Enter Google Calendar Client ID', '');
+                if (!next) return;
+                settings.gcalClientId = next.trim();
+                localStorage.setItem('cl-settings', JSON.stringify(settings));
+            }
+            const token = localStorage.getItem('gcal-token');
+            if (token) {
+                // Disconnect
+                localStorage.removeItem('gcal-token');
+                localStorage.removeItem('gcal-token-expiry');
+                document.getElementById('gcalStatus').textContent = 'Not connected';
+                document.getElementById('gcalBtn').textContent = 'Connect';
+                document.getElementById('gcalBtn').classList.add('bg-white', 'text-gray-800');
+                document.getElementById('gcalBtn').classList.remove('bg-red-600', 'text-white');
+            } else {
+                // Redirect to quick-add to connect
+                window.location.href = 'quick-add.html';
+            }
+        }
+
+        function exportData() {
+            const data = CL_DATA.exportAll();
+            data.settings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const settings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
+            const businessSlug = (settings.businessName || 'business').toLowerCase().replace(/\s+/g, '-');
+            a.download = `${businessSlug}-backup-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData() {
+            document.getElementById('importFile').click();
+        }
+
+        function handleImport(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    // Use CL_DATA to import (handles both old and new format)
+                    CL_DATA.importData(data);
+                    
+                    if (data.settings) {
+                        localStorage.setItem('cl-settings', JSON.stringify(data.settings));
+                    }
+                    
+                    alert('Data imported successfully! Reloading...');
+                    location.reload();
+                } catch (err) {
+                    alert('Error importing data: Invalid file format');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function confirmClearData() {
+            if (confirm('Are you sure you want to delete ALL data? This cannot be undone!')) {
+                if (confirm('This will delete all customers, jobs, and settings. Are you REALLY sure?')) {
+                    CL_DATA.clearAll();
+                    localStorage.removeItem('cl-settings');
+                    localStorage.removeItem('cl-checklist');
+                    alert('All data cleared.');
+                    location.reload();
+                }
+            }
+        }
+    </script>
+
+    <!-- Bottom Tab Bar -->
+    <nav class="tab-bar">
+        <div class="tab-bar-inner">
+            <a href="index.html" class="tab-item">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </a>
+            <a href="jobs.html" class="tab-item">
+                <i class="fas fa-briefcase"></i>
+                <span>Jobs</span>
+            </a>
+            <a href="quick-add.html" class="tab-item tab-item-add">
+                <div class="tab-add-btn">
+                    <i class="fas fa-plus"></i>
+                </div>
+                <span>Add</span>
+            </a>
+            <a href="calendar.html" class="tab-item">
+                <i class="fas fa-calendar"></i>
+                <span>Calendar</span>
+            </a>
+            <a href="customer-tracker.html" class="tab-item">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </a>
+        </div>
+    </nav>
+</body>
+</html>

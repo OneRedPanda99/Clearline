@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="theme-color" content="#020617">
+    <title>Jobs - Clearline</title>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        window.tailwind = {
+            config: {
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: '#0ea5e9',
+                            secondary: '#38bdf8',
+                            dark: '#0f172a',
+                            darker: '#020617',
+                            accent: '#06b6d4',
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="app.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="data-migration.js"></script>
+    <style>
+        .tab-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            color: #94a3b8;
+            background: transparent;
+        }
+        .tab-btn:hover:not(.active) {
+            background: rgba(255,255,255,0.05);
+            color: #cbd5e1;
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
+            color: white !important;
+            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+        }
+        .job-card {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            border-radius: 10px !important;
+        }
+        .job-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+            border-color: rgba(255,255,255,0.15);
+        }
+        .job-card:active {
+            transform: scale(0.98) translateY(0);
+            opacity: 0.95;
+        }
+        .edit-scroll {
+            max-height: calc(100dvh - 260px);
+            max-height: calc(100vh - 260px);
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .edit-footer {
+            position: sticky;
+            bottom: 0;
+            background: #1e293b;
+            padding-top: 10px;
+            padding-bottom: 6px;
+        }
+        .edit-field {
+            background: #334155;
+            border: 1px solid #475569;
+            color: #f8fafc;
+        }
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+        .photo-thumb {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .photo-tile {
+            position: relative;
+        }
+        .photo-remove {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            border: none;
+            border-radius: 999px;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        /* Ensure modal styling stays consistent */
+        .modal {
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+            background: rgba(2, 6, 23, 0.85);
+            animation: modalFadeIn 0.2s ease;
+        }
+        .modal.show,
+        .modal.modal-open,
+        .modal:not([hidden]) {
+            display: flex !important;
+        }
+        .modal-content {
+            width: 100%;
+            max-width: 560px;
+            border-radius: 10px 10px 0 0;
+            animation: modalSlideUp 0.25s ease;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes modalSlideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="app-header-inner">
+            <h1>Jobs</h1>
+            <a href="map.html" class="header-btn header-btn-right" title="Map View">
+                <i class="fas fa-map-marker-alt"></i>
+            </a>
+        </div>
+    </header>
+
+    <main class="app-content">
+      <div class="content-wrapper">
+        <!-- Tab Navigation -->
+        <div class="filter-tabs" style="display: flex; gap: 4px; margin-bottom: 12px; background: rgba(51,65,85,0.5); padding: 4px; border-radius: 12px;">
+            <button onclick="setTab('leads')" data-tab="leads" class="tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Leads</button>
+            <button onclick="setTab('quoted')" data-tab="quoted" class="tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Quoted</button>
+            <button onclick="setTab('scheduled')" data-tab="scheduled" class="tab-btn active" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Scheduled</button>
+            <button onclick="setTab('completed')" data-tab="completed" class="tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Done</button>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="stat-card">
+                <p class="value" style="color: #3b82f6;" id="stat-leads">0</p>
+                <p class="label">Leads</p>
+            </div>
+            <div class="stat-card">
+                <p class="value" style="color: #fbbf24;" id="stat-quoted">0</p>
+                <p class="label">Quoted</p>
+            </div>
+            <div class="stat-card">
+                <p class="value" style="color: #a78bfa;" id="stat-scheduled">0</p>
+                <p class="label">Scheduled</p>
+            </div>
+            <div class="stat-card">
+                <p class="value" style="color: #34d399;" id="stat-completed">0</p>
+                <p class="label">Done</p>
+            </div>
+        </div>
+
+        <!-- Jobs List -->
+        <div id="jobsList" style="margin-bottom: 16px;"></div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden" style="text-align: center; padding: 48px 0;">
+            <i class="fas fa-calendar-check" style="font-size: 40px; color: #475569; margin-bottom: 12px;"></i>
+            <p style="color: #64748b; font-size: 14px;">No jobs in this view</p>
+            <a href="quick-add.html" class="btn-primary" style="display: inline-block; margin-top: 16px; width: auto; padding: 12px 24px;">
+                <i class="fas fa-plus" style="margin-right: 6px;"></i>Add Job
+            </a>
+        </div>
+      </div>
+    </main>
+
+    <!-- Bottom Tab Bar -->
+    <nav class="tab-bar">
+        <div class="tab-bar-inner">
+            <a href="index.html" class="tab-item">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </a>
+            <a href="jobs.html" class="tab-item active">
+                <i class="fas fa-briefcase"></i>
+                <span>Jobs</span>
+            </a>
+            <a href="quick-add.html" class="tab-item tab-item-add">
+                <div class="tab-add-btn">
+                    <i class="fas fa-plus"></i>
+                </div>
+                <span>Add</span>
+            </a>
+            <a href="calendar.html" class="tab-item">
+                <i class="fas fa-calendar"></i>
+                <span>Calendar</span>
+            </a>
+            <a href="customer-tracker.html" class="tab-item">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Job Detail Modal -->
+    <div id="jobModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="jobModal-title" hidden style="z-index:200; position:fixed; inset:0; background:rgba(0,0,0,0.8); align-items:flex-end; justify-content:center;">
+        <div class="modal-content bg-slate-800 rounded-t-2xl w-full overflow-y-auto" role="document" style="max-height: calc(100dvh - 40px); max-height: calc(100vh - 40px); padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));">
+            <div class="modal-header sticky top-0 bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center" style="z-index:10;">
+                <h2 id="jobModal-title" class="text-lg font-bold">Job Details</h2>
+                <button class="modal-close-btn" onclick="closeJobModal()" aria-label="Close dialog">&times;</button>
+            </div>
+            <div id="modalContent" class="p-4" style="padding-bottom: 24px;"></div>
+        </div>
+    </div>
+
+    <!-- Document View Modal -->
+    <div id="documentModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="documentModal-title" hidden style="z-index:250; position:fixed; inset:0; background:rgba(0,0,0,0.9); align-items:flex-end; justify-content:center;">
+        <div class="modal-content bg-slate-800 rounded-t-2xl w-full overflow-y-auto" role="document" style="max-height: calc(100dvh - 40px); max-height: calc(100vh - 40px); padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));">
+            <div class="modal-header sticky top-0 bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center" style="z-index:10;">
+                <h2 id="documentModal-title" class="text-lg font-bold">Document</h2>
+                <button class="modal-close-btn" onclick="closeDocumentModal()" aria-label="Close dialog">&times;</button>
+            </div>
+            <div id="documentContent" class="p-4" style="padding-bottom: 24px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Maps API Key (from config.js)
+        const MAPS_API_KEY = window.CL_SECRETS?.mapsApiKey || '';
+        let userLocation = null;
+
+        // Get user location on load
+        function getUserLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    pos => { userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+                    err => { console.log('Location unavailable'); }
+                );
+            }
+        }
+
+        // Calculate distance (miles) between two points
+        function calcDistance(lat1, lng1, lat2, lng2) {
+            const R = 3959;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        // Estimate drive time
+        function estimateDriveTime(miles) {
+            const mins = Math.round((miles / 30) * 60);
+            return mins < 60 ? `${mins} min` : `${Math.floor(mins/60)}h ${mins%60}m`;
+        }
+
+        // Get distance to job address
+        async function getDistanceToAddress(address) {
+            if (!userLocation) return null;
+            try {
+                const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${MAPS_API_KEY}`);
+                const data = await res.json();
+                if (data.status === 'OK' && data.results[0]) {
+                    const loc = data.results[0].geometry.location;
+                    const dist = calcDistance(userLocation.lat, userLocation.lng, loc.lat, loc.lng);
+                    return { distance: dist.toFixed(1), time: estimateDriveTime(dist) };
+                }
+            } catch (e) { console.log('Geocode error:', e); }
+            return null;
+        }
+
+        // Google Calendar - uses token from Firebase sign-in
+        let gapiInited = false;
+        let accessToken = localStorage.getItem('gcal-token') || null;
+        let tokenExpiry = parseInt(localStorage.getItem('gcal-token-expiry') || '0');
+
+        // Use CL_DATA for separate jobs
+        let jobs = [];
+        let currentTab = 'scheduled';
+        let editPhotoState = { before: [], after: [] };
+        
+        // Default job categories (used if no custom ones in settings)
+        const DEFAULT_CATEGORIES = ['Pressure Washing', 'Soft Wash', 'Non-PW', 'Other'];
+        
+        function getJobCategories() {
+            try {
+                const settings = safeGet('cl-settings', {});
+                if (settings.jobCategories && settings.jobCategories.trim()) {
+                    return settings.jobCategories.split(',').map(s => s.trim()).filter(Boolean);
+                }
+            } catch(e) {}
+            return DEFAULT_CATEGORIES;
+        }
+        
+        function loadData() {
+            jobs = CL_DATA.getJobs();
+        }
+
+        // Load Google Calendar API
+        function loadGapiScript() {
+            return new Promise((resolve, reject) => {
+                if (typeof gapi !== 'undefined') { resolve(); return; }
+                const script = document.createElement('script');
+                script.src = 'https://apis.google.com/js/api.js';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        async function initGapiClient() {
+            if (gapiInited) return;
+            await loadGapiScript();
+            await new Promise(resolve => gapi.load('client', resolve));
+            await gapi.client.init({});
+            await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest');
+            gapiInited = true;
+        }
+
+        function checkGoogleAuth() {
+            // Check for token from Firebase sign-in
+            accessToken = localStorage.getItem('gcal-token');
+            tokenExpiry = parseInt(localStorage.getItem('gcal-token-expiry') || '0');
+            const isConnected = accessToken && tokenExpiry > Date.now();
+            updateGoogleUI(isConnected);
+        }
+
+        function updateGoogleUI(isConnected) {
+            // Calendar is connected via Cloud Sync sign-in
+            const calBadge = document.getElementById('calendarBadge');
+            if (calBadge) {
+                calBadge.style.display = isConnected ? 'inline' : 'none';
+            }
+        }
+
+        // Listen for Firebase auth changes
+        window.addEventListener('cl-auth-change', () => {
+            checkGoogleAuth();
+            if (CL_FIREBASE.isCalendarConnected()) {
+                initGapiClient();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            updateStats();
+            renderJobs();
+            getUserLocation(); // Get user location for distance estimates
+            checkGoogleAuth(); // Check if Calendar is connected via Firebase
+            if (accessToken && tokenExpiry > Date.now()) {
+                initGapiClient(); // Init Calendar API if connected
+            }
+            setActiveNav();
+        });
+
+        function setTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+            renderJobs();
+        }
+
+        function updateStats() {
+            // Count by status
+            const leads = jobs.filter(j => j.status === 'new');
+            const quoted = jobs.filter(j => j.status === 'quoted');
+            const scheduled = jobs.filter(j => j.status === 'scheduled');
+            const completed = jobs.filter(j => j.status === 'completed');
+
+            document.getElementById('stat-leads').textContent = leads.length;
+            document.getElementById('stat-quoted').textContent = quoted.length;
+            document.getElementById('stat-scheduled').textContent = scheduled.length;
+            document.getElementById('stat-completed').textContent = completed.length;
+        }
+
+        function renderJobsList() {
+            const today = new Date().toISOString().split('T')[0];
+            let filtered = [];
+
+            // Filter by status (cleaner workflow)
+            if (currentTab === 'leads') {
+                // Leads: new status, no job date
+                filtered = jobs.filter(j => j.status === 'new');
+            } else if (currentTab === 'quoted') {
+                // Quoted: has quote, awaiting scheduling
+                filtered = jobs.filter(j => j.status === 'quoted');
+            } else if (currentTab === 'scheduled') {
+                // Scheduled: has job date, ready to work
+                filtered = jobs.filter(j => j.status === 'scheduled');
+            } else if (currentTab === 'completed') {
+                // Completed: done
+                filtered = jobs.filter(j => j.status === 'completed');
+            }
+
+            // Sort by date (scheduled jobs by upcoming date, others by date added)
+            filtered.sort((a, b) => {
+                if (currentTab === 'scheduled') {
+                    const dateA = new Date(a.jobDate || '9999-12-31');
+                    const dateB = new Date(b.jobDate || '9999-12-31');
+                    return dateA - dateB;
+                } else if (currentTab === 'completed') {
+                    // Most recent first
+                    const dateA = new Date(a.lastUpdated || a.dateAdded || 0);
+                    const dateB = new Date(b.lastUpdated || b.dateAdded || 0);
+                    return dateB - dateA;
+                } else {
+                    // Leads and quoted: most recent first
+                    const dateA = new Date(a.dateAdded || 0);
+                    const dateB = new Date(b.dateAdded || 0);
+                    return dateB - dateA;
+                }
+            });
+
+            const container = document.getElementById('jobsList');
+            const emptyState = document.getElementById('emptyState');
+
+            if (filtered.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            // Group by date
+            const grouped = {};
+            filtered.forEach(job => {
+                const date = job.jobDate || 'Unscheduled';
+                if (!grouped[date]) grouped[date] = [];
+                grouped[date].push(job);
+            });
+
+            let html = '';
+            Object.keys(grouped).forEach(date => {
+                const dateObj = date !== 'Unscheduled' ? new Date(date + 'T12:00:00') : null;
+                const dateLabel = dateObj ? dateObj.toLocaleDateString('en-US', { 
+                    weekday: 'long', month: 'short', day: 'numeric' 
+                }) : 'Unscheduled';
+                const isToday = date === today;
+
+                html += `
+                    <div class="mb-4">
+                        <h3 class="text-sm font-bold ${isToday ? 'text-primary' : 'text-gray-400'} mb-2">
+                            ${isToday ? '📍 TODAY' : dateLabel}
+                        </h3>
+                        <div class="space-y-2">
+                            ${grouped[date].map(job => renderJobCard(job)).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function renderJobs() {
+            renderJobsList();
+        }
+
+        function renderJobCard(job) {
+            const statusColors = {
+                scheduled: 'bg-purple-500',
+                completed: 'bg-green-500',
+                quoted: 'bg-yellow-500',
+                new: 'bg-blue-500'
+            };
+
+            return `
+                <div class="job-card glass-card rounded-lg p-3 relative overflow-hidden animate-in" onclick="openJobModal('${job.id}')">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full ${statusColors[job.status] || 'bg-gray-500'} flex-shrink-0"></span>
+                                <h4 class="font-semibold text-sm truncate">${job.customerName || 'No Name'}</h4>
+                                ${job.status === 'completed' ? '<i class="fas fa-check-circle text-green-400 text-xs"></i>' : ''}
+                            </div>
+                            <p class="text-xs text-gray-500">${job.serviceType || 'Service'}</p>
+                            ${job.jobTime ? `<p class="text-xs text-purple-400"><i class="fas fa-clock mr-1"></i>${job.jobTime}</p>` : ''}
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            ${job.quoteAmount ? `<p class="text-green-400 font-bold text-sm">$${job.quoteAmount}</p>` : ''}
+                        </div>
+                    </div>
+                    ${job.address ? `<p class="text-[10px] text-gray-500 mt-1 truncate"><i class="fas fa-map-marker-alt mr-1"></i>${job.address}</p>` : ''}
+                    <div class="flex gap-2 mt-3">
+                        ${job.customerPhone ? `
+                        <a href="tel:${job.customerPhone}" onclick="event.stopPropagation()" class="w-12 h-12 bg-green-600/20 text-green-400 rounded-lg flex items-center justify-center action-btn">
+                            <i class="fas fa-phone text-lg"></i>
+                        </a>
+                        <a href="sms:${job.customerPhone}" onclick="event.stopPropagation()" class="w-12 h-12 bg-blue-600/20 text-blue-400 rounded-lg flex items-center justify-center action-btn">
+                            <i class="fas fa-sms text-lg"></i>
+                        </a>
+                        ` : ''}
+                        ${job.address ? `
+                            <a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" onclick="event.stopPropagation()" class="w-12 h-12 bg-purple-600/20 text-purple-400 rounded-lg flex items-center justify-center action-btn">
+                                <i class="fas fa-directions text-lg"></i>
+                            </a>
+                        ` : ''}
+                        <button onclick="event.stopPropagation(); markComplete('${job.id}')" class="w-12 h-12 ${job.status === 'completed' ? 'bg-gray-600/30 text-gray-400' : 'bg-green-600/30 text-green-400'} rounded-lg flex items-center justify-center action-btn" title="${job.status === 'completed' ? 'Already completed' : 'Mark complete'}">
+                            <i class="fas fa-check text-lg"></i>
+                        </button>
+                        <button onclick="event.stopPropagation(); deleteJob('${job.id}')" class="w-12 h-12 bg-red-600/30 text-red-400 rounded-lg flex items-center justify-center action-btn" title="Delete job">
+                            <i class="fas fa-trash text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderEditPhotos() {
+            const beforeList = document.getElementById('editBeforeList');
+            const afterList = document.getElementById('editAfterList');
+            if (!beforeList || !afterList) return;
+            const beforeHtml = editPhotoState.before.length
+                ? editPhotoState.before.map((src, i) => `
+                    <div class="photo-tile">
+                        <img src="${src}" class="photo-thumb" alt="Before photo ${i + 1}">
+                        <button class="photo-remove" onclick="removeEditPhoto('before', ${i})" aria-label="Remove photo">×</button>
+                    </div>
+                `).join('')
+                : `<div class="text-xs text-gray-500 col-span-3">No photos yet</div>`;
+            const afterHtml = editPhotoState.after.length
+                ? editPhotoState.after.map((src, i) => `
+                    <div class="photo-tile">
+                        <img src="${src}" class="photo-thumb" alt="After photo ${i + 1}">
+                        <button class="photo-remove" onclick="removeEditPhoto('after', ${i})" aria-label="Remove photo">×</button>
+                    </div>
+                `).join('')
+                : `<div class="text-xs text-gray-500 col-span-3">No photos yet</div>`;
+            beforeList.innerHTML = beforeHtml;
+            afterList.innerHTML = afterHtml;
+        }
+
+        function handleEditPhotoUpload(kind, input) {
+            const files = Array.from(input.files || []);
+            if (!files.length) return;
+            Promise.all(files.map(file => new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.readAsDataURL(file);
+            }))).then(results => {
+                editPhotoState[kind] = editPhotoState[kind].concat(results);
+                renderEditPhotos();
+                input.value = '';
+            });
+        }
+
+        function removeEditPhoto(kind, index) {
+            editPhotoState[kind].splice(index, 1);
+            renderEditPhotos();
+        }
+
+        function openJobModal(id) {
+            const job = jobs.find(j => j.id === id);
+            if (!job) return;
+            document.body.classList.add('modal-open');
+            document.getElementById('jobModal-title').textContent = job.customerName || 'Job Details';
+            document.getElementById('modalContent').innerHTML = `
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="px-3 py-1 rounded-full text-sm font-semibold ${
+                            job.status === 'completed' ? 'bg-green-900/30 text-green-400' :
+                            job.status === 'scheduled' ? 'bg-purple-900/30 text-purple-400' :
+                            'bg-yellow-900/30 text-yellow-400'
+                        }">${(job.status || 'new').toUpperCase()}</span>
+                        ${job.quoteAmount ? `<span class="text-2xl font-bold text-green-400">$${job.quoteAmount}</span>` : ''}
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        ${job.customerPhone ? `
+                        <div>
+                            <p class="text-xs text-gray-400">Phone</p>
+                            <a href="tel:${job.customerPhone}" class="text-primary">${job.customerPhone}</a>
+                        </div>
+                        ` : ''}
+                        <div>
+                            <p class="text-xs text-gray-400">Service</p>
+                            <p>${job.serviceType || '-'}</p>
+                        </div>
+                    </div>
+
+                    ${job.address ? `
+                        <div>
+                            <p class="text-xs text-gray-400">Address</p>
+                            <a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="text-primary">
+                                <i class="fas fa-map-marker-alt mr-1"></i>${job.address}
+                            </a>
+                            <p id="distanceEstimate" class="text-xs text-blue-400 mt-1"><i class="fas fa-spinner fa-spin mr-1"></i>Calculating distance...</p>
+                        </div>
+                    ` : ''}
+
+                    ${job.jobDate ? `
+                        <div class="bg-purple-900/20 p-3 rounded-xl">
+                            <p class="text-xs text-gray-400">Scheduled</p>
+                            <p class="text-purple-400 font-semibold">
+                                ${new Date(job.jobDate + 'T12:00:00').toLocaleDateString('en-US', {weekday: 'long', month: 'short', day: 'numeric'})}
+                                ${job.jobTime ? ` at ${job.jobTime}` : ''}
+                            </p>
+                        </div>
+                    ` : ''}
+
+                    ${job.notes ? `
+                        <div>
+                            <p class="text-xs text-gray-400">Notes</p>
+                            <p class="bg-slate-700 p-3 rounded-lg text-sm">${job.notes}</p>
+                        </div>
+                    ` : ''}
+
+                    ${job.beforePhotos && job.beforePhotos.length ? `
+                        <div>
+                            <p class="text-xs text-gray-400 mb-2">Before Photos</p>
+                            <div class="photo-grid">
+                                ${job.beforePhotos.map(src => `<img src="${src}" class="photo-thumb" alt="Before photo">`).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    ${job.afterPhotos && job.afterPhotos.length ? `
+                        <div>
+                            <p class="text-xs text-gray-400 mb-2">After Photos</p>
+                            <div class="photo-grid">
+                                ${job.afterPhotos.map(src => `<img src="${src}" class="photo-thumb" alt="After photo">`).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    ${job.customerPhone ? `
+                    <div class="flex gap-2">
+                        <a href="tel:${job.customerPhone}" class="flex-1 bg-green-600 text-white py-3 rounded-xl text-center font-semibold">
+                            <i class="fas fa-phone mr-2"></i>Call
+                        </a>
+                        ${job.address ? `
+                            <a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="flex-1 bg-blue-600 text-white py-3 rounded-xl text-center font-semibold">
+                                <i class="fas fa-directions mr-2"></i>Navigate
+                            </a>
+                        ` : ''}
+                    </div>
+                    ` : (job.address ? `
+                    <div class="flex gap-2">
+                        <a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="flex-1 bg-blue-600 text-white py-3 rounded-xl text-center font-semibold">
+                            <i class="fas fa-directions mr-2"></i>Navigate
+                        </a>
+                    </div>
+                    ` : '')}
+
+                    ${job.jobDate ? `
+                        <button onclick="addToGoogleCalendar('${job.id}')" class="w-full bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
+                            <i class="fab fa-google mr-2"></i>Add to Google Calendar
+                        </button>
+                    ` : ''}
+
+                    <!-- Saved Documents -->
+                    ${job.documents && (job.documents.estimates?.length || job.documents.invoices?.length || job.documents.waivers?.length) ? `
+                    <div class="bg-slate-700/50 p-3 rounded-xl">
+                        <p class="text-xs text-gray-400 mb-2">Saved Documents</p>
+                        <div class="flex flex-wrap gap-2">
+                            ${(job.documents.estimates || []).map((doc, i) => `
+                                <button onclick="viewDocument('${job.id}', 'estimates', ${i})" class="px-3 py-1.5 bg-cyan-600/20 text-cyan-400 rounded-lg text-xs font-medium">
+                                    <i class="fas fa-file-invoice mr-1"></i>Estimate ${i + 1}
+                                </button>
+                            `).join('')}
+                            ${(job.documents.invoices || []).map((doc, i) => `
+                                <button onclick="viewDocument('${job.id}', 'invoices', ${i})" class="px-3 py-1.5 bg-amber-600/20 text-amber-400 rounded-lg text-xs font-medium">
+                                    <i class="fas fa-file-invoice-dollar mr-1"></i>Invoice ${i + 1}
+                                </button>
+                            `).join('')}
+                            ${(job.documents.waivers || []).map((doc, i) => `
+                                <button onclick="viewDocument('${job.id}', 'waivers', ${i})" class="px-3 py-1.5 bg-emerald-600/20 text-emerald-400 rounded-lg text-xs font-medium">
+                                    <i class="fas fa-file-signature mr-1"></i>Waiver ${i + 1}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <!-- Document Generators -->
+                    <div class="flex gap-2">
+                        <button onclick="openDocumentForm('estimate', '${job.id}')" class="flex-1 bg-cyan-600/20 text-cyan-400 py-3 rounded-xl font-semibold border border-cyan-600/30">
+                            <i class="fas fa-file-invoice mr-1"></i>Add Estimate
+                        </button>
+                        <button onclick="openDocumentForm('invoice', '${job.id}')" class="flex-1 bg-amber-600/20 text-amber-400 py-3 rounded-xl font-semibold border border-amber-600/30">
+                            <i class="fas fa-file-invoice-dollar mr-1"></i>Add Invoice
+                        </button>
+                    </div>
+                    <button onclick="openDocumentForm('waiver', '${job.id}')" class="w-full bg-emerald-600/20 text-emerald-400 py-3 rounded-xl font-semibold border border-emerald-600/30">
+                        <i class="fas fa-file-signature mr-2"></i>Add Waiver
+                    </button>
+
+                    <div class="flex gap-2 pt-4 border-t border-slate-700">
+                        <button onclick="editJob('${job.id}')" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold">
+                            <i class="fas fa-edit mr-2"></i>Edit
+                        </button>
+                        ${job.status !== 'completed' ? `
+                            <button onclick="markComplete('${job.id}'); closeJobModal();" class="flex-1 bg-green-600 text-white py-3 rounded-xl font-semibold">
+                                <i class="fas fa-check mr-2"></i>Complete
+                            </button>
+                        ` : `
+                            <button onclick="markScheduled('${job.id}'); closeJobModal();" class="flex-1 bg-purple-600 text-white py-3 rounded-xl font-semibold">
+                                <i class="fas fa-undo mr-2"></i>Reopen
+                            </button>
+                        `}
+                        <button onclick="deleteJob('${job.id}'); closeJobModal();" class="flex-1 bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
+                            <i class="fas fa-trash mr-2"></i>Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            openModal('jobModal');
+
+            // Calculate distance estimate if address exists
+            if (job.address) {
+                getDistanceToAddress(job.address).then(result => {
+                    const el = document.getElementById('distanceEstimate');
+                    if (el && result) {
+                        el.innerHTML = `<i class="fas fa-car mr-1"></i>${result.distance} mi • ~${result.time} drive`;
+                    } else if (el) {
+                        el.textContent = '';
+                    }
+                });
+            }
+        }
+
+        function closeJobModal() {
+            document.body.classList.remove('modal-open');
+            closeModal('jobModal');
+        }
+
+        // ── Edit Job ────────────────────────────────────────────
+        function editJob(id) {
+            const job = jobs.find(j => j.id === id);
+            if (!job) return;
+            document.body.classList.add('modal-open');
+            document.getElementById('jobModal-title').textContent = 'Edit Job';
+            editPhotoState = {
+                before: Array.isArray(job.beforePhotos) ? [...job.beforePhotos] : [],
+                after: Array.isArray(job.afterPhotos) ? [...job.afterPhotos] : []
+            };
+            document.getElementById('modalContent').innerHTML = `
+                <div class="space-y-3">
+                    <div class="edit-scroll space-y-3">
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Name</label>
+                            <input type="text" id="editName" value="${(job.customerName || '').replace(/"/g, '&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Phone</label>
+                                <input type="tel" id="editPhone" value="${(job.customerPhone || '').replace(/"/g, '&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Email</label>
+                                <input type="email" id="editEmail" value="${(job.customerEmail || '').replace(/"/g, '&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Address</label>
+                            <input type="text" id="editAddress" value="${(job.address || '').replace(/"/g, '&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Service Type</label>
+                            <input type="text" id="editService" value="${(job.serviceType || '').replace(/"/g, '&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Job Category</label>
+                                <select id="editCategory" class="w-full p-3 rounded-lg edit-field">
+                                    ${getJobCategories().map(cat => 
+                                        `<option value="${cat}" ${(job.jobCategory || '') === cat ? 'selected' : ''}>${cat}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Status</label>
+                                <select id="editStatus" class="w-full p-3 rounded-lg edit-field">
+                                    <option value="new" ${job.status === 'new' ? 'selected' : ''}>New / Lead</option>
+                                    <option value="quoted" ${job.status === 'quoted' ? 'selected' : ''}>Quoted</option>
+                                    <option value="scheduled" ${job.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
+                                    <option value="completed" ${job.status === 'completed' ? 'selected' : ''}>Completed</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Date</label>
+                                <input type="date" id="editDate" value="${job.jobDate || ''}" class="w-full p-3 rounded-lg edit-field">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Time</label>
+                                <input type="time" id="editTime" value="${job.jobTime || ''}" class="w-full p-3 rounded-lg edit-field">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Duration (hrs)</label>
+                                <input type="number" step="0.5" id="editDuration" value="${job.jobDuration || ''}" class="w-full p-3 rounded-lg edit-field">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Sq Ft</label>
+                                <input type="number" id="editSqft" value="${job.squareFootage || ''}" class="w-full p-3 rounded-lg edit-field">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Quote $</label>
+                                <input type="number" id="editQuote" value="${job.quoteAmount || ''}" class="w-full p-3 rounded-lg edit-field">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Amount Paid</label>
+                                <input type="number" id="editPaid" value="${job.amountPaid || ''}" class="w-full p-3 rounded-lg edit-field">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Payment Status</label>
+                                <select id="editPayment" class="w-full p-3 rounded-lg edit-field">
+                                    <option value="unpaid" ${(job.paymentStatus || 'unpaid') === 'unpaid' ? 'selected' : ''}>Unpaid</option>
+                                    <option value="partial" ${job.paymentStatus === 'partial' ? 'selected' : ''}>Partial</option>
+                                    <option value="paid" ${job.paymentStatus === 'paid' ? 'selected' : ''}>Paid</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Follow-up</label>
+                                <input type="date" id="editFollowUp" value="${job.followUpDate || ''}" class="w-full p-3 rounded-lg edit-field">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Before Photos</label>
+                            <div id="editBeforeList" class="photo-grid"></div>
+                            <input type="file" accept="image/*" capture="environment" multiple onchange="handleEditPhotoUpload('before', this)" class="w-full p-2 rounded-lg edit-field mt-2">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">After Photos</label>
+                            <div id="editAfterList" class="photo-grid"></div>
+                            <input type="file" accept="image/*" capture="environment" multiple onchange="handleEditPhotoUpload('after', this)" class="w-full p-2 rounded-lg edit-field mt-2">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Notes</label>
+                            <textarea id="editNotes" rows="3" class="w-full p-3 rounded-lg edit-field resize-none">${(job.notes || '').replace(/</g, '&lt;')}</textarea>
+                        </div>
+                    </div>
+                    <div class="edit-footer">
+                        <div class="flex gap-2">
+                            <button onclick="openJobModal('${job.id}')" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold">
+                                Cancel
+                            </button>
+                            <button onclick="saveJobEdit('${job.id}')" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold">
+                                <i class="fas fa-save mr-2"></i>Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            // Render existing photos
+            renderEditPhotos();
+        }
+
+        function saveJobEdit(id) {
+            const updates = {
+                customerName: document.getElementById('editName').value.trim(),
+                customerPhone: document.getElementById('editPhone').value.trim(),
+                customerEmail: document.getElementById('editEmail').value.trim(),
+                quoteAmount: document.getElementById('editQuote').value,
+                address: document.getElementById('editAddress').value.trim(),
+                serviceType: document.getElementById('editService').value.trim(),
+                jobCategory: document.getElementById('editCategory').value,
+                jobDate: document.getElementById('editDate').value,
+                jobTime: document.getElementById('editTime').value,
+                jobDuration: document.getElementById('editDuration').value,
+                squareFootage: document.getElementById('editSqft').value,
+                status: document.getElementById('editStatus').value,
+                paymentStatus: document.getElementById('editPayment').value,
+                amountPaid: document.getElementById('editPaid').value,
+                followUpDate: document.getElementById('editFollowUp').value,
+                notes: document.getElementById('editNotes').value.trim(),
+                beforePhotos: editPhotoState.before,
+                afterPhotos: editPhotoState.after
+            };
+            CL_DATA.updateJob(id, updates);
+            loadData();
+            updateStats();
+            renderJobs();
+            showToast('Job updated!');
+            openJobModal(id); // Reopen detail view
+        }
+
+        // ── Prefill Estimate / Invoice ──────────────────────────
+        function prefillEstimate(id) {
+            const job = jobs.find(j => j.id === id);
+            if (!job) return;
+            safeSet('cl-estimate-prefill', {
+                name: job.customerName || '',
+                address: job.address || '',
+                squareFootage: job.squareFootage || '',
+                serviceType: job.serviceType || '',
+                notes: job.notes || '',
+                jobCategory: job.jobCategory || ''
+            });
+            closeJobModal();
+            window.location.href = 'estimate.html';
+        }
+
+        function prefillInvoice(id) {
+            const job = jobs.find(j => j.id === id);
+            if (!job) return;
+            safeSet('cl-invoice-prefill', {
+                name: job.customerName || '',
+                address: job.address || '',
+                phone: job.customerPhone || '',
+                squareFootage: job.squareFootage || '',
+                quoteAmount: job.quoteAmount || '',
+                jobDuration: job.jobDuration || '',
+                notes: job.notes || ''
+            });
+            closeJobModal();
+            window.location.href = 'invoice.html';
+        }
+
+        function markComplete(id) {
+            CL_DATA.updateJob(id, { status: 'completed' });
+            loadData();
+            updateStats();
+            renderJobs();
+        }
+
+        function markScheduled(id) {
+            CL_DATA.updateJob(id, { status: 'scheduled' });
+            loadData();
+            updateStats();
+            renderJobs();
+        }
+        
+        function deleteJob(id) {
+            if (confirm('Delete this job?')) {
+                CL_DATA.deleteJob(id);
+                loadData();
+                updateStats();
+                renderJobs();
+            }
+        }
+
+        // Add single job to Google Calendar
+        async function addToGoogleCalendar(id) {
+            const job = jobs.find(j => j.id === id);
+            if (!job || !job.jobDate) return;
+
+            // If connected, use API
+            if (accessToken && tokenExpiry > Date.now()) {
+                try {
+                    const result = await createCalendarEvent(job);
+                    CL_DATA.updateJob(id, { googleEventId: result.id });
+                    loadData();
+                    alert('Added to Google Calendar!');
+                    return;
+                } catch (err) {
+                    console.error('API error, falling back to URL');
+                }
+            }
+
+            // Fallback to URL
+            const jobDate = job.jobDate.replace(/-/g, '');
+            let startTime = '090000';
+            if (job.jobTime) {
+                const [hours, mins] = job.jobTime.split(':');
+                startTime = hours.padStart(2, '0') + mins.padStart(2, '0') + '00';
+            }
+            
+            const startHour = parseInt(startTime.substring(0, 2));
+            const endHour = startHour + 2;
+            const endTime = String(endHour).padStart(2, '0') + startTime.substring(2);
+
+            const title = encodeURIComponent(`🚿 ${job.serviceType || 'Pressure Wash'} - ${job.customerName}`);
+            const dates = `${jobDate}T${startTime}/${jobDate}T${endTime}`;
+            const details = encodeURIComponent(
+                `Customer: ${job.customerName}\nPhone: ${job.customerPhone}\n` +
+                (job.quoteAmount ? `Quote: $${job.quoteAmount}\n` : '') +
+                (job.notes ? `Notes: ${job.notes}` : '')
+            );
+            const location = job.address ? encodeURIComponent(job.address) : '';
+
+            window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${location}`, '_blank');
+        }
+
+        // Create event via API
+        async function createCalendarEvent(job) {
+            let startHour = 9, startMin = 0;
+            if (job.jobTime) {
+                [startHour, startMin] = job.jobTime.split(':').map(Number);
+            }
+            
+            const startDate = new Date(job.jobDate + 'T00:00:00');
+            startDate.setHours(startHour, startMin, 0);
+            
+            const endDate = new Date(startDate);
+            endDate.setHours(endDate.getHours() + 2);
+
+            const event = {
+                summary: `🚿 ${job.serviceType || 'Pressure Wash'} - ${job.customerName}`,
+                location: job.address || '',
+                description: `Customer: ${job.customerName}\nPhone: ${job.customerPhone}\n` +
+                    (job.quoteAmount ? `Quote: $${job.quoteAmount}\n` : '') +
+                    (job.notes ? `Notes: ${job.notes}` : ''),
+                start: {
+                    dateTime: startDate.toISOString(),
+                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                },
+                end: {
+                    dateTime: endDate.toISOString(),
+                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                },
+                reminders: {
+                    useDefault: false,
+                    overrides: [{ method: 'popup', minutes: 60 }, { method: 'popup', minutes: 15 }]
+                }
+            };
+
+            const response = await gapi.client.calendar.events.insert({
+                calendarId: 'primary',
+                resource: event
+            });
+
+            return response.result;
+        }
+
+        // Sync all upcoming jobs
+        async function syncAllToGCal() {
+            const today = new Date().toISOString().split('T')[0];
+            const upcoming = jobs.filter(j => 
+                j.jobDate >= today && 
+                j.status === 'scheduled' && 
+                !j.googleEventId  // Only sync jobs not already synced
+            );
+            
+            if (upcoming.length === 0) {
+                alert('All jobs are already synced!');
+                return;
+            }
+
+            // If connected, use API for bulk sync
+            if (accessToken && tokenExpiry > Date.now()) {
+                const syncBtn = document.getElementById('syncBtn');
+                if (syncBtn) {
+                    syncBtn.disabled = true;
+                    syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Syncing...';
+                }
+
+                let synced = 0;
+                for (const job of upcoming) {
+                    try {
+                        const result = await createCalendarEvent(job);
+                        CL_DATA.updateJob(job.id, { googleEventId: result.id });
+                        synced++;
+                    } catch (err) {
+                        console.error('Failed to sync:', job.customerName, err);
+                    }
+                }
+
+                loadData();
+                if (syncBtn) {
+                    syncBtn.disabled = false;
+                    syncBtn.innerHTML = '<i class="fab fa-google mr-2"></i><span id="syncBtnText">Sync ✓</span>';
+                }
+                alert(`Synced ${synced} job(s) to Google Calendar!`);
+                renderJobs();
+            } else {
+                // Fallback: open each in new tab
+                if (confirm(`Add ${upcoming.length} job(s) to Google Calendar?\n\nSign in with Google for one-click sync!`)) {
+                    upcoming.forEach((job, i) => {
+                        setTimeout(() => addToGoogleCalendar(job.id), i * 500);
+                    });
+                }
+            }
+        }
+
+        // ── Document Functions ──────────────────────────────────
+        function openDocumentForm(type, jobId) {
+            closeJobModal();
+            if (type === 'estimate') {
+                // Pre-fill and go to estimate page
+                const job = jobs.find(j => j.id === jobId);
+                if (job) {
+                    safeSet('cl-estimate-prefill', {
+                        name: job.customerName || '',
+                        address: job.address || '',
+                        squareFootage: job.squareFootage || '',
+                        serviceType: job.serviceType || '',
+                        notes: job.notes || '',
+                        jobCategory: job.jobCategory || ''
+                    });
+                }
+                window.location.href = `estimate.html?jobId=${jobId}`;
+            } else if (type === 'invoice') {
+                const job = jobs.find(j => j.id === jobId);
+                if (job) {
+                    safeSet('cl-invoice-prefill', {
+                        name: job.customerName || '',
+                        address: job.address || '',
+                        phone: job.customerPhone || '',
+                        squareFootage: job.squareFootage || '',
+                        quoteAmount: job.quoteAmount || '',
+                        jobDuration: job.jobDuration || '',
+                        notes: job.notes || ''
+                    });
+                }
+                window.location.href = `invoice.html?jobId=${jobId}`;
+            } else if (type === 'waiver') {
+                window.location.href = `waiver.html?jobId=${jobId}`;
+            }
+        }
+
+        function viewDocument(jobId, docType, index) {
+            const job = jobs.find(j => j.id === jobId);
+            if (!job || !job.documents || !job.documents[docType] || !job.documents[docType][index]) {
+                alert('Document not found');
+                return;
+            }
+            
+            const doc = job.documents[docType][index];
+            const docModal = document.getElementById('documentModal');
+            const docContent = document.getElementById('documentContent');
+            const docTitle = document.getElementById('documentModal-title');
+            
+            // Set title
+            const typeNames = { estimates: 'Estimate', invoices: 'Invoice', waivers: 'Waiver' };
+            docTitle.textContent = `${typeNames[docType]} ${index + 1}`;
+            
+            // Show the image/PDF
+            if (doc.pdfDataUrl) {
+                docContent.innerHTML = `
+                    <div class="text-center">
+                        <img src="${doc.pdfDataUrl}" alt="Document" style="max-width: 100%; border: 1px solid #475569; border-radius: 8px;">
+                    </div>
+                    <div class="flex gap-2 mt-4">
+                        <a href="${doc.pdfDataUrl}" download="${typeNames[docType]}-${job.customerName || 'document'}.png" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold text-center">
+                            <i class="fas fa-download mr-2"></i>Download
+                        </a>
+                        <button onclick="deleteDocument('${jobId}', '${docType}', ${index})" class="flex-1 bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
+                            <i class="fas fa-trash mr-2"></i>Delete
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 text-center mt-3">
+                        Created: ${new Date(doc.createdAt).toLocaleString()}
+                    </p>
+                `;
+            } else {
+                docContent.innerHTML = `
+                    <div class="text-center text-gray-400 py-8">
+                        <i class="fas fa-file-alt text-4xl mb-3"></i>
+                        <p>Document preview not available</p>
+                    </div>
+                `;
+            }
+            
+            document.body.classList.add('modal-open');
+            openModal('documentModal');
+        }
+
+        function closeDocumentModal() {
+            document.body.classList.remove('modal-open');
+            closeModal('documentModal');
+        }
+
+        function deleteDocument(jobId, docType, index) {
+            if (!confirm('Delete this document?')) return;
+            
+            const job = jobs.find(j => j.id === jobId);
+            if (job && job.documents && job.documents[docType]) {
+                job.documents[docType].splice(index, 1);
+                CL_DATA.updateJob(job.id, { documents: job.documents });
+                loadData();
+                closeDocumentModal();
+                showToast('Document deleted');
+            }
+        }
+
+        // Refresh on visibility
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                loadData();
+                updateStats();
+                renderJobs();
+            }
+        });
+    </script>
+</body>
+</html>

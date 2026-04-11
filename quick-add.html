@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="theme-color" content="#020617">
+    <title>Quick Add - Clearline</title>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        window.tailwind = {
+            config: {
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: '#0ea5e9',
+                            secondary: '#38bdf8',
+                            dark: '#0f172a',
+                            darker: '#020617',
+                            accent: '#06b6d4',
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="app.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="data-migration.js"></script>
+    
+    <style>
+        input::placeholder { color: #475569; }
+        .quick-btn {
+            transition: all 0.12s ease;
+            will-change: transform;
+        }
+        .quick-btn:active {
+            transform: scale(0.96);
+            opacity: 0.9;
+        }
+        .action-btn {
+            transition: all 0.15s ease;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+        .action-btn:active {
+            transform: scale(0.97);
+            filter: brightness(0.9);
+        }
+        .service-chip {
+            transition: all 0.12s ease;
+            font-weight: 500;
+        }
+        .service-chip.selected {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            border-color: transparent;
+            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.4);
+            color: white;
+        }
+        .time-chip {
+            transition: all 0.12s ease;
+            font-weight: 500;
+        }
+        .time-chip.selected {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            border-color: transparent;
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+            color: white;
+        }
+        .success-toast {
+            animation: slideUp 0.3s ease, fadeOut 0.3s ease 1.5s forwards;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+        .label-text {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        /* Hide scrollbar but keep functionality */
+        .app-content::-webkit-scrollbar { width: 0; height: 0; }
+        .app-content { scrollbar-width: none; }
+        /* Smooth list animations */
+        .job-item {
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="app-header-inner">
+            <h1>Add Job</h1>
+            <button onclick="clearForm()" class="header-btn header-btn-right" style="color: var(--primary); font-size: 13px; font-weight: 600;">Clear</button>
+        </div>
+    </header>
+
+    <main class="app-content">
+      <div class="content-wrapper">
+        <!-- Quick Actions Row -->
+        <div class="flex gap-2 mb-3">
+            <button onclick="openCustomerPicker()" class="flex-1 glass-card rounded-2xl p-3 flex items-center justify-center gap-2 quick-btn">
+                <i class="fas fa-users text-lg text-blue-400"></i>
+                <span class="font-semibold text-sm">Existing</span>
+            </button>
+            <label class="flex-1 glass-card rounded-2xl p-3 flex items-center justify-center gap-2 quick-btn cursor-pointer">
+                <i class="fas fa-file-import text-lg text-green-400"></i>
+                <span class="font-semibold text-sm">Import VCF</span>
+                <input type="file" accept=".vcf,text/vcard" onchange="importVCF(this)" class="hidden">
+            </label>
+        </div>
+
+        <!-- Selected Customer Banner -->
+        <div id="selectedCustomerBanner" class="hidden mb-3 bg-gradient-to-r from-blue-900/40 to-blue-800/20 border border-blue-500/30 rounded-2xl p-3">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="label-text text-blue-400">Scheduling for</p>
+                    <p class="font-semibold text-white" id="selectedCustomerName"></p>
+                </div>
+                <button onclick="clearSelectedCustomer()" class="text-blue-400 w-8 h-8 flex items-center justify-center rounded-full bg-blue-500/20 quick-btn">
+                    <i class="fas fa-times text-sm"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick Form -->
+        <div class="glass-card rounded-2xl p-3 space-y-2">
+            <!-- Name & Phone Row -->
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="label-text block mb-0.5">Name *</label>
+                    <input type="text" id="qName" placeholder="John Smith" class="w-full p-2 rounded-lg text-sm" autocomplete="name">
+                </div>
+                <div>
+                    <label class="label-text block mb-0.5">Phone</label>
+                    <input type="tel" id="qPhone" placeholder="803-555-1234" class="w-full p-2 rounded-lg text-sm" autocomplete="tel">
+                </div>
+            </div>
+
+            <!-- Address with Current Location -->
+            <div>
+                <div class="flex justify-between items-center mb-0.5">
+                    <label class="label-text">Address <span id="addressStatus" class="text-green-400"></span></label>
+                    <button type="button" onclick="useCurrentLocation()" class="text-[10px] text-primary">
+                        <i class="fas fa-location-crosshairs mr-1"></i>Current
+                    </button>
+                </div>
+                <input type="text" id="qAddress" placeholder="Start typing..." class="w-full p-2 rounded-lg text-sm" autocomplete="off">
+            </div>
+
+            <!-- Service Type - Multi-select Chips -->
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <label class="label-text">Services (tap multiple)</label>
+                    <label class="flex items-center gap-1.5 cursor-pointer">
+                        <span class="text-[10px] text-gray-400">Other Job Type</span>
+                        <input type="checkbox" id="notPressureWashing" onchange="toggleNotPW()" class="hidden">
+                        <div id="notPwToggle" class="w-8 h-4 rounded-full bg-slate-600 relative transition-colors" style="flex-shrink:0;">
+                            <div class="w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 left-0.5 transition-all" id="notPwDot"></div>
+                        </div>
+                    </label>
+                </div>
+                <div class="flex flex-wrap gap-1" id="serviceChips"></div>
+                <input type="text" id="otherServiceInput" placeholder="Describe the service..." class="w-full p-2 rounded-lg text-sm mt-1 hidden">
+            </div>
+
+            <!-- Date & Time Row -->
+            <div class="grid grid-cols-5 gap-1">
+                <div class="col-span-2">
+                    <label class="label-text block mb-0.5">Date</label>
+                    <input type="date" id="qDate" class="w-full p-2 rounded-lg text-sm">
+                </div>
+                <div class="col-span-2">
+                    <label class="label-text block mb-0.5">Time</label>
+                    <input type="time" id="qTime" class="w-full p-2 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="label-text block mb-0.5">Min</label>
+                    <input type="number" id="qDuration" placeholder="60" class="w-full p-2 rounded-lg text-sm text-center">
+                </div>
+            </div>
+
+            <!-- Quick Time Buttons -->
+            <div class="flex gap-1">
+                <button type="button" onclick="setQuickTime('08:00')" class="time-chip flex-1 py-1.5 rounded-lg border border-slate-600/50 text-[10px]">8AM</button>
+                <button type="button" onclick="setQuickTime('09:00')" class="time-chip flex-1 py-1.5 rounded-lg border border-slate-600/50 text-[10px]">9AM</button>
+                <button type="button" onclick="setQuickTime('10:00')" class="time-chip flex-1 py-1.5 rounded-lg border border-slate-600/50 text-[10px]">10AM</button>
+                <button type="button" onclick="setQuickTime('13:00')" class="time-chip flex-1 py-1.5 rounded-lg border border-slate-600/50 text-[10px]">1PM</button>
+                <button type="button" onclick="setQuickTime('14:00')" class="time-chip flex-1 py-1.5 rounded-lg border border-slate-600/50 text-[10px]">2PM</button>
+                <button type="button" onclick="setQuickTime('15:00')" class="time-chip flex-1 py-1.5 rounded-lg border border-slate-600/50 text-[10px]">3PM</button>
+            </div>
+
+            <!-- Quote & Sqft -->
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="label-text block mb-0.5">Quote $</label>
+                    <input type="number" id="qQuote" placeholder="150" class="w-full p-2 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="label-text block mb-0.5">Sq Ft</label>
+                    <input type="number" id="qSqft" placeholder="500" class="w-full p-2 rounded-lg text-sm">
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div>
+                <label class="label-text block mb-0.5">Notes</label>
+                <textarea id="qNotes" rows="1" placeholder="Gate code, instructions..." class="w-full p-2 rounded-lg text-sm resize-none"></textarea>
+            </div>
+        </div>
+
+        <!-- Save Actions -->
+        <div class="glass-card rounded-2xl p-3 mt-4">
+            <button onclick="saveAndSchedule()" class="btn-primary">
+                <i class="fas fa-calendar-check mr-2"></i>Save & Schedule
+            </button>
+            <div class="flex gap-2 mt-2">
+                <button onclick="saveAsLead()" class="flex-1 bg-blue-600/80 text-white py-3 rounded-xl font-semibold action-btn text-sm">
+                    <i class="fas fa-user-plus mr-1"></i>Save as Lead
+                </button>
+                <button onclick="saveAsQuote()" class="flex-1 bg-amber-600/80 text-white py-3 rounded-xl font-semibold action-btn text-sm">
+                    <i class="fas fa-file-invoice mr-1"></i>Save as Quote
+                </button>
+            </div>
+        </div>
+
+        <!-- Recent Jobs Quick View -->
+        <div class="mt-4">
+            <h3 class="label-text mb-2">Today's Jobs</h3>
+            <div id="todaysJobs" class="space-y-2"></div>
+        </div>
+
+        <div class="mt-4 pb-4">
+            <h3 class="label-text mb-2">Upcoming</h3>
+            <div id="upcomingJobs" class="space-y-2"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Customer Picker Modal -->
+    <div id="customerPickerModal" class="fixed inset-0 bg-black/80 z-[200] hidden items-end justify-center">
+        <div class="bg-slate-800 rounded-t-2xl w-full overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                <h2 class="text-lg font-bold">Select Customer</h2>
+                <button onclick="closeCustomerPicker()" class="text-gray-400 text-2xl">&times;</button>
+            </div>
+            <div class="p-3 border-b border-slate-700">
+                <input type="text" id="customerSearchInput" oninput="filterCustomerList()" placeholder="Search by name or phone..." class="w-full p-3 rounded-xl bg-slate-700 border border-slate-600">
+            </div>
+            <div id="customerPickerList" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-20 left-4 right-4 z-50 flex justify-center pointer-events-none"></div>
+
+    <!-- Bottom Tab Bar -->
+
+    <script>
+        // Google Calendar API Config
+        const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+        function getGoogleClientId() {
+            try {
+                const settings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
+                return (settings.gcalClientId || '').trim();
+            } catch {
+                return '';
+            }
+        }
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+        let accessToken = localStorage.getItem('gcal-token') || null;
+        let tokenExpiry = localStorage.getItem('gcal-token-expiry') || 0;
+
+        // Now using CL_DATA for separate customers and jobs
+        let customers = [];
+        let jobs = [];
+        let selectedServices = [];
+        let selectedCustomerId = null;
+        let autocompleteTimeout = null;
+        
+        // Default service types (used if no custom ones in settings)
+        const DEFAULT_SERVICES = ['Driveway', 'House', 'Deck', 'Patio', 'Fence', 'Sidewalk', 'Roof', 'Gutter', 'Commercial'];
+        
+        function getServiceTypes() {
+            try {
+                const settings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
+                if (settings.serviceTypes && settings.serviceTypes.trim()) {
+                    return settings.serviceTypes.split(',').map(s => s.trim()).filter(Boolean);
+                }
+            } catch(e) {}
+            return DEFAULT_SERVICES;
+        }
+        
+        function renderServiceChips() {
+            const container = document.getElementById('serviceChips');
+            const services = getServiceTypes();
+            container.innerHTML = services.map(service => 
+                `<button type="button" onclick="toggleService(this, '${service.replace(/'/g, "\\'")}')"
+                    class="service-chip px-2 py-1 rounded-full border border-slate-600/50 text-xs">${service}</button>`
+            ).join('') + 
+            `<button type="button" onclick="toggleOtherService(this)" id="otherChip"
+                class="service-chip px-2 py-1 rounded-full border border-slate-600/50 text-xs">Other</button>`;
+        }
+        
+        function loadData() {
+            customers = CL_DATA.getCustomers();
+            jobs = CL_DATA.getJobs();
+        }
+        let googleScriptsPromise = null;
+        function loadGoogleScripts() {
+            if (googleScriptsPromise) return googleScriptsPromise;
+            googleScriptsPromise = new Promise((resolve, reject) => {
+                let pending = 2;
+                const done = () => { if (--pending === 0) resolve(); };
+                const fail = () => reject();
+                const gapiSrc = 'https://apis.google.com/js/api.js';
+                const gisSrc = 'https://accounts.google.com/gsi/client';
+                if (document.querySelector(`script[src="${gapiSrc}"]`)) {
+                    pending--;
+                } else {
+                    const s1 = document.createElement('script');
+                    s1.src = gapiSrc;
+                    s1.onload = done;
+                    s1.onerror = fail;
+                    document.head.appendChild(s1);
+                }
+                if (document.querySelector(`script[src="${gisSrc}"]`)) {
+                    pending--;
+                } else {
+                    const s2 = document.createElement('script');
+                    s2.src = gisSrc;
+                    s2.onload = done;
+                    s2.onerror = fail;
+                    document.head.appendChild(s2);
+                }
+                if (pending === 0) resolve();
+            });
+            return googleScriptsPromise;
+        }
+
+        function ensureGoogleApis() {
+            return loadGoogleScripts().then(() => {
+                if (typeof gapi !== 'undefined') gapiLoaded();
+                if (typeof google !== 'undefined' && google.accounts) gisLoaded();
+            });
+        }
+
+        // Initialize Google API
+        function gapiLoaded() {
+            if (gapiInited) return;
+            gapi.load('client', async () => {
+                await gapi.client.init({});
+                await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest');
+                gapiInited = true;
+                checkGoogleAuth();
+            });
+        }
+
+        function gisLoaded() {
+            if (gisInited) return;
+            const clientId = getGoogleClientId();
+            if (!clientId) {
+                updateGoogleClientNote();
+                return;
+            }
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: clientId,
+                scope: SCOPES,
+                callback: (response) => {
+                    if (response.error) {
+                        console.error('Token error:', response);
+                        return;
+                    }
+                    accessToken = response.access_token;
+                    const expiry = Date.now() + (response.expires_in * 1000);
+                    localStorage.setItem('gcal-token', accessToken);
+                    localStorage.setItem('gcal-token-expiry', expiry);
+                    tokenExpiry = expiry;
+                    updateGoogleUI(true);
+                },
+            });
+            gisInited = true;
+            checkGoogleAuth();
+        }
+        function updateGoogleClientNote() {
+            const note = document.getElementById('gcalClientNote');
+            const signInBtn = document.querySelector('#googleSignInSection button');
+            const hasId = !!getGoogleClientId();
+            if (note) note.classList.toggle('hidden', hasId);
+            if (signInBtn) {
+                signInBtn.disabled = !hasId;
+                signInBtn.style.opacity = hasId ? '1' : '0.6';
+                signInBtn.style.cursor = hasId ? 'pointer' : 'not-allowed';
+            }
+        }
+        function configureGoogleClientId() {
+            const current = getGoogleClientId();
+            const next = prompt('Enter Google Calendar Client ID', current || '');
+            if (!next) return;
+            const settings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
+            settings.gcalClientId = next.trim();
+            localStorage.setItem('cl-settings', JSON.stringify(settings));
+            updateGoogleClientNote();
+            ensureGoogleApis();
+        }
+
+        function checkGoogleAuth() {
+            // Check if we have a valid token
+            if (accessToken && tokenExpiry > Date.now()) {
+                updateGoogleUI(true);
+            } else {
+                accessToken = null;
+                localStorage.removeItem('gcal-token');
+                localStorage.removeItem('gcal-token-expiry');
+                updateGoogleUI(false);
+            }
+        }
+
+        function updateGoogleUI(isConnected) {
+            const signInSection = document.getElementById('googleSignInSection');
+            const connectedBadge = document.getElementById('googleConnectedBadge');
+            const gcalBtnText = document.getElementById('gcalBtnText');
+            
+            if (isConnected) {
+                signInSection.classList.add('hidden');
+                connectedBadge.classList.remove('hidden');
+                gcalBtnText.textContent = 'GCal ✓';
+            } else {
+                signInSection.classList.remove('hidden');
+                connectedBadge.classList.add('hidden');
+                gcalBtnText.textContent = 'GCal';
+            }
+        }
+
+        function signInGoogle() {
+            if (!getGoogleClientId()) {
+                alert('Google Calendar client ID is not configured.');
+                return;
+            }
+            ensureGoogleApis().then(() => {
+                if (!gisInited) {
+                    alert('Google API still loading, please try again');
+                    return;
+                }
+                tokenClient.requestAccessToken({ prompt: 'consent' });
+            }).catch(() => alert('Failed to load Google API'));
+        }
+
+        function signOutGoogle() {
+            if (accessToken) {
+                google.accounts.oauth2.revoke(accessToken);
+            }
+            accessToken = null;
+            localStorage.removeItem('gcal-token');
+            localStorage.removeItem('gcal-token-expiry');
+            updateGoogleUI(false);
+        }
+
+        // Set today's date as default
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            renderServiceChips();
+            document.getElementById('qDate').value = new Date().toISOString().split('T')[0];
+            checkContactsSupport();
+            renderTodaysJobs();
+            renderUpcomingJobs();
+            loadMapsScript();
+            updateGoogleClientNote();
+            
+            // Check URL parameters for prefill
+            const urlParams = new URLSearchParams(window.location.search);
+            const customerIdParam = urlParams.get('customerId');
+            const dateParam = urlParams.get('date');
+            const typeParam = urlParams.get('type');
+            
+            // If customerId param, pre-select that customer
+            if (customerIdParam) {
+                const customer = customers.find(c => c.id === customerIdParam);
+                if (customer) {
+                    selectCustomer(customerIdParam);
+                }
+            }
+            
+            // If date param, pre-fill date
+            if (dateParam) {
+                document.getElementById('qDate').value = dateParam;
+            }
+            
+            // If type=lead, set up for lead entry (no date)
+            if (typeParam === 'lead') {
+                document.getElementById('qDate').value = '';
+                document.querySelector('h1').textContent = 'Add Lead';
+                // Clean up URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+            
+            if (accessToken && tokenExpiry > Date.now() && getGoogleClientId()) {
+                ensureGoogleApis();
+            } else {
+                updateGoogleUI(false);
+            }
+            setActiveNav();
+        });
+
+        // Fallback for API loading
+        window.onload = function() {
+            if (accessToken && tokenExpiry > Date.now() && getGoogleClientId()) {
+                setTimeout(() => ensureGoogleApis(), 500);
+            }
+        };
+
+        // Maps API Key (from config.js)
+        const MAPS_API_KEY = window.CL_SECRETS?.mapsApiKey || '';
+
+        function loadMapsScript() {
+            const key = MAPS_API_KEY;
+            if (window.google && window.google.maps) {
+                initMapsAutocomplete();
+                return;
+            }
+            const src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&callback=initMapsAutocomplete`;
+            if (document.querySelector(`script[src="${src}"]`)) return;
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+
+        // Google Maps Autocomplete
+        let autocomplete;
+        function initMapsAutocomplete() {
+            const addressInput = document.getElementById('qAddress');
+            if (!addressInput) return;
+            
+            autocomplete = new google.maps.places.Autocomplete(addressInput, {
+                types: ['address'],
+                componentRestrictions: { country: 'us' },
+                fields: ['formatted_address', 'geometry']
+            });
+
+            autocomplete.addListener('place_changed', () => {
+                const place = autocomplete.getPlace();
+                if (place.formatted_address) {
+                    addressInput.value = place.formatted_address;
+                    document.getElementById('addressStatus').textContent = '✓';
+                    setTimeout(() => {
+                        document.getElementById('addressStatus').textContent = '';
+                    }, 2000);
+                }
+            });
+
+            // Style the autocomplete dropdown
+            const style = document.createElement('style');
+            style.textContent = `
+                .pac-container { background: #1e293b; border: 1px solid #334155; border-radius: 12px; margin-top: 4px; font-family: system-ui; }
+                .pac-item { padding: 10px 12px; color: #f8fafc; border-top: 1px solid #334155; cursor: pointer; }
+                .pac-item:first-child { border-top: none; }
+                .pac-item:hover, .pac-item-selected { background: #334155; }
+                .pac-item-query { color: #0ea5e9; }
+                .pac-matched { color: #38bdf8; font-weight: bold; }
+                .pac-icon { display: none; }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // Make it globally available for the callback
+        window.initMapsAutocomplete = initMapsAutocomplete;
+
+        // VCF Import
+        function importVCF(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const vcfText = e.target.result;
+                const contact = parseVCF(vcfText);
+                
+                if (contact.name) {
+                    document.getElementById('qName').value = contact.name;
+                }
+                if (contact.phone) {
+                    document.getElementById('qPhone').value = contact.phone;
+                }
+                if (contact.address) {
+                    document.getElementById('qAddress').value = contact.address;
+                }
+                if (contact.email) {
+                    // Store for later if needed
+                    document.getElementById('qName').dataset.email = contact.email;
+                }
+                
+                showSuccess('Contact imported!');
+            };
+            reader.readAsText(file);
+            input.value = ''; // Reset for next import
+        }
+
+        function parseVCF(vcfText) {
+            const contact = {};
+            const lines = vcfText.split(/\r?\n/);
+            
+            for (const line of lines) {
+                // Full name (preferred)
+                if (line.startsWith('FN:')) {
+                    contact.name = line.substring(3).trim();
+                }
+                // Structured name (fallback)
+                else if (line.startsWith('N:') && !contact.name) {
+                    const parts = line.substring(2).split(';');
+                    // N format: last;first;middle;prefix;suffix
+                    const firstName = parts[1] || '';
+                    const lastName = parts[0] || '';
+                    contact.name = `${firstName} ${lastName}`.trim();
+                }
+                // Phone number
+                else if (line.startsWith('TEL') || line.includes('TEL;')) {
+                    const match = line.match(/:(\+?[\d\s\-\(\)]+)/);
+                    if (match) {
+                        contact.phone = match[1].trim();
+                    }
+                }
+                // Email
+                else if (line.startsWith('EMAIL') || line.includes('EMAIL;')) {
+                    const match = line.match(/:(.+)/);
+                    if (match) {
+                        contact.email = match[1].trim();
+                    }
+                }
+                // Address
+                else if (line.startsWith('ADR') || line.includes('ADR;')) {
+                    const match = line.match(/:(.+)/);
+                    if (match) {
+                        // ADR format: PO;ext;street;city;state;zip;country
+                        const parts = match[1].split(';').filter(p => p.trim());
+                        contact.address = parts.join(', ');
+                    }
+                }
+            }
+            
+            return contact;
+        }
+
+        // Check if Contacts API is available (legacy, keeping for reference)
+        function checkContactsSupport() {
+            // VCF import works everywhere, no check needed
+        }
+
+        // Customer Picker
+        function openCustomerPicker() {
+            renderCustomerPickerList();
+            document.getElementById('customerPickerModal').classList.remove('hidden');
+            document.getElementById('customerPickerModal').classList.add('flex');
+            document.getElementById('customerSearchInput').value = '';
+            document.body.classList.add('modal-open');
+            document.getElementById('customerSearchInput').focus();
+        }
+
+        function closeCustomerPicker() {
+            document.getElementById('customerPickerModal').classList.add('hidden');
+            document.getElementById('customerPickerModal').classList.remove('flex');
+            document.body.classList.remove('modal-open');
+        }
+
+        function renderCustomerPickerList(searchTerm = '') {
+            const container = document.getElementById('customerPickerList');
+            
+            let filtered = [...customers];
+
+            if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                filtered = filtered.filter(c => 
+                    c.name.toLowerCase().includes(term) || 
+                    (c.phone && c.phone.includes(term)) ||
+                    (c.address && c.address.toLowerCase().includes(term))
+                );
+            }
+
+            // Sort by name
+            filtered.sort((a, b) => a.name.localeCompare(b.name));
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-400 py-8">
+                        <i class="fas fa-users text-3xl mb-2"></i>
+                        <p>${searchTerm ? 'No customers found' : 'No customers yet'}</p>
+                        <p class="text-sm">Add customers from the Customers page</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(c => {
+                // Get job count for this customer
+                const customerJobs = jobs.filter(j => j.customerId === c.id);
+                const jobCount = customerJobs.length;
+                return `
+                    <button onclick="selectCustomer('${c.id}')" class="w-full glass-card rounded-xl p-3 text-left flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold">${c.name}</p>
+                            <p class="text-sm text-gray-400">${c.phone || 'No phone'}</p>
+                            ${c.address ? `<p class="text-xs text-gray-500 truncate max-w-[200px]">${c.address}</p>` : ''}
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs text-gray-400">${jobCount} job${jobCount !== 1 ? 's' : ''}</span>
+                        </div>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function filterCustomerList() {
+            const searchTerm = document.getElementById('customerSearchInput').value;
+            renderCustomerPickerList(searchTerm);
+        }
+
+        function selectCustomer(id) {
+            const customer = customers.find(c => c.id === id);
+            if (!customer) return;
+
+            selectedCustomerId = id;
+
+            // Fill in the form with customer data (customer-only fields)
+            document.getElementById('qName').value = customer.name || '';
+            document.getElementById('qPhone').value = customer.phone || '';
+            document.getElementById('qAddress').value = customer.address || '';
+            document.getElementById('qNotes').value = customer.notes || '';
+            
+            // Clear job-specific fields (they're for the new job)
+            document.getElementById('qQuote').value = '';
+            document.getElementById('qSqft').value = '';
+
+            // Show selected banner
+            document.getElementById('selectedCustomerBanner').classList.remove('hidden');
+            document.getElementById('selectedCustomerName').textContent = customer.name;
+
+            closeCustomerPicker();
+        }
+
+        function clearSelectedCustomer() {
+            selectedCustomerId = null;
+            document.getElementById('selectedCustomerBanner').classList.add('hidden');
+        }
+
+        // Import from phone contacts
+        async function importContact() {
+            if (!('contacts' in navigator)) {
+                alert('Contact import requires a mobile browser with Contacts API support');
+                return;
+            }
+
+            try {
+                const props = ['name', 'tel', 'address'];
+                const opts = { multiple: false };
+                const contacts = await navigator.contacts.select(props, opts);
+                
+                if (contacts.length > 0) {
+                    const contact = contacts[0];
+                    
+                    if (contact.name && contact.name[0]) {
+                        document.getElementById('qName').value = contact.name[0];
+                    }
+                    if (contact.tel && contact.tel[0]) {
+                        document.getElementById('qPhone').value = contact.tel[0];
+                    }
+                    if (contact.address && contact.address[0]) {
+                        const addr = contact.address[0];
+                        const addrStr = [addr.streetAddress, addr.city, addr.region].filter(Boolean).join(', ');
+                        document.getElementById('qAddress').value = addrStr;
+                    }
+                }
+            } catch (err) {
+                console.log('Contact selection cancelled or failed:', err);
+            }
+        }
+
+        // Multi-select service toggle
+        let isNotPressureWashing = false;
+
+        function toggleService(btn, service) {
+            btn.classList.toggle('selected');
+            if (btn.classList.contains('selected')) {
+                if (!selectedServices.includes(service)) {
+                    selectedServices.push(service);
+                }
+            } else {
+                selectedServices = selectedServices.filter(s => s !== service);
+            }
+        }
+
+        function toggleOtherService(btn) {
+            btn.classList.toggle('selected');
+            const input = document.getElementById('otherServiceInput');
+            if (btn.classList.contains('selected')) {
+                input.classList.remove('hidden');
+                input.focus();
+            } else {
+                input.classList.add('hidden');
+                input.value = '';
+                selectedServices = selectedServices.filter(s => !s.startsWith('Other:'));
+            }
+        }
+
+        function toggleNotPW() {
+            isNotPressureWashing = document.getElementById('notPressureWashing').checked;
+            const toggle = document.getElementById('notPwToggle');
+            const dot = document.getElementById('notPwDot');
+            if (isNotPressureWashing) {
+                toggle.style.background = '#f59e0b';
+                dot.style.left = 'calc(100% - 0.5rem - 3.5px)';
+            } else {
+                toggle.style.background = '';
+                dot.style.left = '2px';
+            }
+        }
+        
+        // Current location
+        function useCurrentLocation() {
+            if (!navigator.geolocation) {
+                alert('Geolocation not supported');
+                return;
+            }
+            
+            document.getElementById('addressStatus').textContent = '...';
+            
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    try {
+                        const response = await fetch(`...&key=${encodeURIComponent(MAPS_API_KEY)}`);
+                        const data = await response.json();
+                        
+                        if (data.results && data.results[0]) {
+                            document.getElementById('qAddress').value = data.results[0].formatted_address;
+                            document.getElementById('addressStatus').textContent = '✓';
+                            setTimeout(() => document.getElementById('addressStatus').textContent = '', 2000);
+                        } else {
+                            document.getElementById('addressStatus').textContent = '';
+                            alert('Could not find address');
+                        }
+                    } catch (err) {
+                        document.getElementById('addressStatus').textContent = '';
+                        console.error('Geocoding error:', err);
+                        alert('Error getting address');
+                    }
+                },
+                (error) => {
+                    document.getElementById('addressStatus').textContent = '';
+                    alert('Could not get location: ' + error.message);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+
+        // Quick time selection
+        function setQuickTime(time) {
+            document.getElementById('qTime').value = time;
+            document.querySelectorAll('.time-chip').forEach(chip => {
+                chip.classList.remove('selected');
+            });
+            event.target.classList.add('selected');
+        }
+
+        // Get form data - now returns a JOB object
+        function getFormData() {
+            // If customer is selected, use their info
+            const existingCustomer = selectedCustomerId ? customers.find(c => c.id === selectedCustomerId) : null;
+            
+            // Combine selected services into string
+            let serviceList = [...selectedServices];
+            // Include "Other" text if chip is selected
+            const otherInput = document.getElementById('otherServiceInput');
+            if (document.getElementById('otherChip')?.classList.contains('selected') && otherInput?.value.trim()) {
+                serviceList.push('Other: ' + otherInput.value.trim());
+            }
+            const serviceType = serviceList.length > 0 
+                ? (isNotPressureWashing ? '[NOT PW] ' : '') + serviceList.join(', ') 
+                : (isNotPressureWashing ? '[NOT PW]' : '');
+            
+            const name = document.getElementById('qName').value.trim();
+            const phone = document.getElementById('qPhone').value.trim();
+            const address = document.getElementById('qAddress').value.trim();
+            
+            return {
+                id: 'job_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                customerId: selectedCustomerId || null,
+                customerName: name,
+                customerPhone: phone,
+                address: address,
+                serviceType: serviceType,
+                jobDate: document.getElementById('qDate').value,
+                jobTime: document.getElementById('qTime').value,
+                jobDuration: document.getElementById('qDuration').value || '60',
+                quoteAmount: document.getElementById('qQuote').value,
+                squareFootage: document.getElementById('qSqft').value,
+                status: 'new',
+                notes: document.getElementById('qNotes').value.trim(),
+                waiverSigned: false,
+                beforePhotos: [],
+                afterPhotos: [],
+                googleEventId: null,
+                followUpDate: '',
+                dateAdded: new Date().toISOString(),
+                lastUpdated: new Date().toISOString()
+            };
+        }
+
+        // Validate required fields
+        function validate() {
+            const name = document.getElementById('qName').value.trim();
+            
+            if (!name) {
+                alert('Please enter a name');
+                document.getElementById('qName').focus();
+                return false;
+            }
+            // Phone is now optional for jobs without customer info
+            return true;
+        }
+
+        // Save as lead (new status, no scheduling, no dates)
+        function saveAsLead() {
+            if (!validate()) return;
+            
+            const job = getFormData();
+            job.status = 'new';
+            
+            // Leads should NOT appear on the calendar - clear all dates
+            job.jobDate = '';
+            job.jobTime = '';
+            job.quoteDate = '';
+            
+            // Set follow-up for 2 days from now
+            const followUp = new Date();
+            followUp.setDate(followUp.getDate() + 2);
+            job.followUpDate = followUp.toISOString().split('T')[0];
+            
+            // Optionally create customer if name/phone provided
+            maybeCreateCustomer(job);
+            
+            CL_DATA.addJob(job);
+            loadData();
+            showSuccess('Lead saved!');
+            clearForm();
+        }
+
+        // Save as quote (has quote date, but no job date yet)
+        function saveAsQuote() {
+            if (!validate()) return;
+            
+            const job = getFormData();
+            job.status = 'quoted';
+            
+            // Quote has a quote date (today) but no job date
+            job.quoteDate = new Date().toISOString().split('T')[0];
+            job.jobDate = ''; // No job date until scheduled
+            job.jobTime = '';
+            
+            // Set follow-up for 3 days from now
+            const followUp = new Date();
+            followUp.setDate(followUp.getDate() + 3);
+            job.followUpDate = followUp.toISOString().split('T')[0];
+            
+            // Optionally create customer
+            maybeCreateCustomer(job);
+            
+            CL_DATA.addJob(job);
+            loadData();
+            showSuccess('Quote saved!');
+            clearForm();
+        }
+
+        // Save and schedule
+        function saveAndSchedule() {
+            if (!validate()) return;
+            
+            const job = getFormData();
+            job.status = job.jobDate ? 'scheduled' : 'quoted';
+            
+            // Optionally create customer if name/phone provided
+            maybeCreateCustomer(job);
+            
+            CL_DATA.addJob(job);
+            loadData();
+            showSuccess('Job scheduled!');
+            clearForm();
+            renderTodaysJobs();
+            renderUpcomingJobs();
+        }
+
+        // Helper: optionally create or link customer
+        function maybeCreateCustomer(job) {
+            // If already linked to customer, we're good
+            if (job.customerId) return;
+            
+            // If we have name and phone, find or create customer and link
+            if (job.customerName && job.customerPhone) {
+                const customer = CL_DATA.findOrCreateCustomer(
+                    job.customerName,
+                    job.customerPhone,
+                    '', // email
+                    job.address
+                );
+                if (customer) {
+                    job.customerId = customer.id;
+                }
+            }
+        }
+
+        // Save and sync to Google Calendar (API)
+        async function saveAndSyncToGCal() {
+            if (!validate()) return;
+            
+            const job = getFormData();
+            job.status = 'scheduled';
+            
+            if (!job.jobDate) {
+                alert('Please select a date for Google Calendar');
+                return;
+            }
+            
+            // Optionally create customer
+            maybeCreateCustomer(job);
+            
+            CL_DATA.addJob(job);
+            
+            // If connected to Google, use API; otherwise fallback to URL
+            if (accessToken && tokenExpiry > Date.now()) {
+                try {
+                    const gcalEvent = await createGoogleCalendarEvent(job);
+                    // Update job with Google event ID
+                    CL_DATA.updateJob(job.id, { googleEventId: gcalEvent.id });
+                    showSuccess('Synced to Google Calendar!');
+                } catch (err) {
+                    console.error('Calendar API error:', err);
+                    // Fallback to URL method
+                    openGoogleCalendarURL(job);
+                }
+            } else {
+                openGoogleCalendarURL(job);
+            }
+            
+            loadData();
+            clearForm();
+            renderTodaysJobs();
+            renderUpcomingJobs();
+        }
+
+        // Create event via Google Calendar API
+        async function createGoogleCalendarEvent(job) {
+            // Build start/end times
+            let startHour = 9, startMin = 0;
+            if (job.jobTime) {
+                [startHour, startMin] = job.jobTime.split(':').map(Number);
+            }
+            const durationHours = job.jobDuration ? parseFloat(job.jobDuration) : 2;
+            
+            const startDate = new Date(job.jobDate + 'T00:00:00');
+            startDate.setHours(startHour, startMin, 0);
+            
+            const endDate = new Date(startDate);
+            endDate.setHours(endDate.getHours() + Math.floor(durationHours));
+            endDate.setMinutes(endDate.getMinutes() + Math.round((durationHours % 1) * 60));
+
+            const event = {
+                summary: `🚿 ${job.serviceType || 'Pressure Wash'} - ${job.customerName}`,
+                location: job.address || '',
+                description: 
+                    `Customer: ${job.customerName}\n` +
+                    `Phone: ${job.customerPhone}\n` +
+                    (job.quoteAmount ? `Quote: $${job.quoteAmount}\n` : '') +
+                    (job.squareFootage ? `Size: ${job.squareFootage} sq ft\n` : '') +
+                    (job.notes ? `\nNotes: ${job.notes}` : ''),
+                start: {
+                    dateTime: startDate.toISOString(),
+                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                },
+                end: {
+                    dateTime: endDate.toISOString(),
+                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                },
+                reminders: {
+                    useDefault: false,
+                    overrides: [
+                        { method: 'popup', minutes: 60 },
+                        { method: 'popup', minutes: 15 }
+                    ]
+                }
+            };
+
+            const response = await gapi.client.calendar.events.insert({
+                calendarId: 'primary',
+                resource: event
+            });
+
+            return response.result;
+        }
+
+        // Fallback: Open Google Calendar URL
+        function openGoogleCalendarURL(job) {
+            const jobDate = job.jobDate.replace(/-/g, '');
+            let startTime = '090000';
+            if (job.jobTime) {
+                const [hours, mins] = job.jobTime.split(':');
+                startTime = hours.padStart(2, '0') + mins.padStart(2, '0') + '00';
+            }
+            
+            const startHour = parseInt(startTime.substring(0, 2));
+            const endHour = startHour + 2;
+            const endTime = String(endHour).padStart(2, '0') + startTime.substring(2);
+
+            const title = encodeURIComponent(`🚿 ${job.serviceType || 'Pressure Wash'} - ${job.customerName}`);
+            const dates = `${jobDate}T${startTime}/${jobDate}T${endTime}`;
+            const details = encodeURIComponent(
+                `Customer: ${job.customerName}\n` +
+                `Phone: ${job.customerPhone}\n` +
+                (job.quoteAmount ? `Quote: $${job.quoteAmount}\n` : '') +
+                (job.notes ? `Notes: ${job.notes}` : '')
+            );
+            const location = job.address ? encodeURIComponent(job.address) : '';
+
+            const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${location}`;
+            window.open(url, '_blank');
+        }
+
+        // Show success toast
+        function showSuccess(msg) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'success-toast bg-green-500/90 backdrop-blur text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg';
+            toast.innerHTML = `<i class="fas fa-check mr-2"></i>${msg}`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        // Clear form
+        function clearForm() {
+            document.getElementById('qName').value = '';
+            document.getElementById('qPhone').value = '';
+            document.getElementById('qAddress').value = '';
+            document.getElementById('qDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('qTime').value = '';
+            document.getElementById('qDuration').value = '';
+            document.getElementById('qQuote').value = '';
+            document.getElementById('qSqft').value = '';
+            document.getElementById('qNotes').value = '';
+            selectedServices = [];
+            selectedCustomerId = null;
+            isNotPressureWashing = false;
+            document.querySelectorAll('.service-chip, .time-chip').forEach(c => c.classList.remove('selected'));
+            document.getElementById('selectedCustomerBanner').classList.add('hidden');
+            document.getElementById('otherServiceInput').classList.add('hidden');
+            document.getElementById('otherServiceInput').value = '';
+            document.getElementById('notPressureWashing').checked = false;
+            toggleNotPW();
+            
+            // Refresh data
+            loadData();
+        }
+
+        // Render today's jobs - now from jobs array
+        function renderTodaysJobs() {
+            const today = new Date().toISOString().split('T')[0];
+            const todaysJobs = jobs.filter(j => j.jobDate === today && j.status === 'scheduled');
+            
+            const container = document.getElementById('todaysJobs');
+            
+            if (todaysJobs.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No jobs today</p>';
+                return;
+            }
+
+            container.innerHTML = todaysJobs.map(job => `
+                <div class="glass-card rounded-xl p-3 flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold">${job.customerName}</p>
+                        <p class="text-sm text-gray-400">${job.jobTime || ''} ${job.serviceType || ''}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        ${job.customerPhone ? `
+                        <a href="tel:${job.customerPhone}" class="bg-green-600/20 text-green-400 px-3 py-2 rounded-lg">
+                            <i class="fas fa-phone"></i>
+                        </a>
+                        ` : ''}
+                        ${job.address ? `
+                            <a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="bg-blue-600/20 text-blue-400 px-3 py-2 rounded-lg">
+                                <i class="fas fa-directions"></i>
+                            </a>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render upcoming jobs - now from jobs array
+        function renderUpcomingJobs() {
+            const today = new Date().toISOString().split('T')[0];
+            const upcoming = jobs
+                .filter(j => j.jobDate > today && j.status === 'scheduled')
+                .sort((a, b) => new Date(a.jobDate) - new Date(b.jobDate))
+                .slice(0, 3);
+            
+            const container = document.getElementById('upcomingJobs');
+            
+            if (upcoming.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No upcoming jobs</p>';
+                return;
+            }
+
+            container.innerHTML = upcoming.map(job => {
+                const date = new Date(job.jobDate + 'T12:00:00');
+                const dayName = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                return `
+                    <div class="glass-card rounded-xl p-3 flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold">${job.customerName}</p>
+                            <p class="text-sm text-purple-400">${dayName} ${job.jobTime || ''}</p>
+                        </div>
+                        ${job.customerPhone ? `
+                        <a href="tel:${job.customerPhone}" class="text-primary">
+                            <i class="fas fa-phone"></i>
+                        </a>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Refresh on visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                loadData();
+                renderTodaysJobs();
+                renderUpcomingJobs();
+            }
+        });
+    </script>
+
+    <!-- Bottom Tab Bar -->
+    <nav class="tab-bar">
+        <div class="tab-bar-inner">
+            <a href="index.html" class="tab-item">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </a>
+            <a href="jobs.html" class="tab-item">
+                <i class="fas fa-briefcase"></i>
+                <span>Jobs</span>
+            </a>
+            <a href="quick-add.html" class="tab-item tab-item-add active">
+                <div class="tab-add-btn">
+                    <i class="fas fa-plus"></i>
+                </div>
+                <span>Add</span>
+            </a>
+            <a href="calendar.html" class="tab-item">
+                <i class="fas fa-calendar"></i>
+                <span>Calendar</span>
+            </a>
+            <a href="customer-tracker.html" class="tab-item">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </a>
+        </div>
+    </nav>
+</body>
+</html>

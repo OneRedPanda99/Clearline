@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="theme-color" content="#020617">
+    <title>Calendar - Clearline</title>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        window.tailwind = {
+            config: {
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: '#0ea5e9',
+                            secondary: '#38bdf8',
+                            dark: '#0f172a',
+                            darker: '#020617',
+                            accent: '#06b6d4',
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="app.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="data-migration.js"></script>
+    <style>
+        .calendar-day {
+            aspect-ratio: 1;
+            min-height: 40px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .calendar-day:hover {
+            background: rgba(255,255,255,0.05);
+            transform: scale(1.05);
+        }
+        .calendar-day:active {
+            transform: scale(0.92);
+            opacity: 0.8;
+        }
+        .calendar-day.today {
+            border: 2px solid #0ea5e9;
+            box-shadow: 0 0 8px rgba(14, 165, 233, 0.3);
+        }
+        .calendar-day.has-jobs {
+            background: rgba(139, 92, 246, 0.2);
+        }
+        .job-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+        }
+        .job-dot.scheduled { background: #8b5cf6; }
+        .job-dot.completed { background: #10b981; }
+        .job-dot.quoted { background: #f59e0b; }
+        .job-dot.new { background: #3b82f6; }
+        .job-dot.followup { background: #f59e0b; }
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 200;
+            align-items: flex-end;
+            justify-content: center;
+            animation: modalFadeIn 0.2s ease;
+        }
+        .modal.show,
+        .modal.modal-open,
+        .modal:not([hidden]) { display: flex !important; }
+        .modal-content {
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 10px 10px 0 0;
+            width: 100%;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-bottom: var(--safe-bottom);
+            animation: modalSlideUp 0.25s ease;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes modalSlideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-new { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .status-quoted { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        .status-scheduled { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+        .status-completed { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .section-title {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .view-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .view-btn:hover:not(.active) {
+            background: rgba(255,255,255,0.05);
+            color: #cbd5e1;
+        }
+        .view-btn.active {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+        }
+        .week-day-header {
+            text-align: center;
+            padding: 8px 4px;
+            border-radius: 8px;
+        }
+        .week-day-header.today {
+            background: rgba(14, 165, 233, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="app-header-inner">
+            <h1>Calendar</h1>
+        </div>
+    </header>
+
+    <main class="app-content">
+      <div class="content-wrapper">
+        <!-- View Tabs -->
+        <div class="flex gap-1 mb-3 bg-slate-800/60 p-1 rounded-xl">
+            <button onclick="setView('month')" data-view="month" class="view-btn flex-1 py-2 rounded-lg text-xs font-semibold text-gray-400 active">Month</button>
+            <button onclick="setView('week')" data-view="week" class="view-btn flex-1 py-2 rounded-lg text-xs font-semibold text-gray-400">Week</button>
+            <button onclick="setView('day')" data-view="day" class="view-btn flex-1 py-2 rounded-lg text-xs font-semibold text-gray-400">Day</button>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex items-center justify-between mb-3">
+            <button onclick="navigate(-1)" class="p-2 text-primary action-btn rounded-xl">
+                <i class="fas fa-chevron-left text-lg"></i>
+            </button>
+            <div class="text-center">
+                <button onclick="goToToday()" class="text-lg font-semibold" id="dateTitle"></button>
+                <p class="text-[10px] text-gray-500" id="dateSubtitle">Tap a day to view or add</p>
+            </div>
+            <button onclick="navigate(1)" class="p-2 text-primary action-btn rounded-xl">
+                <i class="fas fa-chevron-right text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Calendar Views Container -->
+        <div id="calendarContainer" class="glass-card rounded-2xl p-3 mb-3"></div>
+
+        <!-- Legend (for month view) -->
+        <div id="calendarLegend" class="flex justify-center gap-4 mb-3 text-[10px]">
+            <div class="flex items-center gap-1">
+                <span class="job-dot scheduled"></span>
+                <span class="text-gray-500">Scheduled</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <span class="job-dot completed"></span>
+                <span class="text-gray-500">Completed</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <span class="job-dot quoted"></span>
+                <span class="text-gray-500">Follow-up</span>
+            </div>
+        </div>
+
+        <!-- Upcoming Jobs -->
+        <h3 class="section-title mb-2">Upcoming Jobs</h3>
+        <div id="upcomingJobs" class="space-y-2 pb-4"></div>
+      </div>
+    </main>
+
+    <!-- Day Detail Modal -->
+    <div id="dayModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="dayModal-title" hidden>
+        <div class="modal-content" role="document">
+            <div class="modal-header sticky top-0 bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
+                <h2 id="dayModal-title" class="text-lg font-bold"></h2>
+                <button class="modal-close-btn text-gray-400 text-2xl" onclick="closeDayModal()"></button>
+            </div>
+            <div id="dayContent" class="p-4"></div>
+        </div>
+    </div>
+
+    <script>
+        // Use CL_DATA for jobs
+        let jobs = [];
+        let currentDate = new Date();
+        let currentMonth = currentDate.getMonth();
+        let currentYear = currentDate.getFullYear();
+let currentView = safeGet('cl-calendar-view', null) || localStorage.getItem('cl-calendar-view') || 'month';
+        let selectedDate = new Date(); // For day/week view
+        let calendarJobsCache = {};
+
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        
+        function loadData() {
+            jobs = CL_DATA.getJobs();
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            // Load saved view preference
+            const settings = safeGet('cl-settings', {});
+            if (settings.calendarView) currentView = settings.calendarView;
+            
+            document.querySelector(`[data-view="${currentView}"]`)?.classList.add('active');
+            renderView();
+            renderUpcomingJobs();
+            setActiveNav();
+        });
+
+        function setView(view) {
+            currentView = view;
+localStorage.setItem('cl-calendar-view', view);
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.view === view);
+            });
+            renderView();
+        }
+
+        function navigate(delta) {
+            if (currentView === 'month') {
+                currentMonth += delta;
+                if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+                else if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+            } else if (currentView === 'week') {
+                selectedDate.setDate(selectedDate.getDate() + (delta * 7));
+            } else {
+                selectedDate.setDate(selectedDate.getDate() + delta);
+            }
+            renderView();
+        }
+
+        function goToToday() {
+            const today = new Date();
+            currentMonth = today.getMonth();
+            currentYear = today.getFullYear();
+            selectedDate = new Date();
+            renderView();
+        }
+
+        function renderView() {
+            if (currentView === 'month') renderMonthView();
+            else if (currentView === 'week') renderWeekView();
+            else renderDayView();
+        }
+
+        function renderMonthView() {
+            document.getElementById('dateTitle').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+            document.getElementById('dateSubtitle').textContent = 'Tap a day to view or add';
+            document.getElementById('calendarLegend').style.display = 'flex';
+
+            const container = document.getElementById('calendarContainer');
+            container.innerHTML = `
+                <div class="grid grid-cols-7 gap-0.5 mb-1">
+                    <div class="text-center text-[10px] text-gray-500 font-semibold py-1">S</div>
+                    <div class="text-center text-[10px] text-gray-500 font-semibold py-1">M</div>
+                    <div class="text-center text-[10px] text-gray-500 font-semibold py-1">T</div>
+                    <div class="text-center text-[10px] text-gray-500 font-semibold py-1">W</div>
+                    <div class="text-center text-[10px] text-gray-500 font-semibold py-1">T</div>
+                    <div class="text-center text-[10px] text-gray-500 font-semibold py-1">F</div>
+                    <div class="text-center text-[10px] text-gray-500 font-semibold py-1">S</div>
+                </div>
+                <div id="calendarGrid" class="grid grid-cols-7 gap-0.5"></div>
+            `;
+            
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            // Get first day of month and total days
+            const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // Get jobs for this month
+            const monthJobs = getJobsForMonth(currentYear, currentMonth);
+            calendarJobsCache = {};
+
+            // Empty cells for days before first of month
+            for (let i = 0; i < firstDay; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'calendar-day';
+                grid.appendChild(emptyCell);
+            }
+
+            // Day cells
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const cellDate = new Date(currentYear, currentMonth, day);
+                const isToday = cellDate.getTime() === today.getTime();
+                const dayJobs = monthJobs[dateStr] || [];
+                calendarJobsCache[dateStr] = dayJobs;
+
+                const cell = document.createElement('div');
+                cell.className = `calendar-day rounded-lg flex flex-col items-center justify-center cursor-pointer
+                    ${isToday ? 'today' : 'bg-slate-800/50'}
+                    ${dayJobs.length > 0 ? 'has-jobs' : ''}`;
+                
+                cell.innerHTML = `
+                    <span class="text-sm ${isToday ? 'text-primary font-bold' : ''}">${day}</span>
+                    ${dayJobs.length > 0 ? `
+                        <div class="flex gap-1 mt-1">
+                            ${dayJobs.slice(0, 3).map(j => `<span class="job-dot ${j.status}"></span>`).join('')}
+                        </div>
+                    ` : ''}
+                `;
+
+                // All days are clickable now
+                cell.onclick = () => openDayModal(dateStr);
+
+                grid.appendChild(cell);
+            }
+        }
+
+        function getJobsForMonth(year, month) {
+            const result = {};
+            
+            jobs.forEach(j => {
+                // Only show SCHEDULED or COMPLETED jobs on calendar (not leads/quoted)
+                // Leads and quoted jobs should use follow-up dates instead
+                if (j.jobDate && (j.status === 'scheduled' || j.status === 'completed')) {
+                    const jobDate = new Date(j.jobDate + 'T12:00:00');
+                    if (jobDate.getFullYear() === year && jobDate.getMonth() === month) {
+                        if (!result[j.jobDate]) result[j.jobDate] = [];
+                        result[j.jobDate].push({
+                            ...j,
+                            name: j.customerName,
+                            phone: j.customerPhone,
+                            type: 'job'
+                        });
+                    }
+                }
+                
+                // Check follow-up dates (for quoted + new leads) - show as reminders
+                if (j.followUpDate && (j.status === 'quoted' || j.status === 'new')) {
+                    const followDate = new Date(j.followUpDate + 'T12:00:00');
+                    if (followDate.getFullYear() === year && followDate.getMonth() === month) {
+                        if (!result[j.followUpDate]) result[j.followUpDate] = [];
+                        result[j.followUpDate].push({
+                            ...j,
+                            name: j.customerName,
+                            phone: j.customerPhone,
+                            type: 'followup',
+                            status: 'followup' // Override status for dot color
+                        });
+                    }
+                }
+            });
+
+            return result;
+        }
+
+        function buildDayJobs(dateStr) {
+            // Only show scheduled/completed jobs, not leads
+            const dayJobs = jobs
+                .filter(j => j.jobDate === dateStr && (j.status === 'scheduled' || j.status === 'completed'))
+                .map(j => ({ ...j, name: j.customerName, phone: j.customerPhone, type: 'job' }));
+            // Follow-ups for quoted/new leads
+            const followups = jobs
+                .filter(j => j.followUpDate === dateStr && (j.status === 'quoted' || j.status === 'new'))
+                .map(j => ({ ...j, name: j.customerName, phone: j.customerPhone, type: 'followup' }));
+            return [...dayJobs, ...followups];
+        }
+
+        function renderWeekView() {
+            document.getElementById('calendarLegend').style.display = 'none';
+            // Get start of week (Sunday)
+            const startOfWeek = new Date(selectedDate);
+            startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+            
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(endOfWeek.getDate() + 6);
+            
+            document.getElementById('dateTitle').textContent = 
+                `${monthNames[startOfWeek.getMonth()]} ${startOfWeek.getDate()} - ${endOfWeek.getDate()}`;
+            document.getElementById('dateSubtitle').textContent = 'Week view';
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let html = '<div class="space-y-2">';
+            calendarJobsCache = {};
+            
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(startOfWeek);
+                day.setDate(day.getDate() + i);
+                const dateStr = day.toISOString().split('T')[0];
+                const isToday = day.getTime() === today.getTime();
+                const dayJobs = buildDayJobs(dateStr);
+                calendarJobsCache[dateStr] = dayJobs;
+                
+                html += `
+                    <div class="p-2 rounded-xl ${isToday ? 'bg-primary/20 border border-primary/30' : 'bg-slate-800/50'}" onclick="openDayModal('${dateStr}')">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-semibold ${isToday ? 'text-primary' : ''}">                                ${dayNames[i]} ${day.getDate()}
+                            </span>
+                            <span class="text-xs text-gray-500">${dayJobs.length} job${dayJobs.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        ${dayJobs.length > 0 ? `
+                            <div class="space-y-1">
+                                ${dayJobs.slice(0, 3).map(j => `
+                                    <div class="text-xs flex items-center gap-2 py-1">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-${j.status === 'scheduled' ? 'purple' : j.status === 'completed' ? 'green' : 'yellow'}-500"></span>
+                                        <span class="truncate">${j.customerName}</span>
+                                        ${j.jobTime ? `<span class="text-gray-500 ml-auto">${j.jobTime}</span>` : ''}
+                                    </div>
+                                `).join('')}
+                                ${dayJobs.length > 3 ? `<p class="text-xs text-gray-500">+${dayJobs.length - 3} more</p>` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            document.getElementById('calendarContainer').innerHTML = html;
+        }
+
+        function renderDayView() {
+            document.getElementById('calendarLegend').style.display = 'none';
+            document.getElementById('dateTitle').textContent = selectedDate.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+            });
+            document.getElementById('dateSubtitle').textContent = 'Day view';
+
+            const dateStr = selectedDate.toISOString().split('T')[0];
+            const dayJobs = buildDayJobs(dateStr);
+            calendarJobsCache[dateStr] = dayJobs;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const isToday = selectedDate.getTime() === today.getTime();
+
+            let html = `
+                <div class="text-center mb-4">
+                    <p class="text-3xl font-bold ${isToday ? 'text-primary' : ''}">${selectedDate.getDate()}</p>
+                    <p class="text-gray-400">${dayNames[selectedDate.getDay()]}</p>
+                </div>
+                <button onclick="addJobForDate('${dateStr}')" class="w-full bg-primary/20 text-primary py-3 rounded-xl font-semibold mb-4 border border-primary/30">
+                    <i class="fas fa-plus mr-2"></i>Add Job
+                </button>
+            `;
+            
+            if (dayJobs.length === 0) {
+                html += '<p class="text-center text-gray-500 py-8">No jobs scheduled</p>';
+            } else {
+                html += '<div class="space-y-2">';
+                dayJobs.forEach(job => {
+                    html += `
+                        <div class="bg-slate-800/50 rounded-xl p-3" onclick="openDayModal('${dateStr}')">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="font-semibold">${job.customerName || job.name}</p>
+                                    <p class="text-xs text-gray-500">${job.serviceType || 'Service'}</p>
+                                </div>
+                                <div class="text-right">
+                                    ${job.jobTime ? `<p class="text-purple-400 text-sm">${job.jobTime}</p>` : ''}
+                                    ${job.quoteAmount ? `<p class="text-green-400 font-semibold">$${job.quoteAmount}</p>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            document.getElementById('calendarContainer').innerHTML = html;
+        }
+
+        let selectedDateStr = null;
+
+        function openDayModal(dateStr, jobs) {
+            selectedDateStr = dateStr;
+            const date = new Date(dateStr + 'T12:00:00');
+            document.getElementById('dayModal-title').textContent = date.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+
+            const content = document.getElementById('dayContent');
+            const dayJobs = jobs && Array.isArray(jobs) ? jobs : (calendarJobsCache[dateStr] || buildDayJobs(dateStr));
+            
+            // Add job button at top
+            let html = `
+                <button onclick="addJobForDate('${dateStr}')" class="w-full bg-primary text-white py-3 rounded-xl font-semibold mb-4">
+                    <i class="fas fa-plus mr-2"></i>Add Job for This Day
+                </button>
+            `;
+            
+            if (dayJobs.length === 0) {
+                html += '<p class="text-gray-400 text-center py-4">No jobs scheduled</p>';
+            } else {
+                html += dayJobs.map(job => `
+                    <div class="glass-card rounded-xl p-4 mb-3">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h4 class="font-bold">${job.name}</h4>
+                                <p class="text-sm text-gray-400">${job.serviceType || 'Service'}</p>
+                                ${job.jobTime ? `<p class="text-purple-400 text-sm"><i class="fas fa-clock mr-1"></i>${job.jobTime}${job.jobDuration ? ` (${job.jobDuration} hrs)` : ''}</p>` : ''}
+                            </div>
+                            <span class="status-badge status-${job.status}">${job.status}</span>
+                        </div>
+                        
+                        ${job.type === 'followup' ? `
+                            <p class="text-yellow-400 text-sm mb-2">
+                                <i class="fas fa-bell mr-1"></i>Follow-up reminder
+                            </p>
+                        ` : ''}
+                        
+                        ${job.quoteAmount ? `<p class="text-green-400 font-bold mb-2">$${job.quoteAmount}</p>` : ''}
+                        ${job.address ? `<p class="text-sm text-gray-400 mb-2"><i class="fas fa-map-marker-alt mr-1"></i>${job.address}</p>` : ''}
+                        
+                        <div class="flex gap-2 mb-2">
+                            <a href="tel:${job.phone}" class="flex-1 bg-green-600 text-white py-2 rounded-lg text-center text-sm">
+                                <i class="fas fa-phone mr-1"></i>Call
+                            </a>
+                            <a href="sms:${job.phone}" class="flex-1 bg-blue-600 text-white py-2 rounded-lg text-center text-sm">
+                                <i class="fas fa-sms mr-1"></i>Text
+                            </a>
+                            ${job.address ? `
+                                <a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="flex-1 bg-purple-600 text-white py-2 rounded-lg text-center text-sm">
+                                    <i class="fas fa-directions mr-1"></i>Nav
+                                </a>
+                            ` : ''}
+                        </div>
+                        ${job.type === 'job' ? `
+                            <button onclick="exportJobToGCal('${job.id}')" class="w-full bg-red-600/20 text-red-400 py-2 rounded-lg text-sm">
+                                <i class="fab fa-google mr-1"></i>Add to Google Calendar
+                            </button>
+                        ` : ''}
+                    </div>
+                `).join('');
+            }
+            
+            content.innerHTML = html;
+            openModal('dayModal');
+        }
+
+        function addJobForDate(dateStr) {
+            window.location.href = `quick-add.html?date=${dateStr}`;
+        }
+
+        function exportJobToGCal(jobId) {
+            const job = jobs.find(j => j.id === jobId);
+            if (!job || !job.jobDate) return;
+
+            const jobDate = job.jobDate.replace(/-/g, '');
+            let startTime = '090000';
+            if (job.jobTime) {
+                const [hours, mins] = job.jobTime.split(':');
+                startTime = hours.padStart(2, '0') + mins.padStart(2, '0') + '00';
+            }
+            
+            const durationHours = job.jobDuration ? parseFloat(job.jobDuration) : 2;
+            const startHour = parseInt(startTime.substring(0, 2));
+            const startMin = parseInt(startTime.substring(2, 4));
+            let endHour = startHour + Math.floor(durationHours);
+            let endMin = startMin + Math.round((durationHours % 1) * 60);
+            if (endMin >= 60) { endHour++; endMin -= 60; }
+            const endTime = String(endHour).padStart(2, '0') + String(endMin).padStart(2, '0') + '00';
+
+            const title = encodeURIComponent(`Pressure Wash - ${job.customerName}`);
+            const dates = `${jobDate}T${startTime}/${jobDate}T${endTime}`;
+            const details = encodeURIComponent(
+                `Customer: ${job.customerName}\nPhone: ${job.customerPhone}\n` +
+                (job.serviceType ? `Service: ${job.serviceType}\n` : '') +
+                (job.quoteAmount ? `Quote: $${job.quoteAmount}\n` : '')
+            );
+            const location = job.address ? encodeURIComponent(job.address) : '';
+
+            window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${location}`, '_blank');
+        }
+
+        function closeDayModal() {
+            closeModal('dayModal');
+        }
+
+        function renderUpcomingJobs() {
+            const container = document.getElementById('upcomingJobs');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // Get upcoming scheduled jobs
+            const upcoming = jobs
+                .filter(j => j.jobDate && j.status === 'scheduled')
+                .map(j => ({ ...j, dateObj: new Date(j.jobDate + 'T12:00:00') }))
+                .filter(j => j.dateObj >= today)
+                .sort((a, b) => a.dateObj - b.dateObj)
+                .slice(0, 5);
+
+            if (upcoming.length === 0) {
+                container.innerHTML = `
+                    <div class="glass-card rounded-xl p-4 text-center text-gray-400">
+                        <i class="fas fa-calendar-check text-3xl mb-2"></i>
+                        <p>No upcoming jobs scheduled</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = upcoming.map(job => `
+                <div class="glass-card rounded-xl p-4">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="font-bold">${job.customerName}</h4>
+                            <p class="text-sm text-gray-400">${job.serviceType || 'Service'}</p>
+                            <p class="text-purple-400 text-sm mt-1">
+                                <i class="fas fa-calendar mr-1"></i>
+                                ${job.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            ${job.quoteAmount ? `<p class="text-green-400 font-bold">$${job.quoteAmount}</p>` : ''}
+                            ${job.customerPhone ? `
+                            <a href="tel:${job.customerPhone}" class="text-primary text-sm">
+                                <i class="fas fa-phone mr-1"></i>${job.customerPhone}
+                            </a>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Refresh when returning to page
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                loadData();
+                renderView();
+                renderUpcomingJobs();
+            }
+        });
+    </script>
+
+    <!-- Bottom Tab Bar -->
+    <nav class="tab-bar">
+        <div class="tab-bar-inner">
+            <a href="index.html" class="tab-item">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </a>
+            <a href="jobs.html" class="tab-item">
+                <i class="fas fa-briefcase"></i>
+                <span>Jobs</span>
+            </a>
+            <a href="quick-add.html" class="tab-item tab-item-add">
+                <div class="tab-add-btn">
+                    <i class="fas fa-plus"></i>
+                </div>
+                <span>Add</span>
+            </a>
+            <a href="calendar.html" class="tab-item active">
+                <i class="fas fa-calendar"></i>
+                <span>Calendar</span>
+            </a>
+            <a href="customer-tracker.html" class="tab-item">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </a>
+        </div>
+    </nav>
+</body>
+</html>

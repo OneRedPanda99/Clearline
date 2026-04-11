@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Invoice Generator - Pressure Point Powerwashing</title>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <link rel="manifest" href="manifest.json">
+    <script>
+        window.tailwind = {
+            config: {
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: '#0ea5e9',
+                            secondary: '#38bdf8',
+                            dark: '#0f172a',
+                            darker: '#020617',
+                            accent: '#06b6d4',
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="app.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="data-migration.js"></script>
+    <script src="firebase-sync.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: white; color: black; padding: 0; line-height: 1.4; }
+        .main-content { padding: 16px 20px 90px; }
+        .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 500px 1fr; gap: 40px; }
+        .input-section { border: 1px solid black; padding: 20px; }
+        .input-section h2 { border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 20px; font-size: 18px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; border: 1px solid black; font-size: 14px; font-family: Arial, sans-serif; }
+        .form-group textarea { resize: vertical; height: 60px; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: 2px solid black; }
+        .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .section-header { background: #f0f0f0; padding: 8px; margin: 15px -20px 15px -20px; border-left: 4px solid black; font-weight: bold; font-size: 14px; }
+        .service-item { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; background: #f9f9f9; }
+        .service-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .service-header h4 { margin: 0; }
+        .remove-service { background: #dc3545; color: white; border: none; padding: 5px 10px; cursor: pointer; font-size: 12px; }
+        .add-service-btn { width: 100%; background: #28a745; color: white; border: none; padding: 10px; font-size: 14px; cursor: pointer; margin-bottom: 15px; }
+        .calc-button { width: 100%; background: black; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .dirt-level-info { font-size: 12px; color: #666; margin-top: 5px; padding: 5px; background: #f8f9fa; border-left: 3px solid #28a745; }
+        .results-section { border: 1px solid black; min-height: 600px; }
+        .invoice-content { padding: 30px; }
+        .invoice-header { display: flex; justify-content: space-between; align-items: start; border-bottom: 2px solid black; padding-bottom: 20px; margin-bottom: 30px; }
+        .invoice-title h1 { font-size: 36px; margin-bottom: 5px; }
+        .invoice-number { text-align: right; }
+        .invoice-number p { margin: 3px 0; }
+        .invoice-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 30px; }
+        .party-info h3 { font-size: 14px; margin-bottom: 10px; text-transform: uppercase; border-bottom: 1px solid black; padding-bottom: 5px; }
+        .party-info p { margin: 3px 0; }
+        .invoice-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        .invoice-table th, .invoice-table td { border: 1px solid black; padding: 10px; text-align: left; }
+        .invoice-table th { background: black; color: white; font-weight: bold; }
+        .invoice-table td:last-child, .invoice-table th:last-child { text-align: right; }
+        .total-section { margin-left: auto; width: 300px; }
+        .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd; }
+        .total-row.final { border-bottom: 2px solid black; border-top: 2px solid black; font-size: 18px; font-weight: bold; margin-top: 10px; }
+        .download-btn { background: black; color: white; border: none; padding: 10px 20px; cursor: pointer; margin-top: 20px; }
+        .share-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
+        .share-btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .share-btn.sms { background: #25D366; color: white; }
+        .share-btn.email { background: #0078D4; color: white; }
+        .share-btn.copy { background: #6c757d; color: white; }
+        .share-btn:hover { opacity: 0.9; }
+        .notes-section { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 15px; }
+        /* ── Customer Autocomplete ── */
+        .customer-name-wrapper { position: relative; }
+        .customer-autocomplete { display: none; position: absolute; top: 100%; left: 0; width: 100%; z-index: 1000; background: #1e293b; color: white; border: 1px solid #334155; border-top: none; max-height: 320px; overflow-y: auto; }
+        .customer-autocomplete.open { display: block; }
+        .customer-autocomplete-row { padding: 10px 12px; min-height: 44px; display: flex; align-items: center; cursor: pointer; border-bottom: 1px solid #334155; font-size: 14px; }
+        .customer-autocomplete-row:hover, .customer-autocomplete-row:active { background: #334155; }
+        @media (max-width: 768px) { .container { grid-template-columns: 1fr; } }
+        /* ── Print / PDF Export (iOS Safari safe) ── */
+        @media print {
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
+            #printable-area { position: absolute; top: 0; left: 0; width: 100%; padding: 10mm 12mm; }
+            #printable-area .no-print { visibility: hidden !important; }
+            body { background: #fff !important; color: #000 !important; font-size: 12pt; margin: 0; padding: 0 !important; }
+            table { page-break-inside: avoid; width: 100%; }
+            tr { page-break-inside: avoid; }
+            thead { display: table-header-group; }
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            a[href]::after { content: none; }
+            @page { size: letter portrait; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+    <header class="app-header"><div class="app-header-inner"><h1>Invoice</h1></div></header>
+    <main class="app-content">
+        <div class="main-content">
+            <div class="container">
+        <div class="input-section">
+            <h2>PRESSURE POINT POWERWASHING - INVOICE GENERATOR</h2>
+            <form id="invoiceForm">
+                <div class="section-header">INVOICE INFO</div>
+                <div class="two-column">
+                    <div class="form-group"><label for="invoiceNumber">Invoice Number:</label><input type="text" id="invoiceNumber" placeholder="e.g., 0001"></div>
+                    <div class="form-group"><label for="invoiceDate">Invoice Date:</label><input type="date" id="invoiceDate" required></div>
+                </div>
+                <div class="form-group"><label for="jobDate">Job Date:</label><input type="date" id="jobDate"></div>
+
+                <div class="section-header">CUSTOMER INFORMATION</div>
+                <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                    <button type="button" onclick="openCustomerSearch()" style="flex: 1; background: #0ea5e9; color: white; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600;"><i class="fas fa-users" style="margin-right: 6px;"></i>Select Customer</button>
+                    <label style="flex: 1; background: #10b981; color: white; padding: 10px; border-radius: 8px; text-align: center; cursor: pointer; font-weight: 600;"><i class="fas fa-file-import" style="margin-right: 6px;"></i>Import VCF<input type="file" accept=".vcf,text/vcard" onchange="importVCFToInvoice(this)" style="display: none;"></label>
+                </div>
+                <input type="hidden" id="selectedCustomerId" value="">
+                <div class="form-group customer-name-wrapper"><label for="customerName">Customer Name:</label><input type="text" id="customerName" placeholder="Enter customer name" required autocomplete="off"><div id="customerAutocomplete" class="customer-autocomplete"></div></div>
+                <div class="form-group"><label for="customerAddress">Customer Address:</label><input type="text" id="customerAddress" placeholder="Enter customer address"></div>
+                <div class="form-group"><label for="customerPhone">Customer Phone:</label><input type="tel" id="customerPhone" placeholder="Enter phone number"></div>
+
+                <div class="section-header">PRICING &amp; MATERIALS</div>
+                <div class="two-column"><div class="form-group"><label for="gasCost">Gas Price ($/gal):</label><input type="number" id="gasCost" step="0.01" value="3.50" required></div></div>
+                <div class="form-group"><label for="chemicalName">Chemical Name:</label><input type="text" id="chemicalName" value="Krud Kutter" required></div>
+                <div class="two-column"><div class="form-group"><label for="chemicalCost">Chemical Price ($/gal):</label><input type="number" id="chemicalCost" step="0.01" value="15.00" required></div></div>
+
+                <div class="section-header">SERVICES</div>
+                <div id="servicesContainer">
+                    <div class="service-item" data-service-id="1">
+                        <div class="service-header"><h4>Service 1</h4><button type="button" class="remove-service" onclick="removeService(1)" style="display: none;">Remove</button></div>
+                        <div class="form-group"><label>Property/Area Description:</label><input type="text" name="description" placeholder="e.g. Main House, Driveway, Pool Deck" required></div>
+                        <div class="two-column">
+                            <div class="form-group"><label>Square Footage:</label><input type="number" name="squareFootage" placeholder="Enter sq ft" required></div>
+                            <div class="form-group"><label>Price per Sq Ft ($):</label><input type="number" name="pricePerSqFt" step="0.01" placeholder="0.30" value="0.30" required></div>
+                        </div>
+                        <div class="two-column">
+                            <div class="form-group"><label>Number of Workers:</label><select name="numWorkers" required><option value="1">1 Worker</option><option value="2">2 Workers</option></select></div>
+                            <div class="form-group"><label>Actual Hours Worked:</label><input type="number" name="hoursWorked" step="0.25" min="0" placeholder="0"></div>
+                        </div>
+                        <div class="form-group"><label>Dirt Level:</label>
+                            <div style="margin: 10px 0;"><input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="3.5" style="width: 100%;" oninput="updateDirtDisplay(this)"><div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 5px;"><span>Light Work</span><span>Heavy Work</span></div><div style="text-align: center; margin-top: 5px;"><span name="dirtDisplay" style="font-weight: bold; color: #333;">Level 3.5</span></div></div>
+                        </div>
+                        <div class="dirt-level-info"><strong>Dirt Level Guide:</strong><br>Level 1: Maintenance cleaning<br>Level 2: Light cleaning<br>Level 3: Normal residential<br>Level 3.5: Heavy buildup (baseline)<br>Level 4: Very dirty<br>Level 5: Extreme conditions</div>
+                    </div>
+                </div>
+                <button type="button" class="add-service-btn" onclick="addService()">+ Add Another Service</button>
+
+                <div class="section-header">OVERALL ADJUSTMENTS</div>
+                <div class="two-column">
+                    <div class="form-group"><label for="discount">Overall Discount (%):</label><input type="number" id="discount" step="1" placeholder="0" min="0" max="100" value="0"></div>
+                    <div class="form-group"><label for="additionalCost">Additional Cost ($):</label><input type="number" id="additionalCost" step="0.01" placeholder="0" min="0" value="0"></div>
+                </div>
+                <div class="form-group"><label for="discountReason">Discount Reason:</label><input type="text" id="discountReason" placeholder="e.g. Loyal Customer Discount"></div>
+                <div class="form-group"><label for="additionalReason">Additional Cost Reason:</label><input type="text" id="additionalReason" placeholder="e.g. Travel fee, Special equipment"></div>
+                <div class="form-group"><label for="notes">Notes (Optional):</label><textarea id="notes" placeholder="Any additional notes or terms"></textarea></div>
+
+                <button type="button" class="calc-button" onclick="generateInvoice()">GENERATE INVOICE</button>
+
+                <div class="section-header" style="margin-top: 20px;">SAVE &amp; LOAD</div>
+                <input type="hidden" id="firestoreDocId" value="">
+                <input type="hidden" id="docStatus" value="draft">
+                <div class="form-group" style="margin-bottom: 5px;"><label for="estimateName">Invoice Name (for saving):</label><input type="text" id="estimateName" placeholder="Enter name for this invoice"></div>
+                <div id="finalizedBanner" style="display:none;background:#fef3c7;border:2px solid #f59e0b;padding:12px;margin-bottom:10px;text-align:center;font-weight:bold;">This invoice is finalized.<button type="button" onclick="reopenInvoice()" style="margin-left:10px;background:#f59e0b;color:white;border:none;padding:6px 12px;cursor:pointer;border-radius:4px;">Edit / Reopen</button></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;"><button type="button" class="add-service-btn" onclick="saveDraftToCloud()" style="flex:1;margin-bottom:0;background:#0ea5e9;">☁️ Save Draft</button><button type="button" class="add-service-btn" onclick="markAsFinal()" style="flex:1;margin-bottom:0;background:#f59e0b;">✅ Mark as Final</button></div>
+                <div id="cloudSignInMsg" style="display:none;background:#e0f2fe;padding:10px;border-radius:8px;text-align:center;margin-bottom:10px;"><p style="margin-bottom:8px;">Sign in to save to cloud</p><button type="button" onclick="CL_FIREBASE.signInWithGoogle()" style="background:#0ea5e9;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600;">Sign in with Google</button></div>
+                <div id="savedInvoicesList" style="margin-top:10px;"></div>
+            </form>
+        </div>
+        <div id="printable-area">
+        <div class="results-section">
+            <div class="invoice-content" id="invoiceContent">
+                <p style="text-align: center; color: #666; margin: 50px 0;">Fill out the form to generate invoice</p>
+            </div>
+        </div>
+        </div>
+            </div>
+        </div>
+    </main>
+
+    <nav class="tab-bar"><div class="tab-bar-inner">
+        <a href="index.html" class="tab-item"><i class="fas fa-home"></i><span>Home</span></a>
+        <a href="jobs.html" class="tab-item"><i class="fas fa-briefcase"></i><span>Jobs</span></a>
+        <a href="quick-add.html" class="tab-item tab-item-add"><div class="tab-add-btn"><i class="fas fa-plus"></i></div><span>Add</span></a>
+        <a href="calendar.html" class="tab-item"><i class="fas fa-calendar"></i><span>Calendar</span></a>
+        <a href="customer-tracker.html" class="tab-item"><i class="fas fa-users"></i><span>Customers</span></a>
+    </div></nav>
+
+    <script>
+        let serviceCounter = 1;
+        function addService() {
+            serviceCounter++;
+            const container = document.getElementById('servicesContainer');
+            const serviceDiv = document.createElement('div');
+            serviceDiv.className = 'service-item';
+            serviceDiv.setAttribute('data-service-id', serviceCounter);
+            serviceDiv.innerHTML = `
+                <div class="service-header"><h4>Service ${serviceCounter}</h4><button type="button" class="remove-service" onclick="removeService(${serviceCounter})">Remove</button></div>
+                <div class="form-group"><label>Property/Area Description:</label><input type="text" name="description" placeholder="e.g. Main House, Driveway, Pool Deck" required></div>
+                <div class="two-column"><div class="form-group"><label>Square Footage:</label><input type="number" name="squareFootage" placeholder="Enter sq ft" required></div><div class="form-group"><label>Price per Sq Ft ($):</label><input type="number" name="pricePerSqFt" step="0.01" placeholder="0.30" value="0.30" required></div></div>
+                <div class="two-column"><div class="form-group"><label>Number of Workers:</label><select name="numWorkers" required><option value="1">1 Worker</option><option value="2">2 Workers</option></select></div><div class="form-group"><label>Actual Hours Worked:</label><input type="number" name="hoursWorked" step="0.25" min="0" placeholder="0"></div></div>
+                <div class="form-group"><label>Dirt Level:</label><div style="margin: 10px 0;"><input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="3.5" style="width: 100%;" oninput="updateDirtDisplay(this)"><div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 5px;"><span>Light Work</span><span>Heavy Work</span></div><div style="text-align: center; margin-top: 5px;"><span name="dirtDisplay" style="font-weight: bold; color: #333;">Level 3.5</span></div></div></div>
+                <div class="dirt-level-info"><strong>Dirt Level Guide:</strong><br>Level 1: Maintenance cleaning<br>Level 2: Light cleaning<br>Level 3: Normal residential<br>Level 3.5: Heavy buildup (baseline)<br>Level 4: Very dirty<br>Level 5: Extreme conditions</div>
+            `;
+            container.appendChild(serviceDiv);
+            updateRemoveButtons();
+        }
+        function removeService(id) { document.querySelector(`[data-service-id="${id}"]`).remove(); updateRemoveButtons(); }
+        function updateRemoveButtons() { const s = document.querySelectorAll('.service-item'); s.forEach(el => { el.querySelector('.remove-service').style.display = s.length > 1 ? 'inline-block' : 'none'; }); }
+        function updateDirtDisplay(slider) { const v = parseFloat(slider.value); slider.parentNode.querySelector('[name="dirtDisplay"]').textContent = `Level ${v.toFixed(1)}`; }
+        function calculateTimeFromDirtLevel(sqft, dirt, workers) {
+            const ratio = sqft / 2000;
+            let m; if (dirt<=1)m=0.5;else if(dirt<=2)m=0.7;else if(dirt<=3)m=0.85;else if(dirt<=3.5)m=1;else if(dirt<=4)m=1.25;else m=1.6;
+            let h = 10 * ratio * m; if (workers===2) h*=0.6; return h;
+        }
+        function generateInvoice() {
+            const gasCost = parseFloat(document.getElementById('gasCost').value);
+            const chemicalName = document.getElementById('chemicalName').value || 'Chemical';
+            const chemicalCost = parseFloat(document.getElementById('chemicalCost').value);
+            const invoiceNumber = document.getElementById('invoiceNumber').value || '0001';
+            const invoiceDate = document.getElementById('invoiceDate').value ? new Date(document.getElementById('invoiceDate').value).toLocaleDateString() : new Date().toLocaleDateString();
+            const customerName = document.getElementById('customerName').value || 'Customer';
+            const customerAddress = document.getElementById('customerAddress').value || '';
+            const customerPhone = document.getElementById('customerPhone').value || '';
+            const discountPercent = parseFloat(document.getElementById('discount').value) || 0;
+            const discountReason = document.getElementById('discountReason').value || 'Discount';
+            const additionalCost = parseFloat(document.getElementById('additionalCost').value) || 0;
+            const additionalReason = document.getElementById('additionalReason').value || 'Additional Cost';
+            const notes = document.getElementById('notes').value;
+            if (!customerName.trim()) { alert('Please enter a customer name'); return; }
+            if (!gasCost || !chemicalCost) { alert('Please fill in pricing info'); return; }
+            const services = []; let hasValid = false;
+            document.querySelectorAll('.service-item').forEach((item, idx) => {
+                const desc = item.querySelector('[name="description"]').value;
+                const sqft = parseFloat(item.querySelector('[name="squareFootage"]').value);
+                const ppsf = parseFloat(item.querySelector('[name="pricePerSqFt"]').value);
+                const nw = parseInt(item.querySelector('[name="numWorkers"]').value);
+                const dl = parseFloat(item.querySelector('[name="dirtLevel"]').value);
+                const hw = parseFloat(item.querySelector('[name="hoursWorked"]').value) || 0;
+                if (desc && sqft && ppsf) { services.push({description:desc,squareFootage:sqft,pricePerSqFt:ppsf,numWorkers:nw,dirtLevel:dl,hoursWorked:hw}); hasValid=true; }
+            });
+            if (!hasValid) { alert('Please add at least one service'); return; }
+            let totalPW=0, totalFuel=0, totalChem=0, totalTime=0, totalSqft=0, totalHrs=0, tableRows='';
+            services.forEach(s => {
+                const estH = calculateTimeFromDirtLevel(s.squareFootage, s.dirtLevel, s.numWorkers);
+                const actH = s.hoursWorked > 0 ? s.hoursWorked : estH;
+                const estChem = (s.squareFootage/1000)*0.3;
+                const fuelGal = 0.675 * s.numWorkers * actH;
+                const fuelCost = fuelGal * gasCost;
+                const chemCost = estChem * chemicalCost;
+                const pwCost = s.squareFootage * s.pricePerSqFt;
+                totalPW+=pwCost; totalFuel+=fuelCost; totalChem+=chemCost; totalTime+=actH; totalSqft+=s.squareFootage; totalHrs+=s.hoursWorked;
+                if (services.length>1) tableRows+=`<tr style="background:#f0f0f0;font-weight:bold"><td colspan="4"><strong>${s.description}</strong></td></tr>`;
+                tableRows+=`<tr><td>Pressure Washing${services.length>1?' - '+s.description:''}</td><td>${s.squareFootage.toLocaleString()} sq ft</td><td>${s.hoursWorked>0?s.hoursWorked+' hrs':'-'}</td><td>${pwCost.toFixed(2)}</td></tr>
+                <tr><td>Gas Fee (${s.numWorkers} machine${s.numWorkers>1?'s':''})</td><td>${fuelGal.toFixed(1)} gal</td><td>-</td><td>${fuelCost.toFixed(2)}</td></tr>
+                <tr><td>${chemicalName}</td><td>${estChem.toFixed(2)} gal</td><td>-</td><td>${chemCost.toFixed(2)}</td></tr>`;
+            });
+            const sub = totalPW+totalFuel+totalChem+additionalCost;
+            const disc = sub*(discountPercent/100);
+            const total = sub-disc;
+            if (additionalCost>0) tableRows+=`<tr><td>${additionalReason}</td><td>1</td><td>-</td><td>$${additionalCost.toFixed(2)}</td></tr>`;
+            tableRows+=`<tr style="font-weight:bold;border-top:1px solid black"><td colspan="3"><strong>Subtotal</strong></td><td><strong>$${sub.toFixed(2)}</strong></td></tr>`;
+            if (discountPercent>0) tableRows+=`<tr><td>Discount: ${discountReason}</td><td>1</td><td>${discountPercent}% off</td><td>-$${disc.toFixed(2)}</td></tr>`;
+            tableRows+=`<tr style="font-weight:bold;border-top:2px solid black"><td colspan="3"><strong>TOTAL DUE</strong></td><td><strong>$${total.toFixed(2)}</strong></td></tr>`;
+            const fmtNum = 'INV-'+new Date().getFullYear()+'-'+invoiceNumber.padStart(4,'0');
+            document.getElementById('invoiceContent').innerHTML = `
+                <div class="invoice-header"><div class="invoice-title"><h1>INVOICE</h1><p style="font-size:20px;font-weight:bold">Pressure Point Powerwashing</p></div><div class="invoice-number"><p><strong>${fmtNum}</strong></p><p>Date: ${invoiceDate}</p></div></div>
+                <div class="invoice-parties"><div class="party-info"><h3>From:</h3><p><strong>Pressure Point Powerwashing</strong></p><p>Phone: ${CL_CONFIG.phoneDisplay}</p><p>Email: ${CL_CONFIG.email}</p></div><div class="party-info"><h3>Bill To:</h3><p><strong>${customerName}</strong></p>${customerAddress?`<p>${customerAddress}</p>`:''}${customerPhone?`<p>Phone: ${customerPhone}</p>`:''}</div></div>
+                <table class="invoice-table"><thead><tr><th style="width:40%">Description</th><th style="width:20%">Sq Ft</th><th style="width:15%">Hours</th><th style="width:25%">Price</th></tr></thead><tbody>${tableRows}</tbody></table>
+                ${notes?`<div class="notes-section"><h3>Notes:</h3><p>${notes.replace(/\n/g,'<br>')}</p></div>`:''}
+                <div style="margin-top:30px;padding-top:20px;border-top:1px solid #ddd"><p style="font-size:12px;color:#666"><strong>Service Summary:</strong><br>Total Area: ${totalSqft.toLocaleString()} sq ft | Hours: ${totalHrs>0?totalHrs.toFixed(1):totalTime.toFixed(1)} hrs | Workers: ${Math.max(...services.map(s=>s.numWorkers))}</p><p style="margin-top:10px;font-size:12px;color:#666">Thank you for your business! Payment terms: Net 30 days.</p></div>
+                <div class="print-footer" style="margin-top:18px;border-top:1px solid #ccc;padding-top:10px;font-size:11px;color:#555;display:flex;justify-content:space-between"><span>Pressure Point Pressure Washing — Columbia, SC</span><span>Thank you for your business!</span></div>
+                <button class="no-print" onclick="window.print()" style="background:black;color:white;border:none;padding:14px 24px;cursor:pointer;margin-top:20px;font-size:16px;font-weight:bold;width:100%;min-height:44px">🖨️ Print / Save PDF</button>
+                ${jobId?`<button class="download-btn no-print" style="background:#10b981;margin-top:10px" onclick="saveInvoiceToJob()"><i class="fas fa-save" style="margin-right:8px"></i>SAVE TO JOB</button>`:''}
+                <div class="share-buttons no-print"><button class="share-btn sms" onclick="shareViaSMS()">📱 Text to Customer</button><button class="share-btn email" onclick="shareViaEmail()">✉️ Email to Customer</button><button class="share-btn copy" onclick="copyInvoiceText()">📋 Copy Text</button></div>
+            `;
+            lastInvoiceData = {invoiceNum:fmtNum,date:invoiceDate,customerName,customerAddress,customerPhone,services,totalSquareFootage:totalSqft,totalHoursWorked:totalHrs,totalEstimatedTime:totalTime,total,notes};
+        }
+        let lastInvoiceData = null;
+        function shareViaSMS() { if(!lastInvoiceData){alert('Generate invoice first');return;} const p=lastInvoiceData.customerPhone?lastInvoiceData.customerPhone.replace(/\D/g,''):''; window.location.href=(p?`sms:${p}?body=`:`sms:?body=`)+encodeURIComponent(generateShareText()); }
+        function shareViaEmail() { if(!lastInvoiceData){alert('Generate invoice first');return;} window.location.href=`mailto:?subject=${encodeURIComponent('Invoice '+lastInvoiceData.invoiceNum+' from Clearline')}&body=${encodeURIComponent(generateShareText())}`; }
+        function copyInvoiceText() { if(!lastInvoiceData){alert('Generate invoice first');return;} navigator.clipboard.writeText(generateShareText()).then(()=>alert('Copied!')).catch(()=>{const t=document.createElement('textarea');t.value=generateShareText();document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);alert('Copied!');}); }
+        function generateShareText() {
+            const d=lastInvoiceData; let t=`SC PRESSURE POINT - INVOICE\n━━━━━━━━━━━━━━━━━━━━━━\nInvoice #: ${d.invoiceNum}\nDate: ${d.date}\n\nCustomer: ${d.customerName}\n`;
+            if(d.customerAddress) t+=`Address: ${d.customerAddress}\n`; t+=`\nSERVICES:\n`;
+            d.services.forEach(s=>{t+=`• ${s.description}: ${s.squareFootage.toLocaleString()} sq ft`;if(s.hoursWorked>0)t+=` (${s.hoursWorked} hrs)`;t+=`\n`;});
+            t+=`\nTotal Area: ${d.totalSquareFootage.toLocaleString()} sq ft\n━━━━━━━━━━━━━━━━━━━━━━\nTOTAL DUE: $${d.total.toFixed(2)}\n━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+            if(d.notes)t+=`Notes: ${d.notes}\n\n`; t+=`Payment Methods:\n• Cash or Check\n• Venmo/Zelle\n\nQuestions?\n📞 ${CL_CONFIG.phoneDisplay}\n✉️ ${CL_CONFIG.email}\n\nThank you for your business!`;
+            return t;
+        }
+        // ── Customer Autocomplete ──
+        function setupCustomerAutocomplete() {
+            const inp = document.getElementById('customerName'), dd = document.getElementById('customerAutocomplete');
+            inp.addEventListener('input', function() {
+                const v = this.value.trim().toLowerCase(); document.getElementById('selectedCustomerId').value = '';
+                if (v.length<2){dd.classList.remove('open');dd.innerHTML='';return;}
+                const m = customers.filter(c=>c.name&&c.name.toLowerCase().includes(v)).slice(0,6);
+                if(!m.length){dd.classList.remove('open');dd.innerHTML='';return;}
+                dd.innerHTML = m.map(c=>`<div class="customer-autocomplete-row" data-customer-id="${c.id}">${c.name}${c.address?' — '+c.address:''}</div>`).join('');
+                dd.classList.add('open');
+            });
+            dd.addEventListener('click', function(e) {
+                const row = e.target.closest('.customer-autocomplete-row'); if(!row) return;
+                const c = customers.find(c=>c.id===row.getAttribute('data-customer-id'));
+                if(c){document.getElementById('customerName').value=c.name||'';document.getElementById('customerAddress').value=c.address||'';document.getElementById('customerPhone').value=c.phone||'';document.getElementById('selectedCustomerId').value=c.id;}
+                dd.classList.remove('open');dd.innerHTML='';
+            });
+            document.addEventListener('click',e=>{if(!e.target.closest('.customer-name-wrapper'))dd.classList.remove('open');});
+        }
+        let customers = [];
+        function loadCustomers() { customers = CL_DATA.getCustomers(); }
+        loadCustomers(); setupCustomerAutocomplete();
+        function openCustomerSearch() { renderCustomerSearchList(); document.getElementById('customerSearchModal').classList.remove('hidden'); document.getElementById('customerSearchModal').classList.add('flex'); document.getElementById('invCustomerSearch').value=''; document.getElementById('invCustomerSearch').focus(); }
+        function closeCustomerSearch() { document.getElementById('customerSearchModal').classList.add('hidden'); document.getElementById('customerSearchModal').classList.remove('flex'); }
+        function renderCustomerSearchList(search='') {
+            let f=customers; if(search){const q=search.toLowerCase();f=customers.filter(c=>c.name.toLowerCase().includes(q)||(c.phone&&c.phone.includes(q))||(c.address&&c.address.toLowerCase().includes(q)));}
+            f.sort((a,b)=>a.name.localeCompare(b.name)); const ct=document.getElementById('invCustomerList');
+            if(!f.length){ct.innerHTML='<p style="text-align:center;color:#888;padding:20px">No customers found</p>';return;}
+            ct.innerHTML=f.map(c=>`<button onclick="selectCustomerForInvoice('${c.id}')" style="width:100%;text-align:left;padding:12px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;background:#f9f9f9;cursor:pointer"><strong>${c.name}</strong><br><small style="color:#666">${c.phone||''} ${c.address?'• '+c.address:''}</small></button>`).join('');
+        }
+        function filterCustomerSearch() { renderCustomerSearchList(document.getElementById('invCustomerSearch').value); }
+        function selectCustomerForInvoice(id) { const c=customers.find(c=>c.id===id); if(c){document.getElementById('customerName').value=c.name||'';document.getElementById('customerAddress').value=c.address||'';document.getElementById('customerPhone').value=c.phone||'';document.getElementById('selectedCustomerId').value=c.id;} closeCustomerSearch(); }
+        function importVCFToInvoice(input) {
+            const file=input.files[0]; if(!file)return; const reader=new FileReader();
+            reader.onload=function(e){const c=parseVCFBasic(e.target.result);if(c.name)document.getElementById('customerName').value=c.name;if(c.address)document.getElementById('customerAddress').value=c.address;if(c.phone)document.getElementById('customerPhone').value=c.phone;alert('Contact imported!');};
+            reader.readAsText(file); input.value='';
+        }
+        function parseVCFBasic(text) {
+            const c={}; text.split(/\r?\n/).forEach(line=>{
+                if(line.startsWith('FN:'))c.name=line.substring(3).trim();
+                else if(line.startsWith('N:')&&!c.name){const p=line.substring(2).split(';');c.name=`${p[1]||''} ${p[0]||''}`.trim();}
+                else if((line.startsWith('TEL')||line.includes('TEL;'))&&!c.phone){const m=line.match(/:([\+\d\s\-\(\)]+)/);if(m)c.phone=m[1].trim();}
+                else if((line.startsWith('ADR')||line.includes('ADR;'))&&!c.address){const m=line.match(/:(.+)/);if(m)c.address=m[1].split(';').filter(p=>p.trim()).join(', ');}
+            }); return c;
+        }
+        const urlParams = new URLSearchParams(window.location.search);
+        const jobId = urlParams.get('jobId');
+        async function saveInvoiceToJob() {
+            if(!jobId){alert('No job associated');return;} if(!lastInvoiceData){alert('Generate invoice first');return;}
+            try {
+                const canvas = await html2canvas(document.getElementById('invoiceContent'),{scale:2,useCORS:true,backgroundColor:'#ffffff'});
+                const doc={id:Date.now().toString(),createdAt:new Date().toISOString(),invoiceNumber:lastInvoiceData.invoiceNum,customerName:lastInvoiceData.customerName,total:lastInvoiceData.total,pdfDataUrl:canvas.toDataURL('image/png')};
+                const jobs=CL_DATA.getJobs(),job=jobs.find(j=>j.id===jobId);
+                if(job){if(!job.documents)job.documents={estimates:[],invoices:[],waivers:[]};if(!job.documents.invoices)job.documents.invoices=[];job.documents.invoices.push(doc);CL_DATA.updateJob(job.id,{documents:job.documents});alert('Invoice saved to job!');window.location.href='jobs.html';}
+                else alert('Job not found');
+            } catch(err){console.error(err);alert('Error saving invoice');}
+        }
+        window.onload = function() {
+            document.getElementById('invoiceDate').valueAsDate = new Date();
+            const pf = safeGet('cl-invoice-prefill',null);
+            if(pf){
+                if(pf.name)document.getElementById('customerName').value=pf.name;
+                if(pf.address)document.getElementById('customerAddress').value=pf.address;
+                if(pf.phone)document.getElementById('customerPhone').value=pf.phone;
+                if(pf.squareFootage){const i=document.querySelector('[name="squareFootage"]');if(i)i.value=pf.squareFootage;}
+                if(pf.jobDuration){const i=document.querySelector('[name="hoursWorked"]');if(i)i.value=pf.jobDuration;}
+                const sq=parseFloat(pf.squareFootage),qt=parseFloat(pf.quoteAmount);
+                if(sq&&qt){const i=document.querySelector('[name="pricePerSqFt"]');if(i)i.value=(qt/sq).toFixed(2);}
+                safeRemove('cl-invoice-prefill');
+            }
+            updateRemoveButtons();
+        };
+        // ── Firebase Cloud Save/Load ──
+        function collectInvoiceState() {
+            const services = [];
+            document.querySelectorAll('.service-item').forEach(item => {
+                services.push({ description: item.querySelector('[name="description"]').value, squareFootage: item.querySelector('[name="squareFootage"]').value, pricePerSqFt: item.querySelector('[name="pricePerSqFt"]').value, numWorkers: item.querySelector('[name="numWorkers"]').value, dirtLevel: item.querySelector('[name="dirtLevel"]').value, hoursWorked: item.querySelector('[name="hoursWorked"]').value });
+            });
+            return { type:'invoice', status:document.getElementById('docStatus').value||'draft', customerId:document.getElementById('selectedCustomerId').value||null, customerName:document.getElementById('customerName').value, customerAddress:document.getElementById('customerAddress').value, customerPhone:document.getElementById('customerPhone').value, services, discount:document.getElementById('discount').value, discountReason:document.getElementById('discountReason').value, additionalCost:document.getElementById('additionalCost').value, additionalReason:document.getElementById('additionalReason').value, notes:document.getElementById('notes').value, gasCost:document.getElementById('gasCost').value, chemicalName:document.getElementById('chemicalName').value, chemicalCost:document.getElementById('chemicalCost').value, estimateName:document.getElementById('estimateName').value, invoiceNumber:document.getElementById('invoiceNumber').value, invoiceDate:document.getElementById('invoiceDate').value, jobDate:document.getElementById('jobDate').value, totalAmount:lastInvoiceData?lastInvoiceData.total:0, updatedAt:new Date().toISOString() };
+        }
+        function applyFinalizedState(isFinal) {
+            document.getElementById('finalizedBanner').style.display = isFinal ? 'block' : 'none';
+            document.getElementById('invoiceForm').querySelectorAll('input:not([type=hidden]),select,textarea').forEach(el => el.disabled = isFinal);
+        }
+        async function saveDraftToCloud() {
+            if (!CL_FIREBASE.isSignedIn) { document.getElementById('cloudSignInMsg').style.display='block'; showToast('Sign in to save to cloud','info'); return; }
+            const db=CL_FIREBASE.getFirestore(), user=CL_FIREBASE.getCurrentUser(); if(!db||!user)return;
+            const data=collectInvoiceState(); data.userId=user.uid; data.status='draft'; document.getElementById('docStatus').value='draft';
+            const docId=document.getElementById('firestoreDocId').value;
+            try { if(docId){await db.collection('invoices').doc(docId).set(data,{merge:true});}else{data.createdAt=new Date().toISOString();const ref=await db.collection('invoices').add(data);document.getElementById('firestoreDocId').value=ref.id;} showToast('Draft saved'); loadSavedInvoices(); } catch(e){console.error(e);showToast('Save failed','error');}
+        }
+        async function markAsFinal() {
+            if (!CL_FIREBASE.isSignedIn) { document.getElementById('cloudSignInMsg').style.display='block'; return; }
+            const db=CL_FIREBASE.getFirestore(); const data=collectInvoiceState(); data.userId=CL_FIREBASE.getCurrentUser().uid; data.status='final'; document.getElementById('docStatus').value='final';
+            let docId=document.getElementById('firestoreDocId').value;
+            try { if(docId){await db.collection('invoices').doc(docId).set(data,{merge:true});}else{data.createdAt=new Date().toISOString();const ref=await db.collection('invoices').add(data);document.getElementById('firestoreDocId').value=ref.id;} applyFinalizedState(true); showToast('Invoice finalized'); loadSavedInvoices(); } catch(e){console.error(e);showToast('Error','error');}
+        }
+        function reopenInvoice() { document.getElementById('docStatus').value='draft'; applyFinalizedState(false); saveDraftToCloud(); }
+        async function loadSavedInvoices() {
+            const ct=document.getElementById('savedInvoicesList');
+            if(!CL_FIREBASE.isSignedIn){ct.innerHTML='';document.getElementById('cloudSignInMsg').style.display='block';return;}
+            document.getElementById('cloudSignInMsg').style.display='none';
+            const db=CL_FIREBASE.getFirestore(),user=CL_FIREBASE.getCurrentUser(); if(!db||!user)return;
+            try { const snap=await db.collection('invoices').where('userId','==',user.uid).orderBy('updatedAt','desc').limit(20).get();
+                if(snap.empty){ct.innerHTML='<p style="color:#888;text-align:center;padding:10px">No saved invoices</p>';return;}
+                ct.innerHTML='<p style="font-weight:bold;margin-bottom:8px">Saved Invoices:</p>'+snap.docs.map(doc=>{const d=doc.data();const date=d.updatedAt?new Date(d.updatedAt).toLocaleDateString():'';const badge=d.status==='final'?'<span style="background:#f59e0b;color:white;padding:2px 6px;border-radius:4px;font-size:11px">Final</span>':'<span style="background:#0ea5e9;color:white;padding:2px 6px;border-radius:4px;font-size:11px">Draft</span>';return `<button onclick="loadInvoiceFromCloud('${doc.id}')" style="width:100%;text-align:left;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#f9f9f9;cursor:pointer;min-height:44px"><strong>${d.estimateName||'Untitled'}</strong> \u2014 ${d.customerName||''} \u2014 ${date} ${badge}</button>`;}).join('');
+            } catch(e){console.error(e);ct.innerHTML='<p style="color:#dc3545">Error loading</p>';}
+        }
+        async function loadInvoiceFromCloud(docId) {
+            const db=CL_FIREBASE.getFirestore(); if(!db)return;
+            try { const doc=await db.collection('invoices').doc(docId).get(); if(!doc.exists){showToast('Not found','error');return;}
+                document.getElementById('firestoreDocId').value=docId; const d=doc.data();
+                if(d.customerName)document.getElementById('customerName').value=d.customerName;
+                if(d.customerAddress)document.getElementById('customerAddress').value=d.customerAddress;
+                if(d.customerPhone)document.getElementById('customerPhone').value=d.customerPhone;
+                if(d.customerId)document.getElementById('selectedCustomerId').value=d.customerId;
+                if(d.gasCost)document.getElementById('gasCost').value=d.gasCost;
+                if(d.chemicalName)document.getElementById('chemicalName').value=d.chemicalName;
+                if(d.chemicalCost)document.getElementById('chemicalCost').value=d.chemicalCost;
+                if(d.discount)document.getElementById('discount').value=d.discount;
+                if(d.discountReason)document.getElementById('discountReason').value=d.discountReason;
+                if(d.additionalCost)document.getElementById('additionalCost').value=d.additionalCost;
+                if(d.additionalReason)document.getElementById('additionalReason').value=d.additionalReason;
+                if(d.notes)document.getElementById('notes').value=d.notes;
+                if(d.estimateName)document.getElementById('estimateName').value=d.estimateName;
+                if(d.invoiceNumber)document.getElementById('invoiceNumber').value=d.invoiceNumber;
+                if(d.invoiceDate)document.getElementById('invoiceDate').value=d.invoiceDate;
+                if(d.jobDate)document.getElementById('jobDate').value=d.jobDate;
+                if(d.status)document.getElementById('docStatus').value=d.status;
+                if(d.services&&d.services.length){const ct=document.getElementById('servicesContainer');ct.innerHTML='';serviceCounter=0;d.services.forEach(sd=>{serviceCounter++;const div=document.createElement('div');div.className='service-item';div.setAttribute('data-service-id',serviceCounter);div.innerHTML=`<div class="service-header"><h4>Service ${serviceCounter}</h4><button type="button" class="remove-service" onclick="removeService(${serviceCounter})">Remove</button></div><div class="form-group"><label>Property/Area Description:</label><input type="text" name="description" value="${sd.description||''}" required></div><div class="two-column"><div class="form-group"><label>Square Footage:</label><input type="number" name="squareFootage" value="${sd.squareFootage||''}" required></div><div class="form-group"><label>Price per Sq Ft ($):</label><input type="number" name="pricePerSqFt" step="0.01" value="${sd.pricePerSqFt||'0.30'}" required></div></div><div class="two-column"><div class="form-group"><label>Number of Workers:</label><select name="numWorkers" required><option value="1" ${sd.numWorkers==='1'?'selected':''}>1 Worker</option><option value="2" ${sd.numWorkers==='2'?'selected':''}>2 Workers</option></select></div><div class="form-group"><label>Actual Hours Worked:</label><input type="number" name="hoursWorked" step="0.25" min="0" value="${sd.hoursWorked||''}"></div></div><div class="form-group"><label>Dirt Level:</label><div style="margin:10px 0"><input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="${sd.dirtLevel||'3.5'}" style="width:100%" oninput="updateDirtDisplay(this)"><div style="text-align:center;margin-top:5px"><span name="dirtDisplay" style="font-weight:bold">Level ${sd.dirtLevel||'3.5'}</span></div></div></div>`;ct.appendChild(div);});updateRemoveButtons();}
+                applyFinalizedState(d.status==='final'); showToast('Invoice loaded');
+            } catch(e){console.error(e);showToast('Load error','error');}
+        }
+        window.addEventListener('cl-auth-change',()=>{loadSavedInvoices();});
+        setTimeout(()=>{if(CL_FIREBASE.isSignedIn)loadSavedInvoices();},2000);
+        setActiveNav();
+    </script>
+
+    <div id="customerSearchModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;align-items:center;justify-content:center;padding:20px;">
+        <div style="background:white;border-radius:12px;width:100%;max-width:400px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;">
+            <div style="padding:16px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;"><h3 style="margin:0">Select Customer</h3><button onclick="closeCustomerSearch()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666">&times;</button></div>
+            <div style="padding:12px;border-bottom:1px solid #ddd"><input type="text" id="invCustomerSearch" oninput="filterCustomerSearch()" placeholder="Search by name or phone..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px"></div>
+            <div id="invCustomerList" style="flex:1;overflow-y:auto;padding:12px"></div>
+        </div>
+    </div>
+</body>
+</html>

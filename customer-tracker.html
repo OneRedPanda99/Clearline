@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="theme-color" content="#020617">
+    <title>Customers - Clearline</title>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        window.tailwind = {
+            config: {
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: '#0ea5e9',
+                            secondary: '#38bdf8',
+                            dark: '#0f172a',
+                            darker: '#020617',
+                            accent: '#06b6d4',
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="app.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="data-migration.js"></script>
+    <script src="firebase-sync.js"></script>
+    <style>
+        .customer-card {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 4px solid transparent;
+            cursor: pointer;
+            border-radius: 10px !important;
+        }
+        .customer-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+            border-color: rgba(255,255,255,0.15);
+        }
+        .customer-card:active {
+            transform: scale(0.98) translateY(0);
+        }
+        .customer-card.new { border-left-color: #3b82f6; }
+        .customer-card.quoted { border-left-color: #f59e0b; }
+        .customer-card.scheduled { border-left-color: #8b5cf6; }
+        .customer-card.completed { border-left-color: #10b981; }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-new { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .status-quoted { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        .status-scheduled { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+        .status-completed { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .filter-btn { transition: all 0.2s; }
+        .filter-btn.active { transform: scale(1.05); box-shadow: 0 0 15px rgba(14, 165, 233, 0.4); }
+        .action-btn {
+            min-width: 44px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .reminder-urgent { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: modalFadeIn 0.2s ease;
+        }
+        .modal.show,
+        .modal.modal-open,
+        .modal:not([hidden]) { display: flex !important; }
+        .modal .modal-content {
+            animation: modalSlideUp 0.25s ease;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes modalSlideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .modal-content {
+            background: #1e293b;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        input, select, textarea {
+            background: #0f172a;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            color: white;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        input:hover, select:hover, textarea:hover {
+            border-color: rgba(56, 189, 248, 0.5);
+            background: rgba(15, 23, 42, 0.9);
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="app-header-inner">
+            <h1>Customers</h1>
+            <button onclick="openAddModal()" class="header-btn header-btn-right" style="color: var(--primary);">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="app-content">
+      <div class="content-wrapper">
+        <!-- Search -->
+        <div class="mb-4">
+            <div class="relative">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <input type="text" id="searchInput" placeholder="Search customers..." 
+                       class="w-full pl-12 pr-4 py-3 rounded-xl text-base"
+                       oninput="filterCustomers()">
+            </div>
+        </div>
+
+        <!-- Customer Count -->
+        <div class="mb-4 flex items-center justify-between">
+            <span class="text-gray-400 text-sm">
+                <span id="count-all">0</span> customers
+            </span>
+            <div class="flex items-center gap-3">
+                <label class="text-primary text-sm cursor-pointer">
+                    <i class="fas fa-file-import mr-1"></i>Import VCF
+                    <input type="file" accept=".vcf,text/vcard" onchange="importData(event)" class="hidden">
+                </label>
+                <a href="jobs.html" class="text-primary text-sm">
+                    <i class="fas fa-briefcase mr-1"></i>Jobs
+                </a>
+            </div>
+        </div>
+
+        <!-- Customer List -->
+        <div id="customerList" class="space-y-3"></div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden" style="text-align: center; padding: 48px 0;">
+            <i class="fas fa-users" style="font-size: 48px; color: #475569; margin-bottom: 16px;"></i>
+            <p style="font-size: 18px; color: #94a3b8;">No customers yet</p>
+            <p style="font-size: 14px; color: #64748b; margin-top: 8px;">Tap + to add your first customer</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- Bottom Tab Bar -->
+    <nav class="tab-bar">
+        <div class="tab-bar-inner">
+            <a href="index.html" class="tab-item">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </a>
+            <a href="jobs.html" class="tab-item">
+                <i class="fas fa-briefcase"></i>
+                <span>Jobs</span>
+            </a>
+            <a href="quick-add.html" class="tab-item tab-item-add">
+                <div class="tab-add-btn">
+                    <i class="fas fa-plus"></i>
+                </div>
+                <span>Add</span>
+            </a>
+            <a href="calendar.html" class="tab-item">
+                <i class="fas fa-calendar"></i>
+                <span>Calendar</span>
+            </a>
+            <a href="customer-tracker.html" class="tab-item active">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </a>
+        </div>
+    </nav>
+    <input type="file" id="importFile" accept=".json,.vcf" class="hidden" onchange="importData(event)">
+
+    <!-- Add/Edit Modal -->
+    <div id="customerModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="customerModal-title" hidden>
+        <div class="modal-content" role="document">
+            <div class="modal-header p-4 border-b border-slate-700 flex justify-between items-center">
+                <h2 id="customerModal-title" class="text-xl font-bold">Add Customer</h2>
+                <button class="modal-close-btn" onclick="closeCustomerModal()" aria-label="Close dialog" class="text-gray-400 text-2xl">&times;</button>
+            </div>
+            <form id="customerForm" class="p-4 space-y-4">
+                <input type="hidden" id="customerId">
+                
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Name *</label>
+                    <input type="text" id="customerName" required class="w-full p-3 rounded-lg">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Phone</label>
+                        <input type="tel" id="customerPhone" class="w-full p-3 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Email</label>
+                        <input type="email" id="customerEmail" class="w-full p-3 rounded-lg">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Address</label>
+                    <input type="text" id="customerAddress" class="w-full p-3 rounded-lg">
+                </div>
+                
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Notes</label>
+                    <textarea id="customerNotes" rows="3" class="w-full p-3 rounded-lg" placeholder="General notes about this customer..."></textarea>
+                </div>
+                
+                <p class="text-xs text-gray-500 text-center">
+                    <i class="fas fa-info-circle mr-1"></i>Job details (service, date, quote, photos) are added via the Jobs page
+                </p>
+                
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="closeCustomerModal()" class="flex-1 bg-slate-700 text-white py-3 rounded-xl font-semibold">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold">
+                        Save Customer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Customer Detail Modal -->
+    <div id="detailModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="detailModal-title" hidden>
+        <div class="modal-content" role="document">
+            <div class="modal-header p-4 border-b border-slate-700 flex justify-between items-center">
+                <h2 id="detailModal-title" class="text-xl font-bold"></h2>
+                <button class="modal-close-btn" onclick="closeDetailModal()" aria-label="Close dialog">&times;</button>
+            </div>
+            <div id="detailContent" class="p-4"></div>
+        </div>
+    </div>
+
+    <script>
+        // Data - using CL_DATA for separate customers and jobs
+        let customers = [];
+        let jobs = [];
+        let searchQuery = '';
+        
+        function loadData() {
+            customers = CL_DATA.getCustomers();
+            jobs = CL_DATA.getJobs();
+        }
+        
+        // Get job count for a customer
+        function getJobCount(customerId) {
+            return jobs.filter(j => j.customerId === customerId).length;
+        }
+        
+        // Get jobs for a customer
+        function getCustomerJobs(customerId) {
+            return jobs.filter(j => j.customerId === customerId);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            renderCustomers();
+            setActiveNav();
+            
+            // Check URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('action') === 'add') {
+                openAddModal();
+                // Clean up URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        });
+
+        window.addEventListener('cl-sync-updated', () => {
+            loadData();
+            renderCustomers();
+        });
+
+        // Form submission
+        document.getElementById('customerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveCustomer();
+        });
+
+        // Save customer - saves only customer info to cl-customers
+        function saveCustomer() {
+            const id = document.getElementById('customerId').value;
+            const existingCustomer = id ? customers.find(c => c.id === id) : null;
+            
+            const customer = {
+                id: id || 'cust_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                name: document.getElementById('customerName').value,
+                phone: document.getElementById('customerPhone').value,
+                email: document.getElementById('customerEmail').value,
+                address: document.getElementById('customerAddress').value,
+                notes: document.getElementById('customerNotes').value,
+                dateAdded: id ? existingCustomer?.dateAdded : new Date().toISOString(),
+                lastUpdated: new Date().toISOString()
+            };
+
+            if (id) {
+                CL_DATA.updateCustomer(id, customer);
+            } else {
+                CL_DATA.addCustomer(customer);
+            }
+
+            loadData();
+            renderCustomers();
+            closeCustomerModal();
+        }
+
+        // Render customers - now shows customer-only view with job counts
+        function renderCustomers() {
+            const container = document.getElementById('customerList');
+            const emptyState = document.getElementById('emptyState');
+            
+            let filtered = customers;
+            
+            // Apply search
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                filtered = filtered.filter(c => 
+                    c.name.toLowerCase().includes(query) ||
+                    (c.phone && c.phone.includes(query)) ||
+                    (c.address && c.address.toLowerCase().includes(query)) ||
+                    (c.email && c.email.toLowerCase().includes(query))
+                );
+            }
+
+            // Update customer count
+            document.getElementById('count-all').textContent = customers.length;
+
+            if (filtered.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            container.innerHTML = filtered.map(c => renderCustomerCard(c)).join('');
+        }
+
+        // Render single customer card - simplified for customer-only info
+        function renderCustomerCard(c) {
+            const jobCount = getJobCount(c.id);
+            const customerJobs = getCustomerJobs(c.id);
+            const scheduledJob = customerJobs.find(j => j.status === 'scheduled');
+            
+            return `
+                <div class="customer-card glass-card rounded-xl p-4" onclick="openDetailModal('${c.id}')">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h3 class="font-bold text-lg">${c.name}</h3>
+                            <p class="text-gray-400 text-sm">${c.address || 'No address'}</p>
+                        </div>
+                        <span class="bg-slate-700 text-gray-300 px-2 py-1 rounded-full text-xs">
+                            ${jobCount} job${jobCount !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+                    
+                    <div class="flex items-center gap-4 text-sm text-gray-400 mb-3">
+                        ${c.phone ? `<span><i class="fas fa-phone mr-1"></i>${c.phone}</span>` : ''}
+                        ${c.email ? `<span><i class="fas fa-envelope mr-1"></i>${c.email}</span>` : ''}
+                    </div>
+                    
+                    ${scheduledJob ? `
+                        <div class="text-purple-400 text-sm mb-3">
+                            <i class="fas fa-calendar mr-1"></i>Next: ${new Date(scheduledJob.jobDate + 'T12:00:00').toLocaleDateString()} - ${scheduledJob.serviceType || 'Service'}
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Quick Actions -->
+                    <div class="flex gap-2 mt-2" onclick="event.stopPropagation()">
+                        ${c.phone ? `
+                        <a href="tel:${c.phone}" class="action-btn flex-1 bg-green-600/20 text-green-400 rounded-lg py-2 text-center">
+                            <i class="fas fa-phone"></i>
+                        </a>
+                        <a href="sms:${c.phone}" class="action-btn flex-1 bg-blue-600/20 text-blue-400 rounded-lg py-2 text-center">
+                            <i class="fas fa-sms"></i>
+                        </a>
+                        ` : ''}
+                        <a href="quick-add.html?customerId=${c.id}" class="action-btn flex-1 bg-purple-600/20 text-purple-400 rounded-lg py-2 text-center">
+                            <i class="fas fa-plus"></i> Job
+                        </a>
+                        <button onclick="editCustomer('${c.id}')" class="action-btn flex-1 bg-slate-600/50 text-gray-300 rounded-lg py-2">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Search
+        function filterCustomers() {
+            searchQuery = document.getElementById('searchInput').value;
+            renderCustomers();
+        }
+
+        // Modal functions - simplified for customer-only data
+        function openAddModal() {
+            document.getElementById('customerModal-title').textContent = 'Add Customer';
+            document.getElementById('customerForm').reset();
+            document.getElementById('customerId').value = '';
+            openModal('customerModal');
+        }
+
+        function closeCustomerModal() {
+            closeModal('customerModal');
+        }
+
+        function editCustomer(id) {
+            const c = customers.find(c => c.id === id);
+            if (!c) return;
+
+            document.getElementById('customerModal-title').textContent = 'Edit Customer';
+            document.getElementById('customerId').value = c.id;
+            document.getElementById('customerName').value = c.name || '';
+            document.getElementById('customerPhone').value = c.phone || '';
+            document.getElementById('customerEmail').value = c.email || '';
+            document.getElementById('customerAddress').value = c.address || '';
+            document.getElementById('customerNotes').value = c.notes || '';
+
+            openModal('customerModal');
+        }
+
+        // Detail modal - shows customer info + linked jobs
+        function openDetailModal(id) {
+            const c = customers.find(c => c.id === id);
+            if (!c) return;
+            
+            const customerJobs = getCustomerJobs(c.id);
+            
+            // Build jobs list HTML
+            let jobsHtml = '';
+            if (customerJobs.length > 0) {
+                jobsHtml = `
+                    <div class="border-t border-slate-700 pt-4 mt-4">
+                        <p class="text-gray-400 text-sm mb-2">Jobs (${customerJobs.length})</p>
+                        <div class="space-y-2 max-h-48 overflow-y-auto">
+                            ${customerJobs.map(j => `
+                                <a href="jobs.html?highlight=${j.id}" class="block bg-slate-800 p-3 rounded-lg">
+                                    <div class="flex justify-between items-center">
+                                        <span>${j.serviceType || 'Service'}</span>
+                                        <span class="status-badge status-${j.status} text-xs">${j.status}</span>
+                                    </div>
+                                    <div class="text-sm text-gray-400 mt-1">
+                                        ${j.jobDate ? new Date(j.jobDate + 'T12:00:00').toLocaleDateString() : 'No date'}
+                                        ${j.quoteAmount ? ` • $${j.quoteAmount}` : ''}
+                                    </div>
+                                </a>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('detailModal-title').textContent = c.name;
+            document.getElementById('detailContent').innerHTML = `
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        ${c.phone ? `
+                        <div>
+                            <p class="text-gray-400 text-sm">Phone</p>
+                            <a href="tel:${c.phone}" class="text-primary">${c.phone}</a>
+                        </div>
+                        ` : ''}
+                        ${c.email ? `
+                            <div>
+                                <p class="text-gray-400 text-sm">Email</p>
+                                <a href="mailto:${c.email}" class="text-primary">${c.email}</a>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    ${c.address ? `
+                        <div>
+                            <p class="text-gray-400 text-sm">Address</p>
+                            <a href="https://maps.google.com/?q=${encodeURIComponent(c.address)}" target="_blank" class="text-primary">
+                                <i class="fas fa-map-marker-alt mr-1"></i>${c.address}
+                            </a>
+                        </div>
+                    ` : ''}
+                    
+                    ${c.notes ? `
+                        <div>
+                            <p class="text-gray-400 text-sm">Notes</p>
+                            <p class="bg-slate-800 p-3 rounded-lg whitespace-pre-wrap">${c.notes}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${jobsHtml}
+                    
+                    <div id="customerDocsSection_${c.id}" class="border-t border-slate-700 pt-4 mt-4" style="display:none;"></div>
+                    
+                    <div class="text-xs text-gray-500">
+                        Added: ${new Date(c.dateAdded).toLocaleDateString()}
+                        ${c.lastUpdated ? ` • Updated: ${new Date(c.lastUpdated).toLocaleDateString()}` : ''}
+                    </div>
+                    
+                    ${c.phone ? `
+                    <div class="flex gap-3 pt-4 border-t border-slate-700">
+                        <a href="tel:${c.phone}" class="flex-1 bg-green-600 text-white py-3 rounded-xl text-center font-semibold">
+                            <i class="fas fa-phone mr-2"></i>Call
+                        </a>
+                        <a href="sms:${c.phone}" class="flex-1 bg-blue-600 text-white py-3 rounded-xl text-center font-semibold">
+                            <i class="fas fa-sms mr-2"></i>Text
+                        </a>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="flex gap-3">
+                        <a href="quick-add.html?customerId=${c.id}" class="flex-1 bg-purple-600 text-white py-3 rounded-xl text-center font-semibold">
+                            <i class="fas fa-plus mr-2"></i>Job
+                        </a>
+                        <button onclick="prefillEstimate('${c.id}')" class="flex-1 bg-cyan-600/80 text-white py-3 rounded-xl font-semibold">
+                            <i class="fas fa-file-invoice mr-2"></i>Estimate
+                        </button>
+                        <button onclick="prefillInvoice('${c.id}')" class="flex-1 bg-amber-600/80 text-white py-3 rounded-xl font-semibold">
+                            <i class="fas fa-receipt mr-2"></i>Invoice
+                        </button>
+                    </div>
+                    
+                    <div class="flex gap-3">
+                        <button onclick="editCustomer('${c.id}'); closeDetailModal();" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold">
+                            <i class="fas fa-edit mr-2"></i>Edit
+                        </button>
+                        <button onclick="deleteCustomer('${c.id}')" class="flex-1 bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold">
+                            <i class="fas fa-trash mr-2"></i>Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+            openModal('detailModal');
+            // Load linked estimates/invoices from Firestore
+            loadCustomerDocs(c.id);
+        }
+
+        async function loadCustomerDocs(customerId) {
+            const section = document.getElementById('customerDocsSection_' + customerId);
+            if (!section) return;
+            if (typeof CL_FIREBASE === 'undefined' || !CL_FIREBASE.isSignedIn) {
+                section.style.display = 'none';
+                return;
+            }
+            const db = CL_FIREBASE.getFirestore();
+            const user = CL_FIREBASE.getCurrentUser();
+            if (!db || !user) return;
+            try {
+                const [estSnap, invSnap] = await Promise.all([
+                    db.collection('estimates').where('userId','==',user.uid).where('customerId','==',customerId).get(),
+                    db.collection('invoices').where('userId','==',user.uid).where('customerId','==',customerId).get()
+                ]);
+                const estCount = estSnap.size;
+                const invCount = invSnap.size;
+                if (estCount === 0 && invCount === 0) { section.style.display = 'none'; return; }
+                let html = `<p class="text-gray-400 text-sm mb-2">${estCount} estimate${estCount!==1?'s':''}, ${invCount} invoice${invCount!==1?'s':''}</p><div class="space-y-2 max-h-48 overflow-y-auto">`;
+                estSnap.docs.forEach(doc => {
+                    const d = doc.data();
+                    const badge = d.status==='final'?'<span class="text-yellow-400 text-xs">Final</span>':'<span class="text-blue-400 text-xs">Draft</span>';
+                    html += `<a href="estimate.html" onclick="localStorage.setItem('cl-load-estimate','${doc.id}')" class="block bg-slate-800 p-3 rounded-lg"><div class="flex justify-between items-center"><span>Est: ${d.estimateName||'Untitled'}</span>${badge}</div><div class="text-sm text-gray-400 mt-1">${d.updatedAt?new Date(d.updatedAt).toLocaleDateString():''} ${d.totalAmount?'\u2022 $'+parseFloat(d.totalAmount).toFixed(2):''}</div></a>`;
+                });
+                invSnap.docs.forEach(doc => {
+                    const d = doc.data();
+                    const badge = d.status==='final'?'<span class="text-yellow-400 text-xs">Final</span>':'<span class="text-blue-400 text-xs">Draft</span>';
+                    html += `<a href="invoice.html" onclick="localStorage.setItem('cl-load-invoice','${doc.id}')" class="block bg-slate-800 p-3 rounded-lg"><div class="flex justify-between items-center"><span>Inv: ${d.estimateName||'Untitled'}</span>${badge}</div><div class="text-sm text-gray-400 mt-1">${d.updatedAt?new Date(d.updatedAt).toLocaleDateString():''} ${d.totalAmount?'\u2022 $'+parseFloat(d.totalAmount).toFixed(2):''}</div></a>`;
+                });
+                html += '</div>';
+                section.innerHTML = html;
+                section.style.display = 'block';
+            } catch (err) {
+                console.warn('Could not load customer docs:', err);
+            }
+        }
+
+        function closeDetailModal() {
+            closeModal('detailModal');
+        }
+
+        // Delete customer
+        function deleteCustomer(id) {
+            const customerJobs = getCustomerJobs(id);
+            if (customerJobs.length > 0) {
+                if (!confirm(`This customer has ${customerJobs.length} linked job(s). Delete customer anyway?`)) {
+                    return;
+                }
+            }
+            if (confirm('Delete this customer?')) {
+                CL_DATA.deleteCustomer(id);
+                loadData();
+                renderCustomers();
+                closeDetailModal();
+            }
+        }
+
+        // Export - uses CL_DATA
+        function exportData() {
+            const data = CL_DATA.exportAll();
+            
+            if (data.customers.length === 0 && data.jobs.length === 0) {
+                alert('No data to export');
+                return;
+            }
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sc-pressure-point-backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Import - uses CL_DATA
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                
+                // Check if it's a VCF file
+                if (file.name.endsWith('.vcf') || content.includes('BEGIN:VCARD')) {
+                    importVCF(content);
+                    return;
+                }
+                
+                try {
+                    const data = JSON.parse(content);
+                    
+                    // Use CL_DATA to import (handles old and new formats)
+                    CL_DATA.importData(data);
+                    loadData();
+                    renderCustomers();
+                    alert('Data imported successfully!');
+                } catch (err) {
+                    alert('Error reading file: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+        
+        // Import VCF contacts - now uses CL_DATA
+        function importVCF(vcfText) {
+            // Split into individual vcards
+            const vcards = vcfText.split('END:VCARD').filter(v => v.includes('BEGIN:VCARD'));
+            
+            if (vcards.length === 0) {
+                alert('No contacts found in VCF file');
+                return;
+            }
+            
+            const importedContacts = [];
+            
+            vcards.forEach(vcard => {
+                const contact = parseVCard(vcard);
+                if (contact.name || contact.phone) {
+                    importedContacts.push({
+                        id: 'cust_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                        name: contact.name || 'Unknown',
+                        phone: contact.phone || '',
+                        email: contact.email || '',
+                        address: contact.address || '',
+                        notes: '',
+                        dateAdded: new Date().toISOString(),
+                        lastUpdated: new Date().toISOString()
+                    });
+                }
+            });
+            
+            if (importedContacts.length === 0) {
+                alert('No valid contacts found');
+                return;
+            }
+            
+            if (confirm(`Import ${importedContacts.length} contact(s) as new customers?`)) {
+                importedContacts.forEach(c => CL_DATA.addCustomer(c));
+                loadData();
+                renderCustomers();
+                alert(`Imported ${importedContacts.length} contacts`);
+            }
+        }
+        
+        function parseVCard(vcardText) {
+            const contact = {};
+            const lines = vcardText.split(/\r?\n/);
+            
+            for (const line of lines) {
+                // Full name
+                if (line.startsWith('FN:')) {
+                    contact.name = line.substring(3).trim();
+                }
+                // Structured name (fallback)
+                else if (line.startsWith('N:') && !contact.name) {
+                    const parts = line.substring(2).split(';');
+                    const firstName = parts[1] || '';
+                    const lastName = parts[0] || '';
+                    contact.name = `${firstName} ${lastName}`.trim();
+                }
+                // Phone
+                else if (line.startsWith('TEL') || line.includes('TEL;')) {
+                    const match = line.match(/:(\+?[\d\s\-\(\)]+)/);
+                    if (match && !contact.phone) {
+                        contact.phone = match[1].trim();
+                    }
+                }
+                // Email
+                else if (line.startsWith('EMAIL') || line.includes('EMAIL;')) {
+                    const match = line.match(/:(.+)/);
+                    if (match && !contact.email) {
+                        contact.email = match[1].trim();
+                    }
+                }
+                // Address
+                else if (line.startsWith('ADR') || line.includes('ADR;')) {
+                    const match = line.match(/:(.+)/);
+                    if (match) {
+                        const parts = match[1].split(';').filter(p => p.trim());
+                        contact.address = parts.join(', ');
+                    }
+                }
+            }
+            
+            return contact;
+        }
+
+        // Prefill estimate/invoice from customer
+        function prefillEstimate(id) {
+            const c = customers.find(c => c.id === id);
+            if (!c) return;
+            safeSet('cl-estimate-prefill', {
+                name: c.name || '',
+                address: c.address || ''
+            });
+            closeDetailModal();
+            window.location.href = 'estimate.html';
+        }
+
+        function prefillInvoice(id) {
+            const c = customers.find(c => c.id === id);
+            if (!c) return;
+            safeSet('cl-invoice-prefill', {
+                name: c.name || '',
+                address: c.address || '',
+                phone: c.phone || ''
+            });
+            closeDetailModal();
+            window.location.href = 'invoice.html';
+        }
+
+        // Maps API Key (from config.js)
+        const MAPS_API_KEY = window.CL_SECRETS?.mapsApiKey || '';
+        let mapsLoaded = false;
+
+        function loadMapsScript() {
+            if (mapsLoaded || window.google?.maps) {
+                initMapsAutocomplete();
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_API_KEY}&libraries=places&callback=initMapsAutocomplete`;
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+
+        function initMapsAutocomplete() {
+            mapsLoaded = true;
+            const addressInput = document.getElementById('customerAddress');
+            if (!addressInput) return;
+            
+            const autocomplete = new google.maps.places.Autocomplete(addressInput, {
+                types: ['address'],
+                componentRestrictions: { country: 'us' },
+                fields: ['formatted_address', 'geometry']
+            });
+
+            autocomplete.addListener('place_changed', () => {
+                const place = autocomplete.getPlace();
+                if (place.formatted_address) {
+                    addressInput.value = place.formatted_address;
+                }
+            });
+
+            // Style the autocomplete dropdown for dark theme
+            if (!document.querySelector('#maps-autocomplete-style')) {
+                const style = document.createElement('style');
+                style.id = 'maps-autocomplete-style';
+                style.textContent = `
+                    .pac-container { background: #1e293b; border: 1px solid #334155; border-radius: 12px; margin-top: 4px; font-family: system-ui; z-index: 9999; }
+                    .pac-item { padding: 10px 12px; color: #f8fafc; border-top: 1px solid #334155; cursor: pointer; }
+                    .pac-item:first-child { border-top: none; }
+                    .pac-item:hover, .pac-item-selected { background: #334155; }
+                    .pac-item-query { color: #0ea5e9; }
+                    .pac-matched { color: #38bdf8; font-weight: bold; }
+                    .pac-icon { display: none; }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+        window.initMapsAutocomplete = initMapsAutocomplete;
+
+        // Load maps when modal opens
+        const origOpenAddModal = openAddModal;
+        openAddModal = function() {
+            origOpenAddModal();
+            loadMapsScript();
+        };
+        const origEditCustomer = editCustomer;
+        editCustomer = function(id) {
+            origEditCustomer(id);
+            loadMapsScript();
+        };
+    </script>
+</body>
+</html>

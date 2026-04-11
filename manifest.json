@@ -1,0 +1,43 @@
+{
+  "name": "Clearline CRM",
+  "short_name": "Clearline",
+  "description": "Pressure washing CRM — customers, jobs, estimates, invoices",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Quick Add Job",
+      "short_name": "Add Job",
+      "description": "Quickly add a new job",
+      "url": "/quick-add.html",
+      "icons": [{ "src": "logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Calendar",
+      "short_name": "Calendar",
+      "description": "View job calendar",
+      "url": "/calendar.html",
+      "icons": [{ "src": "logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Customers",
+      "short_name": "Customers",
+      "description": "Manage customers",
+      "url": "/customer-tracker.html",
+      "icons": [{ "src": "logo.png", "sizes": "96x96" }]
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "en-US"
+}
