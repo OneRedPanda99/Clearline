@@ -172,26 +172,12 @@
                 </div>
             </div>
 
-            <!-- Google Calendar -->
-            <p class="section-title mb-2 px-1">Google Calendar</p>
-            <div class="glass-card rounded-2xl overflow-hidden mb-4">
-                <div class="setting-item p-4 flex justify-between items-center">
-                    <div>
-                        <p>Connection Status</p>
-                        <p class="text-xs text-gray-400" id="gcalStatus">Not connected</p>
-                    </div>
-                    <button onclick="manageGoogleConnection()" id="gcalBtn" class="bg-white text-gray-800 px-4 py-2 rounded-xl text-sm font-semibold">
-                        Connect
-                    </button>
-                </div>
-            </div>
-
-            <!-- Cloud Sync -->
-            <p class="section-title mb-2 px-1">Cloud Sync</p>
+            <!-- Google Account -->
+            <p class="section-title mb-2 px-1">Google Account</p>
             <div class="glass-card rounded-2xl overflow-hidden mb-4">
                 <div class="p-4">
                     <div id="syncSignedOut">
-                        <p class="text-sm text-gray-300 mb-3">Sign in with Google to sync your data across all your devices.</p>
+                        <p class="text-sm text-gray-300 mb-3">Sign in with Google to sync data and connect Google Calendar.</p>
                         <button onclick="CL_FIREBASE.signInWithGoogle()" class="w-full bg-white text-gray-800 py-3 rounded-lg font-semibold flex items-center justify-center gap-2">
                             <img src="https://www.google.com/favicon.ico" alt="" class="w-5 h-5">
                             Sign in with Google
@@ -205,6 +191,13 @@
                                 <p id="syncUserEmail" class="text-xs text-gray-400"></p>
                             </div>
                         </div>
+                        <div class="flex items-center gap-2 mb-3 text-sm">
+                            <i class="fas fa-cloud-check text-green-400"></i>
+                            <span class="text-green-400">Cloud Sync Active</span>
+                            <span class="text-gray-500 mx-1">•</span>
+                            <i class="fab fa-google text-blue-400"></i>
+                            <span id="gcalStatus" class="text-blue-400">Calendar Connected</span>
+                        </div>
                         <div class="flex gap-2">
                             <button onclick="CL_FIREBASE.syncToCloud()" class="flex-1 bg-primary text-white py-2 rounded-lg font-semibold text-sm">
                                 <i class="fas fa-cloud-upload-alt mr-1"></i> Sync Now
@@ -213,7 +206,6 @@
                                 Sign Out
                             </button>
                         </div>
-                        <p class="text-xs text-gray-500 mt-2 text-center">Data syncs automatically when you sign in</p>
                     </div>
                 </div>
             </div>
@@ -257,6 +249,11 @@
                 </a>
             </div>
 
+            <!-- Save Button -->
+            <button onclick="saveSettings(); showToast('Settings saved!')" class="w-full bg-primary text-white py-4 rounded-2xl font-semibold text-lg mb-4">
+                <i class="fas fa-save mr-2"></i>Save Settings
+            </button>
+
             <!-- App Info -->
             <p class="section-title mb-2 px-1">About</p>
             <div class="glass-card rounded-2xl overflow-hidden mb-4">
@@ -299,20 +296,13 @@
             document.getElementById('serviceTypes').value = settings.serviceTypes || DEFAULT_SERVICES;
             document.getElementById('jobCategories').value = settings.jobCategories || DEFAULT_CATEGORIES;
 
-            // Check Google Calendar connection
+            // Check Google Calendar connection status
             const token = localStorage.getItem('gcal-token');
             const expiry = localStorage.getItem('gcal-token-expiry');
-            if (token && expiry > Date.now()) {
-                document.getElementById('gcalStatus').textContent = 'Connected';
-                document.getElementById('gcalBtn').textContent = 'Disconnect';
-                document.getElementById('gcalBtn').classList.remove('bg-white', 'text-gray-800');
-                document.getElementById('gcalBtn').classList.add('bg-red-600', 'text-white');
+            const gcalEl = document.getElementById('gcalStatus');
+            if (gcalEl) {
+                gcalEl.textContent = (token && expiry > Date.now()) ? 'Calendar Connected' : 'Calendar Not Connected';
             }
-
-            // Auto-save on change
-            document.querySelectorAll('input, select, textarea').forEach(el => {
-                el.addEventListener('change', saveSettings);
-            });
 
             // Check auth state and update sync UI
             updateSyncUI();
@@ -372,29 +362,6 @@
             const toggle = document.getElementById('toggle' + setting.charAt(0).toUpperCase() + setting.slice(1));
             toggle.classList.toggle('on');
             saveSettings();
-        }
-
-        function manageGoogleConnection() {
-            const settings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
-            if (!settings.gcalClientId) {
-                const next = prompt('Enter Google Calendar Client ID', '');
-                if (!next) return;
-                settings.gcalClientId = next.trim();
-                localStorage.setItem('cl-settings', JSON.stringify(settings));
-            }
-            const token = localStorage.getItem('gcal-token');
-            if (token) {
-                // Disconnect
-                localStorage.removeItem('gcal-token');
-                localStorage.removeItem('gcal-token-expiry');
-                document.getElementById('gcalStatus').textContent = 'Not connected';
-                document.getElementById('gcalBtn').textContent = 'Connect';
-                document.getElementById('gcalBtn').classList.add('bg-white', 'text-gray-800');
-                document.getElementById('gcalBtn').classList.remove('bg-red-600', 'text-white');
-            } else {
-                // Redirect to quick-add to connect
-                window.location.href = 'quick-add.html';
-            }
         }
 
         function exportData() {
