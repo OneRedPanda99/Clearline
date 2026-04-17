@@ -18,7 +18,13 @@ const CL_FIREBASE = (function() {
     let calendarTokenExpiry = 0;
     let isInitialized = false;
     let initPromise = null;
-    let syncInProgress = false;
+    // Separate flags so a read-in-flight doesn't cause writes to be dropped.
+    // A shared guard made `syncToCloud` silently return false whenever the
+    // every-5s `syncFromCloud` was mid-network: local edits never reached
+    // Firestore, so other devices never saw new customers.
+    let pullInProgress = false;
+    let pushInProgress = false;
+    let pushPending = false;
 
     // Get Firebase config from CL_SECRETS (loaded via config.js)
     function getConfig() {
@@ -214,15 +220,25 @@ const CL_FIREBASE = (function() {
         currentUser = null;
     }
 
-    // Sync data to cloud
+    // Sync data to cloud. No longer shares a guard with syncFromCloud — a
+    // pull in flight used to swallow pushes whole, which is why customer
+    // saves weren't reaching Firestore. Writes that land while another push
+    // is already running are coalesced: we set `pushPending` and fire one
+    // more `set` when the current one finishes, picking up any state the
+    // later caller had added to localStorage in the meantime.
     async function syncToCloud() {
-        if (!currentUser || !db || syncInProgress) return false;
+        if (!currentUser || !db) return false;
+        if (pushInProgress) {
+            pushPending = true;
+            return false;
+        }
 
-        syncInProgress = true;
+        pushInProgress = true;
         try {
             const userDoc = db.collection('users').doc(currentUser.uid);
-            
-            // Get local data
+
+            // Snapshot local data at the moment we actually upload, so any
+            // writes queued via `pushPending` get picked up automatically.
             const localData = CL_DATA.exportAll();
             localData.lastSync = new Date().toISOString();
             localData.deviceId = getDeviceId();
@@ -245,15 +261,23 @@ const CL_FIREBASE = (function() {
             console.error('Sync to cloud failed:', err);
             return false;
         } finally {
-            syncInProgress = false;
+            pushInProgress = false;
+            if (pushPending) {
+                pushPending = false;
+                // Run once more so any writes queued during the in-flight
+                // upload actually land. 50ms to let the microtask queue drain.
+                setTimeout(syncToCloud, 50);
+            }
         }
     }
 
-    // Sync data from cloud
+    // Sync data from cloud. Only guards against overlapping *pulls* now;
+    // concurrent pushes are allowed because Firestore serializes them and
+    // using `{merge:true}` is idempotent.
     async function syncFromCloud() {
-        if (!currentUser || !db || syncInProgress) return false;
+        if (!currentUser || !db || pullInProgress) return false;
 
-        syncInProgress = true;
+        pullInProgress = true;
         try {
             const userDoc = await db.collection('users').doc(currentUser.uid).get();
             
@@ -290,7 +314,7 @@ const CL_FIREBASE = (function() {
             console.error('Sync from cloud failed:', err);
             return false;
         } finally {
-            syncInProgress = false;
+            pullInProgress = false;
         }
     }
 
