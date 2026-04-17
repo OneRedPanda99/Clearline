@@ -227,10 +227,13 @@ const CL_FIREBASE = (function() {
             localData.lastSync = new Date().toISOString();
             localData.deviceId = getDeviceId();
 
-            // Save to Firestore
+            // Save to Firestore. Tombstones must be included or deleted
+            // records re-surface on other devices after mergeFromCloud runs.
             await userDoc.set({
                 customers: localData.customers || [],
                 jobs: localData.jobs || [],
+                deletedCustomers: localData.deletedCustomers || [],
+                deletedJobs: localData.deletedJobs || [],
                 settings: JSON.parse(localStorage.getItem('cl-settings') || '{}'),
                 lastSync: firebase.firestore.FieldValue.serverTimestamp(),
                 lastDevice: getDeviceId()

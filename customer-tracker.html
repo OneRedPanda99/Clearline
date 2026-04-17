@@ -466,25 +466,61 @@
             
             const customerJobs = getCustomerJobs(c.id);
             
-            // Build jobs list HTML
+            // Build jobs list HTML — sort newest first, group by year/month,
+            // scrollable so many jobs don't break the layout.
             let jobsHtml = '';
             if (customerJobs.length > 0) {
-                jobsHtml = `
-                    <div class="border-t border-slate-700 pt-4 mt-4">
-                        <p class="text-gray-400 text-sm mb-2">Jobs (${customerJobs.length})</p>
-                        <div class="space-y-2 max-h-48 overflow-y-auto">
-                            ${customerJobs.map(j => `
-                                <a href="jobs.html?highlight=${j.id}" class="block bg-slate-800 p-3 rounded-lg">
+                const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+                const sorted = customerJobs.slice().sort((a, b) => {
+                    const ka = a.jobDate || a.dateAdded || '';
+                    const kb = b.jobDate || b.dateAdded || '';
+                    return kb.localeCompare(ka);
+                });
+                const groups = new Map(); // key: "YYYY-MM" -> jobs[]
+                sorted.forEach(j => {
+                    const d = j.jobDate ? new Date(j.jobDate + 'T12:00:00')
+                           : j.dateAdded ? new Date(j.dateAdded)
+                           : null;
+                    const year = d ? d.getFullYear() : 'Undated';
+                    const month = d ? d.getMonth() : -1;
+                    const key = d ? `${year}-${String(month).padStart(2,'0')}` : 'undated';
+                    const label = d ? `${MONTHS[month]} ${year}` : 'Undated';
+                    if (!groups.has(key)) groups.set(key, { label, jobs: [] });
+                    groups.get(key).jobs.push(j);
+                });
+                const groupHtml = Array.from(groups.values()).map(g => `
+                    <div class="mb-3">
+                        <p class="text-xs uppercase tracking-wide text-gray-500 mb-1">${g.label}</p>
+                        <div class="space-y-2">
+                            ${g.jobs.map(j => `
+                                <div class="bg-slate-800 p-3 rounded-lg">
                                     <div class="flex justify-between items-center">
-                                        <span>${j.serviceType || 'Service'}</span>
+                                        <span class="font-semibold">${j.serviceType || 'Service'}</span>
                                         <span class="status-badge status-${j.status} text-xs">${j.status}</span>
                                     </div>
                                     <div class="text-sm text-gray-400 mt-1">
                                         ${j.jobDate ? new Date(j.jobDate + 'T12:00:00').toLocaleDateString() : 'No date'}
                                         ${j.quoteAmount ? ` • $${j.quoteAmount}` : ''}
                                     </div>
-                                </a>
+                                    <div class="flex gap-2 mt-2">
+                                        <a href="jobs.html?highlight=${j.id}" class="flex-1 bg-primary/20 text-primary rounded-lg py-2 text-center text-sm">
+                                            <i class="fas fa-eye mr-1"></i>View
+                                        </a>
+                                        <a href="jobs.html?highlight=${j.id}&edit=1" class="flex-1 bg-slate-700 text-gray-200 rounded-lg py-2 text-center text-sm">
+                                            <i class="fas fa-edit mr-1"></i>Edit
+                                        </a>
+                                    </div>
+                                </div>
                             `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+
+                jobsHtml = `
+                    <div class="border-t border-slate-700 pt-4 mt-4">
+                        <p class="text-gray-400 text-sm mb-2">Jobs (${customerJobs.length})</p>
+                        <div class="overflow-y-auto" style="max-height: 60vh;">
+                            ${groupHtml}
                         </div>
                     </div>
                 `;

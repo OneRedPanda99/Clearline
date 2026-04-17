@@ -676,7 +676,13 @@
 
     <script>
         let serviceCounter = 1;
-        
+
+        // Parsed up-front so prefill logic can skip when we're loading an
+        // existing entry from a job.
+        const urlParams = new URLSearchParams(window.location.search);
+        const jobId = urlParams.get('jobId');
+        const editDocId = urlParams.get('docId');
+
         function addService() {
             serviceCounter++;
             const container = document.getElementById('servicesContainer');
@@ -1154,9 +1160,10 @@
         
         // Initialize
         updateRemoveButtons();
-        
-        // Check for prefill data from customer tracker
-        const prefillData = safeGet('cl-estimate-prefill', null);
+
+        // Check for prefill data from customer tracker. Skipped when we're
+        // re-opening an existing saved doc — that path loads its own state.
+        const prefillData = !editDocId ? safeGet('cl-estimate-prefill', null) : null;
         if (prefillData) {
             if (prefillData.name) document.getElementById('customerName').value = prefillData.name;
             if (prefillData.address) document.getElementById('customerAddress').value = prefillData.address;
@@ -1649,65 +1656,95 @@
             return contact;
         }
 
-        // Get job ID from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const jobId = urlParams.get('jobId');
+        // Save the current form state into the job's documents array. New
+        // entries append; existing entries (identified by editDocId) are
+        // replaced in place. The saved payload is compact JSON — no base64
+        // PNG — so it stays well under Firestore's 1 MB per-doc limit.
+        function saveEstimateToJob() {
+            if (!jobId) { alert('No job associated with this estimate'); return; }
 
-        // Save estimate to job
-        async function saveEstimateToJob() {
-            if (!jobId) {
-                alert('No job associated with this estimate');
-                return;
-            }
-            
-            if (!lastEstimateData) {
-                alert('Please generate an estimate first');
-                return;
-            }
-            
-            const preview = document.getElementById('estimateContent');
-            
-            try {
-                const canvas = await html2canvas(preview, {
-                    scale: 2,
-                    useCORS: true,
-                    backgroundColor: '#ffffff'
-                });
-                
-                const pdfDataUrl = canvas.toDataURL('image/png');
-                
-                const estimateDoc = {
-                    id: Date.now().toString(),
-                    createdAt: new Date().toISOString(),
-                    estimateNumber: lastEstimateData.estimateNum,
-                    customerName: lastEstimateData.customerName,
-                    total: lastEstimateData.total,
-                    pdfDataUrl: pdfDataUrl
+            const job = CL_DATA.findJob(jobId);
+            if (!job) { alert('Job not found'); return; }
+
+            const formState = collectFormState();
+            const summary = {
+                customerName: formState.customerName || '',
+                total: lastEstimateData ? lastEstimateData.total : parseFloat(formState.totalAmount) || 0,
+                number: lastEstimateData ? lastEstimateData.estimateNum : ''
+            };
+
+            if (!job.documents) job.documents = { estimates: [], invoices: [], waivers: [] };
+            if (!Array.isArray(job.documents.estimates)) job.documents.estimates = [];
+
+            const existingIdx = editDocId
+                ? job.documents.estimates.findIndex(d => d && d.id === editDocId)
+                : -1;
+
+            const nowIso = new Date().toISOString();
+            if (existingIdx >= 0) {
+                const existing = job.documents.estimates[existingIdx];
+                job.documents.estimates[existingIdx] = {
+                    ...existing,
+                    id: existing.id,
+                    createdAt: existing.createdAt || nowIso,
+                    updatedAt: nowIso,
+                    summary,
+                    formState
                 };
-                
-                const jobs = CL_DATA.getJobs();
-                const job = jobs.find(j => j.id === jobId);
-                
-                if (job) {
-                    if (!job.documents) {
-                        job.documents = { estimates: [], invoices: [], waivers: [] };
-                    }
-                    if (!job.documents.estimates) {
-                        job.documents.estimates = [];
-                    }
-                    job.documents.estimates.push(estimateDoc);
-                    CL_DATA.updateJob(job.id, { documents: job.documents });
-                    
-                    alert('Estimate saved to job!');
-                    window.location.href = 'jobs.html';
-                } else {
-                    alert('Job not found');
-                }
-            } catch (err) {
-                console.error('Error saving estimate:', err);
-                alert('Error saving estimate. Please try again.');
+            } else {
+                job.documents.estimates.push({
+                    id: 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                    createdAt: nowIso,
+                    updatedAt: nowIso,
+                    summary,
+                    formState
+                });
+            }
+
+            CL_DATA.updateJob(job.id, { documents: job.documents });
+            showToast('Estimate saved to job');
+            setTimeout(() => { window.location.href = 'jobs.html'; }, 600);
+        }
+
+        // When reopening a saved estimate (jobId + docId), preload the form
+        // with the stored formState. Falls back to a best-effort prefill from
+        // the summary + job fields for legacy entries that pre-date formState.
+        function loadEstimateFromJobDoc() {
+            if (!jobId || !editDocId) return;
+            const job = CL_DATA.findJob(jobId);
+            if (!job || !job.documents || !Array.isArray(job.documents.estimates)) return;
+            const entry = job.documents.estimates.find(d => d && d.id === editDocId);
+            if (!entry) return;
+            if (entry.formState) {
+                loadFormState(entry.formState);
+            } else {
+                // Legacy PNG-only doc: seed what we can so first save upgrades it.
+                const seed = {
+                    customerName: (entry.summary && entry.summary.customerName) || job.customerName || '',
+                    customerAddress: job.address || '',
+                    notes: job.notes || ''
+                };
+                loadFormState(seed);
             }
         }
+
+        // Sticky Save-to-Job button visible whenever jobId is in the URL, so
+        // Edit flows don't require clicking Generate first.
+        function installStickySaveToJob() {
+            if (!jobId) return;
+            const form = document.getElementById('estimateForm');
+            if (!form || document.getElementById('stickySaveToJobWrap')) return;
+            const wrap = document.createElement('div');
+            wrap.id = 'stickySaveToJobWrap';
+            wrap.style.cssText = 'position:sticky;bottom:0;background:#fff;padding:10px 0;border-top:1px solid #ccc;margin-top:10px;';
+            wrap.innerHTML = `<button type="button" class="add-service-btn" style="background:#10b981;margin-bottom:0;" onclick="saveEstimateToJob()"><i class="fas fa-save" style="margin-right:8px;"></i>${editDocId ? 'Save Changes to Job' : 'Save to Job'}</button>`;
+            form.appendChild(wrap);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            installStickySaveToJob();
+            loadEstimateFromJobDoc();
+        });
         // ── Firebase Cloud Save/Load ───────────────────────────────
         function collectFormState() {
             const services = [];

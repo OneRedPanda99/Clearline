@@ -339,16 +339,130 @@
         }
         const urlParams = new URLSearchParams(window.location.search);
         const jobId = urlParams.get('jobId');
-        async function saveInvoiceToJob() {
-            if(!jobId){alert('No job associated');return;} if(!lastInvoiceData){alert('Generate invoice first');return;}
-            try {
-                const canvas = await html2canvas(document.getElementById('invoiceContent'),{scale:2,useCORS:true,backgroundColor:'#ffffff'});
-                const doc={id:Date.now().toString(),createdAt:new Date().toISOString(),invoiceNumber:lastInvoiceData.invoiceNum,customerName:lastInvoiceData.customerName,total:lastInvoiceData.total,pdfDataUrl:canvas.toDataURL('image/png')};
-                const jobs=CL_DATA.getJobs(),job=jobs.find(j=>j.id===jobId);
-                if(job){if(!job.documents)job.documents={estimates:[],invoices:[],waivers:[]};if(!job.documents.invoices)job.documents.invoices=[];job.documents.invoices.push(doc);CL_DATA.updateJob(job.id,{documents:job.documents});alert('Invoice saved to job!');window.location.href='jobs.html';}
-                else alert('Job not found');
-            } catch(err){console.error(err);alert('Error saving invoice');}
+        const editDocId = urlParams.get('docId');
+
+        // Save the current form state into the job's invoices array. New
+        // entries append; existing entries (identified by editDocId) are
+        // replaced in place. Stores compact JSON, no base64 PNG.
+        function saveInvoiceToJob() {
+            if (!jobId) { alert('No job associated'); return; }
+            const job = CL_DATA.findJob(jobId);
+            if (!job) { alert('Job not found'); return; }
+
+            const formState = collectInvoiceState();
+            const summary = {
+                customerName: formState.customerName || '',
+                total: lastInvoiceData ? lastInvoiceData.total : parseFloat(formState.totalAmount) || 0,
+                number: lastInvoiceData ? lastInvoiceData.invoiceNum : ''
+            };
+
+            if (!job.documents) job.documents = { estimates: [], invoices: [], waivers: [] };
+            if (!Array.isArray(job.documents.invoices)) job.documents.invoices = [];
+
+            const existingIdx = editDocId
+                ? job.documents.invoices.findIndex(d => d && d.id === editDocId)
+                : -1;
+
+            const nowIso = new Date().toISOString();
+            if (existingIdx >= 0) {
+                const existing = job.documents.invoices[existingIdx];
+                job.documents.invoices[existingIdx] = {
+                    ...existing,
+                    id: existing.id,
+                    createdAt: existing.createdAt || nowIso,
+                    updatedAt: nowIso,
+                    summary,
+                    formState
+                };
+            } else {
+                job.documents.invoices.push({
+                    id: 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                    createdAt: nowIso,
+                    updatedAt: nowIso,
+                    summary,
+                    formState
+                });
+            }
+
+            CL_DATA.updateJob(job.id, { documents: job.documents });
+            showToast('Invoice saved to job');
+            setTimeout(() => { window.location.href = 'jobs.html'; }, 600);
         }
+
+        // Apply a saved invoice formState (or a legacy summary seed) into the form.
+        function applyInvoiceFormState(d) {
+            if (!d) return;
+            if (d.customerName) document.getElementById('customerName').value = d.customerName;
+            if (d.customerAddress) document.getElementById('customerAddress').value = d.customerAddress;
+            if (d.customerPhone) document.getElementById('customerPhone').value = d.customerPhone;
+            if (d.customerId) document.getElementById('selectedCustomerId').value = d.customerId;
+            if (d.gasCost) document.getElementById('gasCost').value = d.gasCost;
+            if (d.chemicalName) document.getElementById('chemicalName').value = d.chemicalName;
+            if (d.chemicalCost) document.getElementById('chemicalCost').value = d.chemicalCost;
+            if (d.discount) document.getElementById('discount').value = d.discount;
+            if (d.discountReason) document.getElementById('discountReason').value = d.discountReason;
+            if (d.additionalCost) document.getElementById('additionalCost').value = d.additionalCost;
+            if (d.additionalReason) document.getElementById('additionalReason').value = d.additionalReason;
+            if (d.notes) document.getElementById('notes').value = d.notes;
+            if (d.estimateName) document.getElementById('estimateName').value = d.estimateName;
+            if (d.invoiceNumber) document.getElementById('invoiceNumber').value = d.invoiceNumber;
+            if (d.invoiceDate) document.getElementById('invoiceDate').value = d.invoiceDate;
+            if (d.jobDate) document.getElementById('jobDate').value = d.jobDate;
+            if (d.status) document.getElementById('docStatus').value = d.status;
+            if (Array.isArray(d.services) && d.services.length) {
+                const ct = document.getElementById('servicesContainer');
+                ct.innerHTML = '';
+                serviceCounter = 0;
+                d.services.forEach(sd => {
+                    serviceCounter++;
+                    const div = document.createElement('div');
+                    div.className = 'service-item';
+                    div.setAttribute('data-service-id', serviceCounter);
+                    div.innerHTML = `<div class="service-header"><h4>Service ${serviceCounter}</h4><button type="button" class="remove-service" onclick="removeService(${serviceCounter})">Remove</button></div><div class="form-group"><label>Property/Area Description:</label><input type="text" name="description" value="${sd.description||''}" required></div><div class="two-column"><div class="form-group"><label>Square Footage:</label><input type="number" name="squareFootage" value="${sd.squareFootage||''}" required></div><div class="form-group"><label>Price per Sq Ft ($):</label><input type="number" name="pricePerSqFt" step="0.01" value="${sd.pricePerSqFt||'0.30'}" required></div></div><div class="two-column"><div class="form-group"><label>Number of Workers:</label><select name="numWorkers" required><option value="1" ${sd.numWorkers==='1'?'selected':''}>1 Worker</option><option value="2" ${sd.numWorkers==='2'?'selected':''}>2 Workers</option></select></div><div class="form-group"><label>Actual Hours Worked:</label><input type="number" name="hoursWorked" step="0.25" min="0" value="${sd.hoursWorked||''}"></div></div><div class="form-group"><label>Dirt Level:</label><div style="margin:10px 0"><input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="${sd.dirtLevel||'3.5'}" style="width:100%" oninput="updateDirtDisplay(this)"><div style="text-align:center;margin-top:5px"><span name="dirtDisplay" style="font-weight:bold">Level ${sd.dirtLevel||'3.5'}</span></div></div></div>`;
+                    ct.appendChild(div);
+                });
+                updateRemoveButtons();
+            }
+            applyFinalizedState(d.status === 'final');
+        }
+
+        // When reopening a saved invoice (jobId + docId), preload the form
+        // from stored formState. Falls back to summary + job fields for legacy
+        // PNG-only entries so they become editable on first re-save.
+        function loadInvoiceFromJobDoc() {
+            if (!jobId || !editDocId) return;
+            const job = CL_DATA.findJob(jobId);
+            if (!job || !job.documents || !Array.isArray(job.documents.invoices)) return;
+            const entry = job.documents.invoices.find(d => d && d.id === editDocId);
+            if (!entry) return;
+            if (entry.formState) {
+                applyInvoiceFormState(entry.formState);
+            } else {
+                applyInvoiceFormState({
+                    customerName: (entry.summary && entry.summary.customerName) || job.customerName || '',
+                    customerAddress: job.address || '',
+                    customerPhone: job.customerPhone || '',
+                    invoiceNumber: (entry.summary && entry.summary.number) || ''
+                });
+            }
+        }
+
+        // Sticky Save-to-Job button visible whenever jobId is in the URL.
+        function installStickySaveToJob() {
+            if (!jobId) return;
+            const form = document.getElementById('invoiceForm');
+            if (!form || document.getElementById('stickySaveToJobWrap')) return;
+            const wrap = document.createElement('div');
+            wrap.id = 'stickySaveToJobWrap';
+            wrap.style.cssText = 'position:sticky;bottom:0;background:#fff;padding:10px 0;border-top:1px solid #ccc;margin-top:10px;';
+            wrap.innerHTML = `<button type="button" class="add-service-btn" style="background:#10b981;margin-bottom:0;" onclick="saveInvoiceToJob()"><i class="fas fa-save" style="margin-right:8px;"></i>${editDocId ? 'Save Changes to Job' : 'Save to Job'}</button>`;
+            form.appendChild(wrap);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            installStickySaveToJob();
+            loadInvoiceFromJobDoc();
+        });
         window.onload = function() {
             document.getElementById('invoiceDate').valueAsDate = new Date();
             const pf = safeGet('cl-invoice-prefill',null);

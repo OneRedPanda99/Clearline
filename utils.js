@@ -187,6 +187,54 @@ window.closeModal = function(modalId) {
   if (modal._backdropHandler) modal.removeEventListener('click', modal._backdropHandler);
 };
 
+/**
+ * Shared geolocation cache. Reuses coordinates across pages/loads for up to
+ * 30 minutes so we don't spam the browser's permission prompt every time
+ * jobs.html or map.html loads.
+ *
+ * Contract:
+ *   getCachedLocation({ maxAgeMs = 30*60*1000, prompt = false })
+ *     -> Promise<{lat, lng, ts} | null>
+ *
+ * - prompt=false (default): return the cached coords if fresh, else null.
+ *   Never triggers a permission prompt. Safe to call on every page load.
+ * - prompt=true: if cache is missing/expired, call
+ *   navigator.geolocation.getCurrentPosition and persist the result.
+ *   Resolves null on denial / unavailable / timeout.
+ *
+ * Cache key: localStorage['cl-user-location'] = { lat, lng, ts }
+ */
+window.CL_LOCATION_CACHE_KEY = 'cl-user-location';
+window.getCachedLocation = function({ maxAgeMs = 30 * 60 * 1000, prompt = false } = {}) {
+  return new Promise(resolve => {
+    const now = Date.now();
+    const cached = safeGet(window.CL_LOCATION_CACHE_KEY, null);
+    if (cached && cached.lat != null && cached.lng != null &&
+        typeof cached.ts === 'number' && (now - cached.ts) < maxAgeMs) {
+      resolve(cached);
+      return;
+    }
+    if (!prompt) { resolve(null); return; }
+    if (!navigator.geolocation) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now() };
+        safeSet(window.CL_LOCATION_CACHE_KEY, loc);
+        resolve(loc);
+      },
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: maxAgeMs }
+    );
+  });
+};
+
+/**
+ * Clear the cached location (e.g. for a "Re-locate" button).
+ */
+window.clearCachedLocation = function() {
+  safeRemove(window.CL_LOCATION_CACHE_KEY);
+};
+
 // Business config — loaded from settings (set via Settings page)
 // Falls back to empty strings if no settings saved yet.
 window.CL_CONFIG = (function() {

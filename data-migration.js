@@ -91,14 +91,38 @@ const CL_DATA = {
         return this.safeParse(this.JOBS_KEY, []);
     },
     
+    // Central cloud-sync trigger. Every write sink calls this so updates,
+    // deletes, document attachments, and photo edits — not just adds — reach
+    // Firebase. mergeFromCloud passes { skipSync: true } to avoid echoing the
+    // cloud's own payload straight back.
+    //
+    // Debounced (200ms) so multi-step operations like deleteJob (which writes
+    // saveJobs + saveDeletedJobs back-to-back) coalesce into a single cloud
+    // upload. Without this, the second write would bail on syncToCloud's
+    // in-progress guard, losing the tombstone from the winning snapshot.
+    _syncTimer: null,
+    _maybeSync(opts) {
+        if (opts && opts.skipSync) return;
+        if (typeof window === 'undefined') return;
+        if (this._syncTimer) clearTimeout(this._syncTimer);
+        this._syncTimer = setTimeout(() => {
+            this._syncTimer = null;
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.syncToCloud();
+            }
+        }, 200);
+    },
+
     // Save customers
     saveCustomers(customers, opts = {}) {
         localStorage.setItem(this.CUSTOMERS_KEY, JSON.stringify(customers));
+        this._maybeSync(opts);
     },
     
     // Save jobs
     saveJobs(jobs, opts = {}) {
         localStorage.setItem(this.JOBS_KEY, JSON.stringify(jobs));
+        this._maybeSync(opts);
     },
 
     // Deleted tombstones
@@ -110,9 +134,11 @@ const CL_DATA = {
     },
     saveDeletedCustomers(deleted, opts = {}) {
         localStorage.setItem(this.DELETED_CUSTOMERS_KEY, JSON.stringify(deleted));
+        this._maybeSync(opts);
     },
     saveDeletedJobs(deleted, opts = {}) {
         localStorage.setItem(this.DELETED_JOBS_KEY, JSON.stringify(deleted));
+        this._maybeSync(opts);
     },
     addTombstone(list, id) {
         const now = Date.now();
@@ -125,26 +151,18 @@ const CL_DATA = {
         return list;
     },
     
-    // Add a customer
+    // Add a customer — saveCustomers now fires the cloud sync itself.
     addCustomer(customer) {
         const customers = this.getCustomers();
         customers.push(customer);
         this.saveCustomers(customers);
-        // Sync to cloud after saving
-        if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
-            CL_FIREBASE.syncToCloud();
-        }
         return customer;
     },
-    
+
     addJob(job) {
         const jobs = this.getJobs();
         jobs.push(job);
         this.saveJobs(jobs);
-        // Sync to cloud after saving
-        if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
-            CL_FIREBASE.syncToCloud();
-        }
         return job;
     },
     

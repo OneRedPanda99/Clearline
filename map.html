@@ -29,6 +29,18 @@
         .route-sheet-content { overflow-y: auto; padding: 0 16px 16px; flex: 1; }
         .route-stop { padding: 12px 0; border-bottom: 1px solid #334155; }
         .route-drive { padding: 6px 0; color: #94a3b8; font-size: 13px; text-align: center; }
+        /* Pulsing blue dot for the user's current location */
+        .user-location-dot {
+            width: 18px; height: 18px; border-radius: 50%;
+            background: #3b82f6; border: 3px solid #fff;
+            box-shadow: 0 0 0 rgba(59,130,246,0.6);
+            animation: pulseLoc 2s infinite;
+        }
+        @keyframes pulseLoc {
+            0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.55); }
+            70% { box-shadow: 0 0 0 14px rgba(59,130,246,0); }
+            100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); }
+        }
     </style>
 </head>
 <body>
@@ -39,17 +51,21 @@
 
     <main class="app-content">
         <div class="bg-darker px-4 py-2 border-b border-slate-700">
-            <div class="max-w-lg mx-auto flex gap-2">
-                <button onclick="setFilter('today')" data-filter="today" class="filter-btn px-4 py-2 rounded-lg text-sm bg-primary text-white">Today</button>
+            <div class="max-w-lg mx-auto flex gap-2 overflow-x-auto">
+                <button onclick="setFilter('allJobs')" data-filter="allJobs" class="filter-btn px-4 py-2 rounded-lg text-sm bg-primary text-white">All Jobs</button>
+                <button onclick="setFilter('today')" data-filter="today" class="filter-btn px-4 py-2 rounded-lg text-sm bg-slate-700 text-gray-300">Today</button>
                 <button onclick="setFilter('week')" data-filter="week" class="filter-btn px-4 py-2 rounded-lg text-sm bg-slate-700 text-gray-300">This Week</button>
-                <button onclick="setFilter('all')" data-filter="all" class="filter-btn px-4 py-2 rounded-lg text-sm bg-slate-700 text-gray-300">All Upcoming</button>
+                <button onclick="setFilter('all')" data-filter="all" class="filter-btn px-4 py-2 rounded-lg text-sm bg-slate-700 text-gray-300">Upcoming</button>
             </div>
         </div>
         <!-- Route controls -->
         <div class="bg-darker px-4 py-2 border-b border-slate-700">
-            <div class="max-w-lg mx-auto flex gap-2 items-center">
+            <div class="max-w-lg mx-auto flex gap-2 items-center flex-wrap">
                 <label class="text-gray-400 text-sm">Start:</label>
                 <input type="time" id="startTime" value="08:00" class="bg-slate-700 text-white px-2 py-1 rounded text-sm" style="min-height:36px;">
+                <button onclick="locateMe(true)" id="locateMeBtn" class="bg-slate-700 text-gray-200 px-3 py-2 rounded-lg text-sm font-semibold">
+                    <i class="fas fa-location-crosshairs mr-1"></i> Locate me
+                </button>
                 <button onclick="planRoute()" id="planRouteBtn" class="flex-1 bg-gradient-to-r from-primary to-purple-600 text-white py-2 rounded-lg font-semibold text-sm hidden">
                     <i class="fas fa-route mr-1"></i> Plan Route
                 </button>
@@ -82,8 +98,13 @@
 
     <script>
         const MAPS_API_KEY = window.CL_SECRETS?.mapsApiKey || '';
-        let map, markers = [], routePolyline = null, currentFilter = 'today', filteredJobs = [], jobs = [];
-const homeAddress = localStorage.getItem('cl-home-address') || 'Columbia, SC';
+        let map, markers = [], routePolyline = null;
+        let currentFilter = 'allJobs';
+        let filteredJobs = [], jobs = [];
+        let userLocMarker = null;
+        let userLoc = null;
+        // Legacy fallback only; routing no longer uses this by default.
+        const homeAddress = localStorage.getItem('cl-home-address') || '';
 
         function loadData() { jobs = CL_DATA.getJobs(); }
 
@@ -91,7 +112,38 @@ const homeAddress = localStorage.getItem('cl-home-address') || 'Columbia, SC';
             loadData();
             map = L.map('map').setView([33.9981, -81.0637], 11);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
+            // Draw the user location dot from cache (no prompt) so the map
+            // always shows where the user is when we know it.
+            getCachedLocation({ prompt: false }).then(loc => {
+                if (loc) setUserLocation(loc);
+            });
             loadJobs();
+        }
+
+        function setUserLocation(loc) {
+            userLoc = loc;
+            if (userLocMarker) { map.removeLayer(userLocMarker); userLocMarker = null; }
+            if (!loc) return;
+            const icon = L.divIcon({
+                html: '<div class="user-location-dot"></div>',
+                className: '', iconSize: [18, 18], iconAnchor: [9, 9]
+            });
+            userLocMarker = L.marker([loc.lat, loc.lng], { icon, zIndexOffset: 1000 })
+                .addTo(map)
+                .bindPopup('You are here');
+        }
+
+        // Explicit prompt path. `promptIfMissing=true` will trigger the browser
+        // permission dialog when the cache is empty/expired.
+        async function locateMe(promptIfMissing) {
+            const loc = await getCachedLocation({ prompt: !!promptIfMissing });
+            if (loc) {
+                setUserLocation(loc);
+                if (promptIfMissing) map.setView([loc.lat, loc.lng], 13);
+                return loc;
+            }
+            if (promptIfMissing) showToast('Could not determine your location', 'error');
+            return null;
         }
 
         function setFilter(filter) {
@@ -104,6 +156,12 @@ const homeAddress = localStorage.getItem('cl-home-address') || 'Columbia, SC';
             loadJobs();
         }
 
+        function statusColor(status) {
+            if (status === 'completed') return '#64748b'; // grey
+            if (status === 'scheduled') return '#8b5cf6'; // purple
+            return '#3b82f6'; // new/quoted/default blue
+        }
+
         function loadJobs() {
             markers.forEach(m => map.removeLayer(m)); markers = [];
             if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
@@ -112,15 +170,24 @@ const homeAddress = localStorage.getItem('cl-home-address') || 'Columbia, SC';
             const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() + 7);
             const weekEndStr = weekEnd.toISOString().split('T')[0];
 
+            // Filter contract:
+            // - 'allJobs' (default): every job with an address, any date/status.
+            //   This is the only tab that shows jobs without a jobDate.
+            // - 'today'/'week'/'all' (Upcoming): require jobDate and exclude
+            //   completed. Jobs without a date are intentionally invisible here.
             filteredJobs = jobs.filter(j => {
-                if (!j.address || !j.jobDate) return false;
+                if (!j.address) return false;
+                if (currentFilter === 'allJobs') return true;
+                if (!j.jobDate) return false;
                 if (j.status === 'completed') return false;
                 if (currentFilter === 'today') return j.jobDate === today;
                 if (currentFilter === 'week') return j.jobDate >= today && j.jobDate <= weekEndStr;
                 return j.jobDate >= today;
             });
             filteredJobs.sort((a, b) => {
-                if (a.jobDate !== b.jobDate) return a.jobDate.localeCompare(b.jobDate);
+                const da = a.jobDate || '9999-12-31';
+                const db = b.jobDate || '9999-12-31';
+                if (da !== db) return da.localeCompare(db);
                 return (a.jobTime || '09:00').localeCompare(b.jobTime || '09:00');
             });
 
@@ -135,13 +202,17 @@ const homeAddress = localStorage.getItem('cl-home-address') || 'Columbia, SC';
                 geocodeAddress(job.address).then(coords => {
                     if (!coords) return;
                     job._lat = coords.lat; job._lng = coords.lng;
+                    const color = statusColor(job.status);
                     const icon = L.divIcon({
-                        html: `<div style="background:#8b5cf6;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:14px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-weight:bold">${index + 1}</div>`,
+                        html: `<div style="background:${color};color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:14px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-weight:bold">${index + 1}</div>`,
                         className: '', iconSize: [32, 32], iconAnchor: [16, 16]
                     });
+                    const when = job.jobDate
+                        ? new Date(job.jobDate + 'T12:00:00').toLocaleDateString()
+                        : 'Unscheduled';
                     const marker = L.marker([coords.lat, coords.lng], { icon })
                         .addTo(map)
-                        .bindPopup(`<strong>${job.customerName || 'Job'}</strong><br>${job.address}<br>${job.jobDate ? new Date(job.jobDate + 'T12:00:00').toLocaleDateString() : ''}<br><a href="https://maps.google.com/maps?daddr=${encodeURIComponent(job.address)}" target="_blank" style="color:#3b82f6">🚗 Navigate</a>`);
+                        .bindPopup(`<strong>${job.customerName || 'Job'}</strong><br>${job.address}<br>${when}<br><a href="https://maps.google.com/maps?daddr=${encodeURIComponent(job.address)}" target="_blank" style="color:#3b82f6">🚗 Navigate</a>`);
                     markers.push(marker);
                     bounds.push([coords.lat, coords.lng]);
                     if (bounds.length === 1) map.setView(bounds[0], 14);
@@ -175,16 +246,30 @@ const homeAddress = localStorage.getItem('cl-home-address') || 'Columbia, SC';
         function toggleList() { document.getElementById('jobListPanel').classList.toggle('translate-y-full'); }
         function toggleRouteSheet() { document.getElementById('routeSheet').classList.toggle('open'); }
 
+        // Resolve the user's current location, prompting if the cache is empty.
+        // Returns null if the user denies the browser permission.
+        async function ensureUserLocation() {
+            let loc = userLoc || await getCachedLocation({ prompt: false });
+            if (!loc) {
+                loc = await getCachedLocation({ prompt: true });
+                if (loc) setUserLocation(loc);
+            }
+            return loc;
+        }
+
         // ── Route Planning ──
         async function planRoute() {
             const jobsWithAddr = filteredJobs.filter(j => j.address);
             if (jobsWithAddr.length === 0) return;
 
-            const origin = homeAddress;
+            const loc = await ensureUserLocation();
+            if (!loc) { showToast('Current location required for routing', 'error'); return; }
+            const originParam = `${loc.lat},${loc.lng}`;
+
             const destination = jobsWithAddr[jobsWithAddr.length - 1].address;
             const waypoints = jobsWithAddr.slice(0, -1).map(j => j.address).join('|');
 
-            const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}${waypoints ? '&waypoints=optimize:true|' + encodeURIComponent(waypoints) : ''}&key=${MAPS_API_KEY}`;
+            const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(originParam)}&destination=${encodeURIComponent(destination)}${waypoints ? '&waypoints=optimize:true|' + encodeURIComponent(waypoints) : ''}&key=${MAPS_API_KEY}`;
 
             try {
                 const resp = await fetch(url);
@@ -230,7 +315,8 @@ const homeAddress = localStorage.getItem('cl-home-address') || 'Columbia, SC';
 
                 // Drive time from previous
                 if (i === 0) {
-                    html += `<div class="route-drive">🏠 Start: ${homeAddress} @ ${formatTime(currentTime)}</div>`;
+                    const startLabel = userLoc ? 'Current location' : (homeAddress || 'Start');
+                    html += `<div class="route-drive">📍 Start: ${startLabel} @ ${formatTime(currentTime)}</div>`;
                 }
                 html += `<div class="route-drive">🚗 Drive: ${leg.duration.text} (${leg.distance.text})</div>`;
 
@@ -285,15 +371,18 @@ const homeAddress = localStorage.getItem('cl-home-address') || 'Columbia, SC';
             return points;
         }
 
-        function openRouteInGoogleMaps() {
+        async function openRouteInGoogleMaps() {
             const jobsWithAddr = filteredJobs.filter(j => j.address);
             if (jobsWithAddr.length === 0) return;
+            const loc = await ensureUserLocation();
+            if (!loc) { showToast('Current location required for routing', 'error'); return; }
+            const origin = `${loc.lat},${loc.lng}`;
             if (jobsWithAddr.length === 1) {
-                window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(homeAddress)}&destination=${encodeURIComponent(jobsWithAddr[0].address)}&travelmode=driving`, '_blank');
+                window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(jobsWithAddr[0].address)}&travelmode=driving`, '_blank');
             } else {
                 const dest = jobsWithAddr[jobsWithAddr.length - 1].address;
                 const wps = jobsWithAddr.slice(0, -1).map(j => encodeURIComponent(j.address)).join('|');
-                window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(homeAddress)}&destination=${encodeURIComponent(dest)}&waypoints=${wps}&travelmode=driving`, '_blank');
+                window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&waypoints=${wps}&travelmode=driving`, '_blank');
             }
         }
 

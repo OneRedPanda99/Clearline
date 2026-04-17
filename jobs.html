@@ -33,7 +33,6 @@
     <link rel="stylesheet" href="app.css">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="data-migration.js"></script>
     <style>
         .tab-btn {
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -143,7 +142,8 @@
     <header class="app-header">
         <div class="app-header-inner">
             <h1>Jobs</h1>
-            <a href="map.html" class="header-btn header-btn-right" title="Map View">
+            <span id="syncPill" title="Sync status" style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:999px;background:#334155;color:#cbd5e1;margin-left:8px;">• Local</span>
+            <a href="map.html" class="header-btn header-btn-right" title="Map View" style="margin-left:auto;">
                 <i class="fas fa-map-marker-alt"></i>
             </a>
         </div>
@@ -159,21 +159,21 @@
             <button onclick="setTab('completed')" data-tab="completed" class="tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Done</button>
         </div>
 
-        <!-- Summary Stats -->
+        <!-- Summary Stats — clickable shortcuts to matching tab (#11) -->
         <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
-            <div class="stat-card">
+            <div class="stat-card" role="button" tabindex="0" style="cursor:pointer;" onclick="setTab('leads')">
                 <p class="value" style="color: #3b82f6;" id="stat-leads">0</p>
                 <p class="label">Leads</p>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" role="button" tabindex="0" style="cursor:pointer;" onclick="setTab('quoted')">
                 <p class="value" style="color: #fbbf24;" id="stat-quoted">0</p>
                 <p class="label">Quoted</p>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" role="button" tabindex="0" style="cursor:pointer;" onclick="setTab('scheduled')">
                 <p class="value" style="color: #a78bfa;" id="stat-scheduled">0</p>
                 <p class="label">Scheduled</p>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" role="button" tabindex="0" style="cursor:pointer;" onclick="setTab('completed')">
                 <p class="value" style="color: #34d399;" id="stat-completed">0</p>
                 <p class="label">Done</p>
             </div>
@@ -248,14 +248,12 @@
         const MAPS_API_KEY = window.CL_SECRETS?.mapsApiKey || '';
         let userLocation = null;
 
-        // Get user location on load
+        // Hydrate user location from the shared 30-minute cache.
+        // Never triggers a geolocation prompt on page load.
         function getUserLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    pos => { userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
-                    err => { console.log('Location unavailable'); }
-                );
-            }
+            getCachedLocation({ prompt: false }).then(loc => {
+                if (loc) userLocation = loc;
+            });
         }
 
         // Calculate distance (miles) between two points
@@ -275,19 +273,60 @@
             return mins < 60 ? `${mins} min` : `${Math.floor(mins/60)}h ${mins%60}m`;
         }
 
-        // Get distance to job address
-        async function getDistanceToAddress(address) {
-            if (!userLocation) return null;
-            try {
-                const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${MAPS_API_KEY}`);
-                const data = await res.json();
-                if (data.status === 'OK' && data.results[0]) {
-                    const loc = data.results[0].geometry.location;
-                    const dist = calcDistance(userLocation.lat, userLocation.lng, loc.lat, loc.lng);
-                    return { distance: dist.toFixed(1), time: estimateDriveTime(dist) };
-                }
-            } catch (e) { console.log('Geocode error:', e); }
+        // Geocode cache — addresses rarely move; caching 24h saves a billable
+        // Maps Geocoding API call every time a job modal opens. (#7)
+        const GEOCODE_CACHE_KEY = 'cl-geocode-cache';
+        const GEOCODE_TTL_MS = 24 * 60 * 60 * 1000;
+        function getGeocodeCache() { return safeGet(GEOCODE_CACHE_KEY, {}) || {}; }
+        function cachedGeocode(address) {
+            const cache = getGeocodeCache();
+            const entry = cache[address];
+            if (entry && typeof entry.ts === 'number' && (Date.now() - entry.ts) < GEOCODE_TTL_MS) {
+                return { lat: entry.lat, lng: entry.lng };
+            }
             return null;
+        }
+        function saveGeocode(address, lat, lng) {
+            const cache = getGeocodeCache();
+            cache[address] = { lat, lng, ts: Date.now() };
+            safeSet(GEOCODE_CACHE_KEY, cache);
+        }
+
+        // Get distance to job address (with geocode cache).
+        async function getDistanceToAddress(address) {
+            if (!userLocation || !address) return null;
+            let coords = cachedGeocode(address);
+            if (!coords) {
+                try {
+                    const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${MAPS_API_KEY}`);
+                    const data = await res.json();
+                    if (data.status === 'OK' && data.results[0]) {
+                        const loc = data.results[0].geometry.location;
+                        coords = { lat: loc.lat, lng: loc.lng };
+                        saveGeocode(address, coords.lat, coords.lng);
+                    }
+                } catch (e) { console.log('Geocode error:', e); }
+            }
+            if (!coords) return null;
+            const dist = calcDistance(userLocation.lat, userLocation.lng, coords.lat, coords.lng);
+            return { distance: dist.toFixed(1), time: estimateDriveTime(dist) };
+        }
+
+        // Parse free-form jobTime into {h, m}. Accepts 'HH:MM', 'HH:MM AM/PM',
+        // 'H', '9 pm', etc. Returns null for unparseable values. (#15)
+        function parseJobTime(raw) {
+            if (!raw) return null;
+            const s = String(raw).trim();
+            if (!s) return null;
+            const m = s.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+            if (!m) return null;
+            let h = parseInt(m[1], 10);
+            const mm = m[2] ? parseInt(m[2], 10) : 0;
+            const ap = m[3] ? m[3].toLowerCase() : null;
+            if (isNaN(h) || isNaN(mm) || h < 0 || h > 23 || mm < 0 || mm > 59) return null;
+            if (ap === 'pm' && h < 12) h += 12;
+            if (ap === 'am' && h === 12) h = 0;
+            return { h, m: mm };
         }
 
         // Google Calendar - uses token from Firebase sign-in
@@ -313,7 +352,23 @@
             return DEFAULT_CATEGORIES;
         }
         
+        // Normalize any legacy status values (#14). Older jobs sometimes have
+        // status='lead' which the current 4-bucket UI can't route anywhere.
+        // Fold those into 'new' once, then persist so later loads are clean.
+        function normalizeLegacyStatuses() {
+            const raw = CL_DATA.getJobs();
+            let changed = 0;
+            raw.forEach(j => {
+                if (j.status === 'lead') {
+                    CL_DATA.updateJob(j.id, { status: 'new' });
+                    changed++;
+                }
+            });
+            return changed;
+        }
+
         function loadData() {
+            normalizeLegacyStatuses();
             jobs = CL_DATA.getJobs();
         }
 
@@ -338,29 +393,60 @@
             gapiInited = true;
         }
 
+        // Refresh token state from localStorage — the rest of the UI uses
+        // `accessToken`/`tokenExpiry` directly. No DOM side effects (#2).
         function checkGoogleAuth() {
-            // Check for token from Firebase sign-in
             accessToken = localStorage.getItem('gcal-token');
             tokenExpiry = parseInt(localStorage.getItem('gcal-token-expiry') || '0');
-            const isConnected = accessToken && tokenExpiry > Date.now();
-            updateGoogleUI(isConnected);
         }
 
-        function updateGoogleUI(isConnected) {
-            // Calendar is connected via Cloud Sync sign-in
-            const calBadge = document.getElementById('calendarBadge');
-            if (calBadge) {
-                calBadge.style.display = isConnected ? 'inline' : 'none';
-            }
+        // Wipe the cached Calendar token when we get an auth error from the
+        // Calendar API so we don't keep retrying with a dead token. (#8)
+        function invalidateCalendarToken() {
+            accessToken = null;
+            tokenExpiry = 0;
+            safeRemove('gcal-token');
+            safeRemove('gcal-token-expiry');
         }
 
-        // Listen for Firebase auth changes
+        // Sync-state pill in the header. Reflects online + signed-in + sync
+        // activity so users know when edits are cloud-safe. (#12)
+        function updateSyncPill() {
+            const pill = document.getElementById('syncPill');
+            if (!pill) return;
+            const online = navigator.onLine !== false;
+            const signedIn = !!(window.CL_FIREBASE && CL_FIREBASE.isSignedIn);
+            let bg = '#334155', color = '#cbd5e1', label = '• Local';
+            if (!online) { bg = '#7f1d1d'; color = '#fecaca'; label = '• Offline'; }
+            else if (!signedIn) { bg = '#334155'; color = '#cbd5e1'; label = '• Local'; }
+            else { bg = '#064e3b'; color = '#a7f3d0'; label = '✓ Synced'; }
+            pill.style.background = bg;
+            pill.style.color = color;
+            pill.textContent = label;
+        }
+        function flashSyncPill(text, bg, color) {
+            const pill = document.getElementById('syncPill');
+            if (!pill) return;
+            pill.style.background = bg;
+            pill.style.color = color;
+            pill.textContent = text;
+            setTimeout(updateSyncPill, 1500);
+        }
+
+        // Listen for Firebase auth + sync events
         window.addEventListener('cl-auth-change', () => {
             checkGoogleAuth();
-            if (CL_FIREBASE.isCalendarConnected()) {
-                initGapiClient();
-            }
+            updateSyncPill();
+            if (CL_FIREBASE.isCalendarConnected()) initGapiClient();
         });
+        window.addEventListener('cl-sync-updated', () => {
+            flashSyncPill('✓ Synced', '#064e3b', '#a7f3d0');
+            loadData();
+            updateStats();
+            renderJobs();
+        });
+        window.addEventListener('online', updateSyncPill);
+        window.addEventListener('offline', updateSyncPill);
 
         document.addEventListener('DOMContentLoaded', () => {
             loadData();
@@ -372,6 +458,26 @@
                 initGapiClient(); // Init Calendar API if connected
             }
             setActiveNav();
+            updateSyncPill();
+
+            // Deep-link support: jobs.html?highlight=<id>[&edit=1] (#4)
+            const params = new URLSearchParams(window.location.search);
+            const highlight = params.get('highlight');
+            const edit = params.get('edit') === '1';
+            if (highlight) {
+                const job = jobs.find(j => j.id === highlight);
+                if (job) {
+                    if (edit) editJob(highlight);
+                    else openJobModal(highlight);
+                    // Ensure the correct tab is active so the card is visible
+                    // after closing the modal.
+                    const bucket = job.status === 'completed' ? 'completed'
+                                : job.status === 'scheduled' ? 'scheduled'
+                                : job.status === 'quoted'    ? 'quoted'
+                                : 'leads';
+                    setTab(bucket);
+                }
+            }
         });
 
         function setTab(tab) {
@@ -553,15 +659,41 @@
             afterList.innerHTML = afterHtml;
         }
 
+        // Downscale + compress uploaded photos before storing them as base64
+        // so localStorage and Firestore don't fill up with raw camera output. (#6)
+        const PHOTO_MAX_EDGE = 1600;
+        const PHOTO_JPEG_QUALITY = 0.8;
+        function compressImageFile(file) {
+            return new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const ratio = Math.min(1, PHOTO_MAX_EDGE / Math.max(img.width, img.height));
+                        const w = Math.round(img.width * ratio);
+                        const h = Math.round(img.height * ratio);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w; canvas.height = h;
+                        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                        try {
+                            resolve(canvas.toDataURL('image/jpeg', PHOTO_JPEG_QUALITY));
+                        } catch (e) {
+                            resolve(reader.result); // fall back to raw
+                        }
+                    };
+                    img.onerror = () => resolve(reader.result);
+                    img.src = reader.result;
+                };
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(file);
+            });
+        }
+
         function handleEditPhotoUpload(kind, input) {
             const files = Array.from(input.files || []);
             if (!files.length) return;
-            Promise.all(files.map(file => new Promise(resolve => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.readAsDataURL(file);
-            }))).then(results => {
-                editPhotoState[kind] = editPhotoState[kind].concat(results);
+            Promise.all(files.map(compressImageFile)).then(results => {
+                editPhotoState[kind] = editPhotoState[kind].concat(results.filter(Boolean));
                 renderEditPhotos();
                 input.value = '';
             });
@@ -572,9 +704,35 @@
             renderEditPhotos();
         }
 
+        // Idempotent migration: ensure every saved document inside a job has a
+        // stable `id` so chip clicks can match reliably. Old rows written before
+        // ids were required get a synthesized id based on createdAt + index.
+        function migrateDocumentIds(job) {
+            if (!job || !job.documents) return false;
+            let changed = false;
+            ['estimates', 'invoices', 'waivers'].forEach(kind => {
+                const list = job.documents[kind];
+                if (!Array.isArray(list)) return;
+                list.forEach((doc, i) => {
+                    if (!doc) return;
+                    if (!doc.id) {
+                        const stamp = doc.createdAt ? Date.parse(doc.createdAt) || Date.now() : Date.now();
+                        doc.id = 'doc_' + stamp + '_' + i;
+                        changed = true;
+                    }
+                });
+            });
+            if (changed) {
+                CL_DATA.updateJob(job.id, { documents: job.documents });
+            }
+            return changed;
+        }
+
         function openJobModal(id) {
             const job = jobs.find(j => j.id === id);
             if (!job) return;
+            // Backfill ids before rendering chips so Edit actions can match.
+            if (migrateDocumentIds(job)) loadData();
             document.body.classList.add('modal-open');
             document.getElementById('jobModal-title').textContent = job.customerName || 'Job Details';
             document.getElementById('modalContent').innerHTML = `
@@ -678,12 +836,12 @@
                         <div class="flex flex-wrap gap-2">
                             ${(job.documents.estimates || []).map((doc, i) => `
                                 <button onclick="viewDocument('${job.id}', 'estimates', ${i})" class="px-3 py-1.5 bg-cyan-600/20 text-cyan-400 rounded-lg text-xs font-medium">
-                                    <i class="fas fa-file-invoice mr-1"></i>Estimate ${i + 1}
+                                    <i class="fas fa-file-invoice mr-1"></i>${(doc.summary && doc.summary.number) || 'Estimate'} ${i + 1}
                                 </button>
                             `).join('')}
                             ${(job.documents.invoices || []).map((doc, i) => `
                                 <button onclick="viewDocument('${job.id}', 'invoices', ${i})" class="px-3 py-1.5 bg-amber-600/20 text-amber-400 rounded-lg text-xs font-medium">
-                                    <i class="fas fa-file-invoice-dollar mr-1"></i>Invoice ${i + 1}
+                                    <i class="fas fa-file-invoice-dollar mr-1"></i>${(doc.summary && doc.summary.number) || 'Invoice'} ${i + 1}
                                 </button>
                             `).join('')}
                             ${(job.documents.waivers || []).map((doc, i) => `
@@ -694,6 +852,13 @@
                         </div>
                     </div>
                     ` : ''}
+
+                    <!-- Create Customer Link -->
+                    <div class="flex gap-2">
+                        <button onclick="createCustomerFromJob('${job.id}')" class="flex-1 bg-blue-600/20 text-blue-400 py-3 rounded-xl font-semibold border border-blue-600/30">
+                            <i class="fas fa-user-plus mr-2"></i>${job.customerId ? 'Customer Linked' : 'Create Customer'}
+                        </button>
+                    </div>
 
                     <!-- Document Generators -->
                     <div class="flex gap-2">
@@ -876,21 +1041,39 @@
         }
 
         function saveJobEdit(id) {
+            // Validate before persisting. (#9)
+            const name = document.getElementById('editName').value.trim();
+            if (!name) { showToast('Customer name is required', 'error'); return; }
+
+            const numField = (elId, label) => {
+                const raw = document.getElementById(elId).value;
+                if (raw === '' || raw == null) return '';
+                const n = parseFloat(raw);
+                if (isNaN(n) || n < 0) { showToast(`${label} must be zero or positive`, 'error'); return undefined; }
+                return String(n);
+            };
+
+            const quote = numField('editQuote', 'Quote');
+            const paid = numField('editPaid', 'Amount Paid');
+            const duration = numField('editDuration', 'Duration');
+            const sqft = numField('editSqft', 'Sq Ft');
+            if (quote === undefined || paid === undefined || duration === undefined || sqft === undefined) return;
+
             const updates = {
-                customerName: document.getElementById('editName').value.trim(),
+                customerName: name,
                 customerPhone: document.getElementById('editPhone').value.trim(),
                 customerEmail: document.getElementById('editEmail').value.trim(),
-                quoteAmount: document.getElementById('editQuote').value,
+                quoteAmount: quote,
                 address: document.getElementById('editAddress').value.trim(),
                 serviceType: document.getElementById('editService').value.trim(),
                 jobCategory: document.getElementById('editCategory').value,
                 jobDate: document.getElementById('editDate').value,
                 jobTime: document.getElementById('editTime').value,
-                jobDuration: document.getElementById('editDuration').value,
-                squareFootage: document.getElementById('editSqft').value,
+                jobDuration: duration,
+                squareFootage: sqft,
                 status: document.getElementById('editStatus').value,
                 paymentStatus: document.getElementById('editPayment').value,
-                amountPaid: document.getElementById('editPaid').value,
+                amountPaid: paid,
                 followUpDate: document.getElementById('editFollowUp').value,
                 notes: document.getElementById('editNotes').value.trim(),
                 beforePhotos: editPhotoState.before,
@@ -950,13 +1133,62 @@
             renderJobs();
         }
         
+        // Soft delete with a 6-second Undo toast. (#13) Restore re-creates
+        // the job and clears its tombstone so cloud sync doesn't wipe it again.
         function deleteJob(id) {
-            if (confirm('Delete this job?')) {
-                CL_DATA.deleteJob(id);
-                loadData();
-                updateStats();
-                renderJobs();
-            }
+            const snapshot = CL_DATA.findJob(id);
+            if (!snapshot) return;
+            if (!confirm('Delete this job?')) return;
+            CL_DATA.deleteJob(id);
+            loadData();
+            updateStats();
+            renderJobs();
+            showUndoToast('Job deleted', () => restoreDeletedJob(snapshot));
+        }
+
+        function restoreDeletedJob(job) {
+            // Remove the tombstone so the restored job won't be re-deleted on
+            // the next cloud merge, then re-add.
+            const deleted = CL_DATA.getDeletedJobs().filter(d => d.id !== job.id);
+            CL_DATA.saveDeletedJobs(deleted);
+            CL_DATA.addJob({ ...job, lastUpdated: new Date().toISOString() });
+            loadData();
+            updateStats();
+            renderJobs();
+            showToast('Job restored');
+        }
+
+        // Compact toast with an Undo action. Isolated from `showToast` in
+        // utils.js because that helper doesn't render interactive children.
+        function showUndoToast(message, onUndo, timeoutMs = 6000) {
+            const existing = document.getElementById('sp-undo-toast');
+            if (existing) existing.remove();
+            const t = document.createElement('div');
+            t.id = 'sp-undo-toast';
+            t.setAttribute('role', 'status');
+            t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:#1e293b;color:#f8fafc;padding:10px 12px;border-radius:999px;font-size:14px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.35);display:flex;gap:10px;align-items:center;opacity:0;transition:opacity 0.25s ease, transform 0.25s ease;';
+            const msg = document.createElement('span');
+            msg.textContent = message;
+            const btn = document.createElement('button');
+            btn.textContent = 'Undo';
+            btn.style.cssText = 'background:#0ea5e9;color:#fff;border:none;padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600;';
+            let done = false;
+            const close = () => {
+                if (done) return;
+                done = true;
+                t.style.opacity = '0';
+                t.style.transform = 'translateX(-50%) translateY(10px)';
+                setTimeout(() => t.remove(), 300);
+            };
+            btn.addEventListener('click', () => { close(); try { onUndo(); } catch (e) { console.error(e); } });
+            t.appendChild(msg);
+            t.appendChild(btn);
+            document.body.appendChild(t);
+            requestAnimationFrame(() => {
+                t.style.opacity = '1';
+                t.style.transform = 'translateX(-50%) translateY(0)';
+            });
+            setTimeout(close, timeoutMs);
         }
 
         // Add single job to Google Calendar
@@ -964,7 +1196,8 @@
             const job = jobs.find(j => j.id === id);
             if (!job || !job.jobDate) return;
 
-            // If connected, use API
+            // If connected, use API. On 401/403 treat the token as dead so we
+            // stop retrying silently with stale credentials. (#8)
             if (accessToken && tokenExpiry > Date.now()) {
                 try {
                     const result = await createCalendarEvent(job);
@@ -973,21 +1206,26 @@
                     alert('Added to Google Calendar!');
                     return;
                 } catch (err) {
-                    console.error('API error, falling back to URL');
+                    const status = err && (err.status || (err.result && err.result.error && err.result.error.code));
+                    if (status === 401 || status === 403) {
+                        invalidateCalendarToken();
+                        showToast('Calendar session expired — sign in again', 'error');
+                    } else {
+                        console.error('API error, falling back to URL', err);
+                    }
                 }
             }
 
-            // Fallback to URL
+            // Fallback to URL — parse jobTime defensively so 'HH:MM AM/PM'
+            // values don't produce malformed dates. (#15)
             const jobDate = job.jobDate.replace(/-/g, '');
-            let startTime = '090000';
-            if (job.jobTime) {
-                const [hours, mins] = job.jobTime.split(':');
-                startTime = hours.padStart(2, '0') + mins.padStart(2, '0') + '00';
-            }
-            
-            const startHour = parseInt(startTime.substring(0, 2));
-            const endHour = startHour + 2;
-            const endTime = String(endHour).padStart(2, '0') + startTime.substring(2);
+            let startH = 9, startM = 0;
+            const parsed = parseJobTime(job.jobTime);
+            if (parsed) { startH = parsed.h; startM = parsed.m; }
+            const pad = n => String(n).padStart(2, '0');
+            const startTime = pad(startH) + pad(startM) + '00';
+            const endH = (startH + 2) % 24;
+            const endTime = pad(endH) + pad(startM) + '00';
 
             const title = encodeURIComponent(`🚿 ${job.serviceType || 'Pressure Wash'} - ${job.customerName}`);
             const dates = `${jobDate}T${startTime}/${jobDate}T${endTime}`;
@@ -1004,10 +1242,9 @@
         // Create event via API
         async function createCalendarEvent(job) {
             let startHour = 9, startMin = 0;
-            if (job.jobTime) {
-                [startHour, startMin] = job.jobTime.split(':').map(Number);
-            }
-            
+            const parsed = parseJobTime(job.jobTime);
+            if (parsed) { startHour = parsed.h; startMin = parsed.m; }
+
             const startDate = new Date(job.jobDate + 'T00:00:00');
             startDate.setHours(startHour, startMin, 0);
             
@@ -1042,55 +1279,9 @@
             return response.result;
         }
 
-        // Sync all upcoming jobs
-        async function syncAllToGCal() {
-            const today = new Date().toISOString().split('T')[0];
-            const upcoming = jobs.filter(j => 
-                j.jobDate >= today && 
-                j.status === 'scheduled' && 
-                !j.googleEventId  // Only sync jobs not already synced
-            );
-            
-            if (upcoming.length === 0) {
-                alert('All jobs are already synced!');
-                return;
-            }
-
-            // If connected, use API for bulk sync
-            if (accessToken && tokenExpiry > Date.now()) {
-                const syncBtn = document.getElementById('syncBtn');
-                if (syncBtn) {
-                    syncBtn.disabled = true;
-                    syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Syncing...';
-                }
-
-                let synced = 0;
-                for (const job of upcoming) {
-                    try {
-                        const result = await createCalendarEvent(job);
-                        CL_DATA.updateJob(job.id, { googleEventId: result.id });
-                        synced++;
-                    } catch (err) {
-                        console.error('Failed to sync:', job.customerName, err);
-                    }
-                }
-
-                loadData();
-                if (syncBtn) {
-                    syncBtn.disabled = false;
-                    syncBtn.innerHTML = '<i class="fab fa-google mr-2"></i><span id="syncBtnText">Sync ✓</span>';
-                }
-                alert(`Synced ${synced} job(s) to Google Calendar!`);
-                renderJobs();
-            } else {
-                // Fallback: open each in new tab
-                if (confirm(`Add ${upcoming.length} job(s) to Google Calendar?\n\nSign in with Google for one-click sync!`)) {
-                    upcoming.forEach((job, i) => {
-                        setTimeout(() => addToGoogleCalendar(job.id), i * 500);
-                    });
-                }
-            }
-        }
+        // (#3) `syncAllToGCal` was removed — no UI element on this page ever
+        // called it and its `syncBtn` target didn't exist. Use single-job
+        // `addToGoogleCalendar(id)` from the detail modal instead.
 
         // ── Document Functions ──────────────────────────────────
         function openDocumentForm(type, jobId) {
@@ -1134,45 +1325,164 @@
                 alert('Document not found');
                 return;
             }
-            
+
             const doc = job.documents[docType][index];
-            const docModal = document.getElementById('documentModal');
             const docContent = document.getElementById('documentContent');
             const docTitle = document.getElementById('documentModal-title');
-            
-            // Set title
+
             const typeNames = { estimates: 'Estimate', invoices: 'Invoice', waivers: 'Waiver' };
             docTitle.textContent = `${typeNames[docType]} ${index + 1}`;
-            
-            // Show the image/PDF
+
+            // Estimates/invoices are editable; waivers stay view-only.
+            const editPage = docType === 'estimates' ? 'estimate.html'
+                           : docType === 'invoices' ? 'invoice.html'
+                           : null;
+            const editHref = editPage ? `${editPage}?jobId=${encodeURIComponent(jobId)}&docId=${encodeURIComponent(doc.id)}` : null;
+
+            // Prefer the compact formState preview; fall back to the legacy PNG
+            // when an older entry still has one.
+            let preview = '';
             if (doc.pdfDataUrl) {
-                docContent.innerHTML = `
+                preview = `
                     <div class="text-center">
                         <img src="${doc.pdfDataUrl}" alt="Document" style="max-width: 100%; border: 1px solid #475569; border-radius: 8px;">
-                    </div>
-                    <div class="flex gap-2 mt-4">
-                        <a href="${doc.pdfDataUrl}" download="${typeNames[docType]}-${job.customerName || 'document'}.png" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold text-center">
-                            <i class="fas fa-download mr-2"></i>Download
-                        </a>
-                        <button onclick="deleteDocument('${jobId}', '${docType}', ${index})" class="flex-1 bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
-                            <i class="fas fa-trash mr-2"></i>Delete
-                        </button>
-                    </div>
-                    <p class="text-xs text-gray-500 text-center mt-3">
-                        Created: ${new Date(doc.createdAt).toLocaleString()}
-                    </p>
-                `;
+                    </div>`;
+            } else if (doc.formState || doc.summary) {
+                const s = doc.summary || {};
+                const fs = doc.formState || {};
+                const services = Array.isArray(fs.services) ? fs.services : [];
+                preview = `
+                    <div class="bg-slate-700/40 p-4 rounded-xl">
+                        <p class="text-xl font-bold">${s.customerName || fs.customerName || job.customerName || 'Customer'}</p>
+                        ${s.number ? `<p class="text-xs text-gray-400">#${s.number}</p>` : ''}
+                        ${services.length ? `
+                            <ul class="mt-3 text-sm space-y-1">
+                                ${services.map(x => `<li>• ${x.description || 'Service'} — ${x.squareFootage || '?'} sq ft</li>`).join('')}
+                            </ul>
+                        ` : ''}
+                        ${s.total != null ? `<p class="mt-3 text-2xl font-bold text-green-400">$${Number(s.total).toFixed(2)}</p>` : ''}
+                        ${fs.notes ? `<p class="mt-2 text-sm text-gray-300">${fs.notes}</p>` : ''}
+                    </div>`;
             } else {
-                docContent.innerHTML = `
+                preview = `
                     <div class="text-center text-gray-400 py-8">
                         <i class="fas fa-file-alt text-4xl mb-3"></i>
                         <p>Document preview not available</p>
-                    </div>
-                `;
+                    </div>`;
             }
-            
+
+            const actions = `
+                <div class="flex gap-2 mt-4">
+                    ${editHref ? `
+                        <a href="${editHref}" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold text-center">
+                            <i class="fas fa-edit mr-2"></i>Edit
+                        </a>
+                    ` : ''}
+                    ${doc.pdfDataUrl ? `
+                        <a href="${doc.pdfDataUrl}" download="${typeNames[docType]}-${job.customerName || 'document'}.png" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold text-center">
+                            <i class="fas fa-download mr-2"></i>Download
+                        </a>
+                    ` : ''}
+                    <button onclick="deleteDocument('${jobId}', '${docType}', '${doc.id}')" class="flex-1 bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
+                        <i class="fas fa-trash mr-2"></i>Delete
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 text-center mt-3">
+                    ${doc.createdAt ? `Created: ${new Date(doc.createdAt).toLocaleString()}` : ''}
+                    ${doc.updatedAt ? ` • Updated: ${new Date(doc.updatedAt).toLocaleString()}` : ''}
+                </p>
+            `;
+
+            docContent.innerHTML = preview + actions;
             document.body.classList.add('modal-open');
             openModal('documentModal');
+        }
+
+        // ── Create Customer from Job ─────────────────────────────
+        function createCustomerFromJob(jobId) {
+            const job = jobs.find(j => j.id === jobId);
+            if (!job) return;
+
+            // Already linked to an existing customer record?
+            if (job.customerId) {
+                const existing = CL_DATA.findCustomer(job.customerId);
+                if (existing) {
+                    showToast('Customer already linked', 'info');
+                    return;
+                }
+            }
+
+            // Enough data to create a customer directly?
+            if (job.customerName && job.customerName.trim()) {
+                const cust = CL_DATA.findOrCreateCustomer(
+                    job.customerName.trim(),
+                    job.customerPhone || '',
+                    job.customerEmail || '',
+                    job.address || ''
+                );
+                if (cust) {
+                    CL_DATA.updateJob(jobId, { customerId: cust.id });
+                    loadData();
+                    showToast('Customer created');
+                    openJobModal(jobId);
+                }
+                return;
+            }
+
+            // Otherwise prompt inline — never silently create a blank record.
+            openCreateCustomerPrompt(jobId, job);
+        }
+
+        function openCreateCustomerPrompt(jobId, job) {
+            document.getElementById('jobModal-title').textContent = 'Create Customer';
+            document.getElementById('modalContent').innerHTML = `
+                <div class="space-y-3">
+                    <p class="text-xs text-gray-400">This job has no customer name. Fill in the details to create a record.</p>
+                    <div>
+                        <label class="text-xs text-gray-400 block mb-1">Name <span class="text-red-400">*</span></label>
+                        <input type="text" id="ccName" value="${(job.customerName || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Phone</label>
+                            <input type="tel" id="ccPhone" value="${(job.customerPhone || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Email</label>
+                            <input type="email" id="ccEmail" value="${(job.customerEmail || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 block mb-1">Address</label>
+                        <input type="text" id="ccAddress" value="${(job.address || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                    </div>
+                    <div class="flex gap-2 pt-2">
+                        <button onclick="openJobModal('${jobId}')" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold">Cancel</button>
+                        <button onclick="submitCreateCustomer('${jobId}')" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold">Create</button>
+                    </div>
+                </div>
+            `;
+            openModal('jobModal');
+        }
+
+        function submitCreateCustomer(jobId) {
+            const name = document.getElementById('ccName').value.trim();
+            if (!name) { showToast('Name is required', 'error'); return; }
+            const phone = document.getElementById('ccPhone').value.trim();
+            const email = document.getElementById('ccEmail').value.trim();
+            const address = document.getElementById('ccAddress').value.trim();
+            const cust = CL_DATA.findOrCreateCustomer(name, phone, email, address);
+            if (!cust) { showToast('Could not create customer', 'error'); return; }
+            CL_DATA.updateJob(jobId, {
+                customerId: cust.id,
+                customerName: name,
+                customerPhone: phone || undefined,
+                customerEmail: email || undefined,
+                address: address || undefined
+            });
+            loadData();
+            showToast('Customer created');
+            openJobModal(jobId);
         }
 
         function closeDocumentModal() {
@@ -1180,17 +1490,19 @@
             closeModal('documentModal');
         }
 
-        function deleteDocument(jobId, docType, index) {
+        // Delete by stable doc.id rather than list index so concurrent cloud
+        // merges (which can reorder) don't cause us to delete the wrong entry. (#5)
+        function deleteDocument(jobId, docType, docId) {
             if (!confirm('Delete this document?')) return;
-            
             const job = jobs.find(j => j.id === jobId);
-            if (job && job.documents && job.documents[docType]) {
-                job.documents[docType].splice(index, 1);
-                CL_DATA.updateJob(job.id, { documents: job.documents });
-                loadData();
-                closeDocumentModal();
-                showToast('Document deleted');
-            }
+            if (!job || !job.documents || !Array.isArray(job.documents[docType])) return;
+            const idx = job.documents[docType].findIndex(d => d && d.id === docId);
+            if (idx < 0) { showToast('Document not found', 'error'); return; }
+            job.documents[docType].splice(idx, 1);
+            CL_DATA.updateJob(job.id, { documents: job.documents });
+            loadData();
+            closeDocumentModal();
+            showToast('Document deleted');
         }
 
         // Refresh on visibility
