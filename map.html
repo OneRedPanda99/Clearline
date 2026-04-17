@@ -211,9 +211,11 @@
                     const when = job.jobDate
                         ? new Date(job.jobDate + 'T12:00:00').toLocaleDateString()
                         : 'Unscheduled';
+                    const displayTotal = getJobDisplayTotal(job);
+                    const priceLine = displayTotal > 0 ? `<br><strong style="color:#10b981">$${displayTotal.toFixed(0)}</strong>` : '';
                     const marker = L.marker([coords.lat, coords.lng], { icon })
                         .addTo(map)
-                        .bindPopup(`<strong>${job.customerName || 'Job'}</strong><br>${job.address}<br>${when}<br><a href="https://maps.google.com/maps?daddr=${encodeURIComponent(job.address)}" target="_blank" style="color:#3b82f6">🚗 Navigate</a>`);
+                        .bindPopup(`<strong>${job.customerName || 'Job'}</strong><br>${job.address}<br>${when}${priceLine}<br><a href="https://maps.google.com/maps?daddr=${encodeURIComponent(job.address)}" target="_blank" style="color:#3b82f6">🚗 Navigate</a>`);
                     markers.push(marker);
                     bounds.push([coords.lat, coords.lng]);
                     if (bounds.length === 1) map.setView(bounds[0], 14);
@@ -230,10 +232,11 @@
             container.innerHTML = filteredJobs.map((job, i) => {
                 const isToday = job.jobDate === today;
                 const dateStr = new Date(job.jobDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                const jobTotal = getJobDisplayTotal(job);
                 return `<div class="bg-slate-700 rounded-xl p-3 flex items-center gap-3" onclick="focusJob(${i})">
                     <div class="w-8 h-8 rounded-full ${isToday ? 'bg-primary' : 'bg-purple-600'} flex items-center justify-center text-white font-bold">${i + 1}</div>
                     <div class="flex-1"><p class="font-semibold">${job.customerName || 'Job'}</p><p class="text-sm ${isToday ? 'text-primary' : 'text-purple-400'}">${isToday ? 'TODAY' : dateStr} ${job.jobTime || ''}</p></div>
-                    ${job.quoteAmount ? `<span class="text-green-400 font-bold">$${job.quoteAmount}</span>` : ''}
+                    ${jobTotal > 0 ? `<span class="text-green-400 font-bold">$${jobTotal.toFixed(0)}</span>` : ''}
                 </div>`;
             }).join('');
         }
@@ -337,13 +340,14 @@
                 if (job) {
                     const durationMin = parseInt(job.jobDuration) || 60;
                     const leaveTime = new Date(currentTime.getTime() + durationMin * 60000);
+                    const stopTotal = getJobDisplayTotal(job);
                     html += `<div class="route-stop">
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="font-semibold text-white">${i + 1}. ${job.customerName || 'Job'}</p>
                                 <p class="text-sm text-gray-400">${job.address}</p>
                             </div>
-                            ${job.quoteAmount ? `<span class="text-green-400 font-bold">$${job.quoteAmount}</span>` : ''}
+                            ${stopTotal > 0 ? `<span class="text-green-400 font-bold">$${stopTotal.toFixed(0)}</span>` : ''}
                         </div>
                         <div class="flex gap-4 mt-2 text-sm">
                             <span class="text-primary">Arrive: ${arriveTime}</span>

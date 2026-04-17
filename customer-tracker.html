@@ -500,7 +500,7 @@
                                     </div>
                                     <div class="text-sm text-gray-400 mt-1">
                                         ${j.jobDate ? new Date(j.jobDate + 'T12:00:00').toLocaleDateString() : 'No date'}
-                                        ${j.quoteAmount ? ` • $${j.quoteAmount}` : ''}
+                                        ${(() => { const t = getJobDisplayTotal(j); return t > 0 ? ` • $${t.toFixed(0)}` : ''; })()}
                                     </div>
                                     <div class="flex gap-2 mt-2">
                                         <a href="jobs.html?highlight=${j.id}" class="flex-1 bg-primary/20 text-primary rounded-lg py-2 text-center text-sm">

@@ -258,7 +258,19 @@ const CL_FIREBASE = (function() {
             console.log('Data synced to cloud');
             return true;
         } catch (err) {
-            console.error('Sync to cloud failed:', err);
+            // Surface loudly so a silent rules-deny or missing-database error
+            // doesn't masquerade as "working" while Firestore stays empty.
+            const code = err && (err.code || err.name) || 'unknown';
+            const msg = err && err.message || String(err);
+            console.error('[CL_FIREBASE] syncToCloud failed:', code, msg, err);
+            if (typeof window !== 'undefined' && typeof showToast === 'function') {
+                try { showToast('Cloud sync failed: ' + code, 'error'); } catch (_) {}
+            }
+            try {
+                window.dispatchEvent(new CustomEvent('cl-sync-error', {
+                    detail: { phase: 'push', code, message: msg }
+                }));
+            } catch (_) {}
             return false;
         } finally {
             pushInProgress = false;
@@ -311,7 +323,17 @@ const CL_FIREBASE = (function() {
 
             return true;
         } catch (err) {
-            console.error('Sync from cloud failed:', err);
+            const code = err && (err.code || err.name) || 'unknown';
+            const msg = err && err.message || String(err);
+            console.error('[CL_FIREBASE] syncFromCloud failed:', code, msg, err);
+            if (typeof window !== 'undefined' && typeof showToast === 'function') {
+                try { showToast('Cloud pull failed: ' + code, 'error'); } catch (_) {}
+            }
+            try {
+                window.dispatchEvent(new CustomEvent('cl-sync-error', {
+                    detail: { phase: 'pull', code, message: msg }
+                }));
+            } catch (_) {}
             return false;
         } finally {
             pullInProgress = false;

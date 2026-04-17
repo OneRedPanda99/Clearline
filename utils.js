@@ -235,6 +235,51 @@ window.clearCachedLocation = function() {
   safeRemove(window.CL_LOCATION_CACHE_KEY);
 };
 
+/**
+ * Derive the financial value to display for a job. The legacy `quoteAmount`
+ * field on the job itself is no longer the source of truth — instead we
+ * prefer the grand total stored on any linked invoice (highest priority)
+ * or estimate (fallback) inside `job.documents`. This keeps job cards,
+ * stat totals, and the Home "Estimated Total" in lockstep with whatever
+ * amount the generator pages last saved, discounts and adjustments
+ * included.
+ *
+ * Selection rules:
+ *   - Invoices take priority over estimates (billed > proposed).
+ *   - Within each kind, pick the most recently updated entry.
+ *   - Fall back to parseFloat(job.quoteAmount) for jobs that have no
+ *     linked documents yet.
+ *   - Return 0 when nothing usable is present.
+ */
+window.getJobDisplayTotal = function(job) {
+  if (!job) return 0;
+  const docs = job.documents || {};
+  const latest = (arr) => {
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    let best = null;
+    let bestTs = -Infinity;
+    for (const d of arr) {
+      if (!d) continue;
+      const ts = Date.parse(d.updatedAt || d.createdAt || '') || 0;
+      if (ts >= bestTs) { best = d; bestTs = ts; }
+    }
+    return best;
+  };
+  const pickTotal = (entry) => {
+    if (!entry || !entry.summary) return null;
+    const n = parseFloat(entry.summary.total);
+    return isNaN(n) ? null : n;
+  };
+
+  const inv = pickTotal(latest(docs.invoices));
+  if (inv !== null) return inv;
+  const est = pickTotal(latest(docs.estimates));
+  if (est !== null) return est;
+
+  const q = parseFloat(job.quoteAmount);
+  return isNaN(q) ? 0 : q;
+};
+
 // Business config — loaded from settings (set via Settings page)
 // Falls back to empty strings if no settings saved yet.
 window.CL_CONFIG = (function() {

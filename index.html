@@ -283,18 +283,22 @@
             document.getElementById('stat-booked').textContent = jobs.filter(j => j.status === 'scheduled').length;
             document.getElementById('stat-done').textContent = jobs.filter(j => j.status === 'completed').length;
             
-            // Revenue
-            const completedRevenue = jobs.filter(j => j.status === 'completed' && j.quoteAmount)
-                .reduce((sum, j) => sum + parseFloat(j.quoteAmount || 0), 0);
-            const pendingRevenue = jobs.filter(j => (j.status === 'quoted' || j.status === 'scheduled') && j.quoteAmount)
-                .reduce((sum, j) => sum + parseFloat(j.quoteAmount || 0), 0);
-            
+            // Revenue / Pending now use the derived total (invoice > estimate >
+            // quoteAmount) so adjustments and discounts on the linked docs flow
+            // through to the dashboard without editing the job directly.
+            const completedRevenue = jobs
+                .filter(j => j.status === 'completed')
+                .reduce((sum, j) => sum + getJobDisplayTotal(j), 0);
+            const pendingRevenue = jobs
+                .filter(j => j.status === 'quoted' || j.status === 'scheduled')
+                .reduce((sum, j) => sum + getJobDisplayTotal(j), 0);
+
             document.getElementById('revenue').textContent = completedRevenue.toFixed(0);
             document.getElementById('pending').textContent = pendingRevenue.toFixed(0);
 
-            // Estimated Total = sum of quoteAmount across every job, completed
-            // and pending. Uses CL_DATA jobs which are Firebase-synced via CL_FIREBASE.
-            const estimatedTotal = jobs.reduce((sum, j) => sum + (parseFloat(j.quoteAmount) || 0), 0);
+            // Estimated Total spans every job (completed + pending) and also
+            // reads from linked docs via getJobDisplayTotal.
+            const estimatedTotal = jobs.reduce((sum, j) => sum + getJobDisplayTotal(j), 0);
             document.getElementById('estimatedTotal').textContent = estimatedTotal.toFixed(0);
             document.getElementById('estimatedTotalCount').textContent = jobs.length;
             
