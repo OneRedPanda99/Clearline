@@ -4,7 +4,11 @@
  * Local storage with optional cloud sync
  */
 
-const CL_DATA = {
+// Declared with `var` so an accidental double-include (e.g. a page that
+// references this script twice, or a service-worker race) doesn't throw a
+// redeclaration SyntaxError and take down the entire page's JS.
+/* eslint-disable no-var */
+var CL_DATA = {
     CUSTOMERS_KEY: 'cl-customers',
     JOBS_KEY: 'cl-jobs',
     MIGRATED_KEY: 'cl-data-migrated-v2',

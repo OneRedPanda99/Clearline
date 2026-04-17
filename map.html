@@ -9,13 +9,14 @@
     <title>Job Map - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
+    <script src="data-migration.js"></script>
+    <script src="firebase-sync.js"></script>
     <script>
         window.tailwind = { config: { theme: { extend: { colors: { primary: '#0ea5e9', dark: '#0f172a', darker: '#020617' } } } } };
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="app.css">
     <link rel="manifest" href="manifest.json">
-    <script src="data-migration.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -257,13 +258,21 @@
             return loc;
         }
 
-        // ── Route Planning ──
+        // ── Route Planning ── (internal, uses Directions API so we can draw
+        // the polyline on this map). Needs numeric coordinates — prompts
+        // explicitly if the cache is empty.
         async function planRoute() {
             const jobsWithAddr = filteredJobs.filter(j => j.address);
-            if (jobsWithAddr.length === 0) return;
+            if (jobsWithAddr.length === 0) {
+                showToast('No jobs with addresses in the current filter', 'info');
+                return;
+            }
 
             const loc = await ensureUserLocation();
-            if (!loc) { showToast('Current location required for routing', 'error'); return; }
+            if (!loc) {
+                showToast('Enable location or tap "Locate me" first', 'error');
+                return;
+            }
             const originParam = `${loc.lat},${loc.lng}`;
 
             const destination = jobsWithAddr[jobsWithAddr.length - 1].address;
@@ -371,18 +380,25 @@
             return points;
         }
 
+        // Opens Google Maps with the route. Uses cached user coords when we
+        // have them; otherwise lets Google Maps prompt for location itself by
+        // omitting the origin. This means the button always works even when
+        // our local geolocation cache is empty or the user denied our prompt.
         async function openRouteInGoogleMaps() {
             const jobsWithAddr = filteredJobs.filter(j => j.address);
-            if (jobsWithAddr.length === 0) return;
-            const loc = await ensureUserLocation();
-            if (!loc) { showToast('Current location required for routing', 'error'); return; }
-            const origin = `${loc.lat},${loc.lng}`;
+            if (jobsWithAddr.length === 0) {
+                showToast('No jobs with addresses in the current filter', 'info');
+                return;
+            }
+            // Try cache only — don't prompt here; the destination page handles it.
+            const loc = userLoc || await getCachedLocation({ prompt: false });
+            const originQs = loc ? `origin=${encodeURIComponent(loc.lat + ',' + loc.lng)}&` : '';
             if (jobsWithAddr.length === 1) {
-                window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(jobsWithAddr[0].address)}&travelmode=driving`, '_blank');
+                window.open(`https://www.google.com/maps/dir/?api=1&${originQs}destination=${encodeURIComponent(jobsWithAddr[0].address)}&travelmode=driving`, '_blank');
             } else {
                 const dest = jobsWithAddr[jobsWithAddr.length - 1].address;
                 const wps = jobsWithAddr.slice(0, -1).map(j => encodeURIComponent(j.address)).join('|');
-                window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&waypoints=${wps}&travelmode=driving`, '_blank');
+                window.open(`https://www.google.com/maps/dir/?api=1&${originQs}destination=${encodeURIComponent(dest)}&waypoints=${wps}&travelmode=driving`, '_blank');
             }
         }
 

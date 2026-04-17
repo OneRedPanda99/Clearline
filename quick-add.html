@@ -10,6 +10,8 @@
     <title>Quick Add - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
+    <script src="data-migration.js"></script>
+    <script src="firebase-sync.js"></script>
     <script>
         window.tailwind = {
             config: {
@@ -31,7 +33,6 @@
     <link rel="stylesheet" href="app.css">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="data-migration.js"></script>
     
     <style>
         input::placeholder { color: #475569; }
@@ -180,19 +181,20 @@
                 <input type="text" id="otherServiceInput" placeholder="Describe the service..." class="w-full p-2 rounded-lg text-sm mt-1 hidden">
             </div>
 
-            <!-- Date & Time Row -->
-            <div class="grid grid-cols-5 gap-1">
-                <div class="col-span-2">
+            <!-- Date & Time Row — two rows on phones so native pickers don't
+                 collide. On sm+ screens collapse into a single 5-column row. -->
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <div class="sm:col-span-2">
                     <label class="label-text block mb-0.5">Date</label>
-                    <input type="date" id="qDate" class="w-full p-2 rounded-lg text-sm">
+                    <input type="date" id="qDate" class="w-full p-2 rounded-lg text-sm" style="min-width:0;">
                 </div>
-                <div class="col-span-2">
+                <div class="sm:col-span-2">
                     <label class="label-text block mb-0.5">Time</label>
-                    <input type="time" id="qTime" class="w-full p-2 rounded-lg text-sm">
+                    <input type="time" id="qTime" class="w-full p-2 rounded-lg text-sm" style="min-width:0;">
                 </div>
-                <div>
-                    <label class="label-text block mb-0.5">Min</label>
-                    <input type="number" id="qDuration" placeholder="60" class="w-full p-2 rounded-lg text-sm text-center">
+                <div class="col-span-2 sm:col-span-1">
+                    <label class="label-text block mb-0.5">Duration (min)</label>
+                    <input type="number" id="qDuration" placeholder="60" class="w-full p-2 rounded-lg text-sm text-center" style="min-width:0;">
                 </div>
             </div>
 
@@ -435,18 +437,20 @@
         }
 
         function updateGoogleUI(isConnected) {
+            // Null-guard each element — the Google Calendar UI nodes may have
+            // been removed (unified sign-in now lives on settings/firebase).
+            // Without this, loading the page threw on every render.
             const signInSection = document.getElementById('googleSignInSection');
             const connectedBadge = document.getElementById('googleConnectedBadge');
             const gcalBtnText = document.getElementById('gcalBtnText');
-            
             if (isConnected) {
-                signInSection.classList.add('hidden');
-                connectedBadge.classList.remove('hidden');
-                gcalBtnText.textContent = 'GCal ✓';
+                if (signInSection) signInSection.classList.add('hidden');
+                if (connectedBadge) connectedBadge.classList.remove('hidden');
+                if (gcalBtnText) gcalBtnText.textContent = 'GCal ✓';
             } else {
-                signInSection.classList.remove('hidden');
-                connectedBadge.classList.add('hidden');
-                gcalBtnText.textContent = 'GCal';
+                if (signInSection) signInSection.classList.remove('hidden');
+                if (connectedBadge) connectedBadge.classList.add('hidden');
+                if (gcalBtnText) gcalBtnText.textContent = 'GCal';
             }
         }
 

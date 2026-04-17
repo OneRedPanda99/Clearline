@@ -36,7 +36,6 @@
     <script src="firebase-sync.js"></script>
     <link rel="stylesheet" href="app.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="data-migration.js"></script>
 </head>
 <body>
     <!-- Header -->
@@ -72,11 +71,11 @@
                 </div>
             </div>
 
-            <!-- Estimated Total (sum of quoteAmount across all non-completed jobs) -->
+            <!-- Estimated Total (sum of quoteAmount across every job — completed + pending) -->
             <div class="glass-card" style="padding: 14px 16px; margin-bottom: 12px; text-align: center;">
-                <p style="font-size: 11px; color: #64748b;">Estimated Total (Pending Jobs)</p>
+                <p style="font-size: 11px; color: #64748b;">Estimated Total (All Jobs)</p>
                 <p style="font-size: 28px; font-weight: 700; color: #38bdf8;">$<span id="estimatedTotal">0</span></p>
-                <p style="font-size: 11px; color: #64748b;"><span id="estimatedTotalCount">0</span> pending job(s)</p>
+                <p style="font-size: 11px; color: #64748b;"><span id="estimatedTotalCount">0</span> job(s)</p>
             </div>
 
             <!-- Revenue -->
@@ -293,12 +292,11 @@
             document.getElementById('revenue').textContent = completedRevenue.toFixed(0);
             document.getElementById('pending').textContent = pendingRevenue.toFixed(0);
 
-            // Estimated Total = sum of quoteAmount over every non-completed job.
-            // Uses CL_DATA jobs which are Firebase-synced via CL_FIREBASE.
-            const pendingJobs = jobs.filter(j => j.status !== 'completed');
-            const estimatedTotal = pendingJobs.reduce((sum, j) => sum + (parseFloat(j.quoteAmount) || 0), 0);
+            // Estimated Total = sum of quoteAmount across every job, completed
+            // and pending. Uses CL_DATA jobs which are Firebase-synced via CL_FIREBASE.
+            const estimatedTotal = jobs.reduce((sum, j) => sum + (parseFloat(j.quoteAmount) || 0), 0);
             document.getElementById('estimatedTotal').textContent = estimatedTotal.toFixed(0);
-            document.getElementById('estimatedTotalCount').textContent = pendingJobs.length;
+            document.getElementById('estimatedTotalCount').textContent = jobs.length;
             
             // Today's jobs
             const today = new Date().toISOString().split('T')[0];
