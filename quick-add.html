@@ -165,25 +165,84 @@
                 <input type="text" id="qAddress" placeholder="Start typing..." class="w-full p-2 rounded-lg text-sm" autocomplete="off">
             </div>
 
+            <!-- Service Type - Multi-select Chips -->
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <label class="label-text">Services (tap multiple)</label>
+                    <label class="flex items-center gap-1.5 cursor-pointer">
+                        <span class="text-[10px] text-gray-400">Other Job Type</span>
+                        <input type="checkbox" id="notPressureWashing" onchange="toggleNotPW()" class="hidden">
+                        <div id="notPwToggle" class="w-8 h-4 rounded-full bg-slate-600 relative transition-colors" style="flex-shrink:0;">
+                            <div class="w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 left-0.5 transition-all" id="notPwDot"></div>
+                        </div>
+                    </label>
+                </div>
+                <div class="flex flex-wrap gap-1" id="serviceChips"></div>
+                <input type="text" id="otherServiceInput" placeholder="Describe the service..." class="w-full p-2 rounded-lg text-sm mt-1 hidden">
+            </div>
+
+            <!-- Date & Time Row — two rows on phones so native pickers don't
+                 collide. On sm+ screens collapse into a single 5-column row. -->
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <div class="sm:col-span-2">
+                    <label class="label-text block mb-0.5">Date</label>
+                    <input type="date" id="qDate" class="w-full p-2 rounded-lg text-sm" style="min-width:0;">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="label-text block mb-0.5">Time</label>
+                    <input type="time" id="qTime" class="w-full p-2 rounded-lg text-sm" style="min-width:0;">
+                </div>
+                <div class="col-span-2 sm:col-span-1">
+                    <label class="label-text block mb-0.5">Duration (min)</label>
+                    <input type="number" id="qDuration" placeholder="60" class="w-full p-2 rounded-lg text-sm text-center" style="min-width:0;">
+                </div>
+            </div>
+
+            <!-- Quick Time Buttons -->
+            <div class="flex gap-1">
+                <button type="button" onclick="setQuickTime('08:00')" class="time-chip flex-1 py-1.5 rounded-lg border border-slate-600/50 text-[10px]">8AM</button>
+                <button type="button" onclick="setQuickTime('09:00')" class="time-chip flex-1 py-1.5 rounded-lg border border-slate-600/50 text-[10px]">9AM</button>
+                <button type="button" onclick="setQuickTime('10:00')" class="time-chip flex-1 py-1.5 rounded-lg border border-slate-600/50 text-[10px]">10AM</button>
+                <button type="button" onclick="setQuickTime('13:00')" class="time-chip flex-1 py-1.5 rounded-lg border border-slate-600/50 text-[10px]">1PM</button>
+                <button type="button" onclick="setQuickTime('14:00')" class="time-chip flex-1 py-1.5 rounded-lg border border-slate-600/50 text-[10px]">2PM</button>
+                <button type="button" onclick="setQuickTime('15:00')" class="time-chip flex-1 py-1.5 rounded-lg border border-slate-600/50 text-[10px]">3PM</button>
+            </div>
+
+            <!-- Quote & Sqft -->
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="label-text block mb-0.5">Quote $</label>
+                    <input type="number" id="qQuote" placeholder="150" class="w-full p-2 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="label-text block mb-0.5">Sq Ft</label>
+                    <input type="number" id="qSqft" placeholder="500" class="w-full p-2 rounded-lg text-sm">
+                </div>
+            </div>
+
             <!-- Notes -->
             <div>
                 <label class="label-text block mb-0.5">Notes</label>
-                <textarea id="qNotes" rows="2" placeholder="Gate code, instructions, services requested..." class="w-full p-2 rounded-lg text-sm resize-none"></textarea>
+                <textarea id="qNotes" rows="1" placeholder="Gate code, instructions..." class="w-full p-2 rounded-lg text-sm resize-none"></textarea>
             </div>
         </div>
 
-        <!-- Save Actions — Quick Add is now the only add flow. Job type,
-             services, dates and quotes are set later via the edit modal
-             on jobs.html or the linked estimate/invoice documents. -->
+        <!-- Save Actions -->
         <div class="glass-card rounded-2xl p-3 mt-4">
-            <div class="flex gap-2">
-                <button onclick="saveAsLead()" class="flex-1 bg-blue-600/90 text-white py-3 rounded-xl font-semibold action-btn text-sm">
+            <button onclick="saveAndSchedule()" class="btn-primary">
+                <i class="fas fa-calendar-check mr-2"></i>Save & Schedule
+            </button>
+            <div class="flex gap-2 mt-2">
+                <button onclick="saveAsLead()" class="flex-1 bg-blue-600/80 text-white py-3 rounded-xl font-semibold action-btn text-sm">
                     <i class="fas fa-user-plus mr-1"></i>Save as Lead
                 </button>
-                <button onclick="saveAsCustomer()" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold action-btn text-sm">
-                    <i class="fas fa-id-card mr-1"></i>Save as Customer
+                <button onclick="saveAsQuote()" class="flex-1 bg-amber-600/80 text-white py-3 rounded-xl font-semibold action-btn text-sm">
+                    <i class="fas fa-file-invoice mr-1"></i>Save as Quote
                 </button>
             </div>
+            <button onclick="saveAsCustomer()" class="w-full mt-2 bg-primary/90 text-white py-3 rounded-xl font-semibold action-btn text-sm">
+                <i class="fas fa-id-card mr-1"></i>Save as Customer (no job)
+            </button>
         </div>
 
         <!-- Recent Jobs Quick View -->
@@ -238,9 +297,34 @@
         // Now using CL_DATA for separate customers and jobs
         let customers = [];
         let jobs = [];
+        let selectedServices = [];
         let selectedCustomerId = null;
         let autocompleteTimeout = null;
-
+        
+        // Default service types (used if no custom ones in settings)
+        const DEFAULT_SERVICES = ['Driveway', 'House', 'Deck', 'Patio', 'Fence', 'Sidewalk', 'Roof', 'Gutter', 'Commercial'];
+        
+        function getServiceTypes() {
+            try {
+                const settings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
+                if (settings.serviceTypes && settings.serviceTypes.trim()) {
+                    return settings.serviceTypes.split(',').map(s => s.trim()).filter(Boolean);
+                }
+            } catch(e) {}
+            return DEFAULT_SERVICES;
+        }
+        
+        function renderServiceChips() {
+            const container = document.getElementById('serviceChips');
+            const services = getServiceTypes();
+            container.innerHTML = services.map(service => 
+                `<button type="button" onclick="toggleService(this, '${service.replace(/'/g, "\\'")}')"
+                    class="service-chip px-2 py-1 rounded-full border border-slate-600/50 text-xs">${service}</button>`
+            ).join('') + 
+            `<button type="button" onclick="toggleOtherService(this)" id="otherChip"
+                class="service-chip px-2 py-1 rounded-full border border-slate-600/50 text-xs">Other</button>`;
+        }
+        
         function loadData() {
             customers = CL_DATA.getCustomers();
             jobs = CL_DATA.getJobs();
@@ -397,31 +481,44 @@
             updateGoogleUI(false);
         }
 
+        // Set today's date as default
         document.addEventListener('DOMContentLoaded', () => {
             loadData();
+            renderServiceChips();
+            document.getElementById('qDate').value = new Date().toISOString().split('T')[0];
             checkContactsSupport();
             renderTodaysJobs();
             renderUpcomingJobs();
             loadMapsScript();
             updateGoogleClientNote();
-
-            // Check URL parameters for prefill.
+            
+            // Check URL parameters for prefill
             const urlParams = new URLSearchParams(window.location.search);
             const customerIdParam = urlParams.get('customerId');
+            const dateParam = urlParams.get('date');
             const typeParam = urlParams.get('type');
-
+            
+            // If customerId param, pre-select that customer
             if (customerIdParam) {
                 const customer = customers.find(c => c.id === customerIdParam);
                 if (customer) {
                     selectCustomer(customerIdParam);
                 }
             }
-
+            
+            // If date param, pre-fill date
+            if (dateParam) {
+                document.getElementById('qDate').value = dateParam;
+            }
+            
+            // If type=lead, set up for lead entry (no date)
             if (typeParam === 'lead') {
+                document.getElementById('qDate').value = '';
                 document.querySelector('h1').textContent = 'Add Lead';
+                // Clean up URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
-
+            
             if (accessToken && tokenExpiry > Date.now() && getGoogleClientId()) {
                 ensureGoogleApis();
             } else {
@@ -654,6 +751,10 @@
             document.getElementById('qPhone').value = customer.phone || '';
             document.getElementById('qAddress').value = customer.address || '';
             document.getElementById('qNotes').value = customer.notes || '';
+            
+            // Clear job-specific fields (they're for the new job)
+            document.getElementById('qQuote').value = '';
+            document.getElementById('qSqft').value = '';
 
             // Show selected banner
             document.getElementById('selectedCustomerBanner').classList.remove('hidden');
@@ -699,11 +800,52 @@
             }
         }
 
-        // Fetch the device's current coordinates and reverse-geocode via the
-        // Google Maps API key to populate the address field. Shows an inline
-        // spinner while we wait and a toast on denial/failure. Requests a
-        // fresh fix (`maximumAge:0`) so the field doesn't show a stale
-        // neighbourhood from a previous page.
+        // Multi-select service toggle
+        let isNotPressureWashing = false;
+
+        function toggleService(btn, service) {
+            btn.classList.toggle('selected');
+            if (btn.classList.contains('selected')) {
+                if (!selectedServices.includes(service)) {
+                    selectedServices.push(service);
+                }
+            } else {
+                selectedServices = selectedServices.filter(s => s !== service);
+            }
+        }
+
+        function toggleOtherService(btn) {
+            btn.classList.toggle('selected');
+            const input = document.getElementById('otherServiceInput');
+            if (btn.classList.contains('selected')) {
+                input.classList.remove('hidden');
+                input.focus();
+            } else {
+                input.classList.add('hidden');
+                input.value = '';
+                selectedServices = selectedServices.filter(s => !s.startsWith('Other:'));
+            }
+        }
+
+        function toggleNotPW() {
+            isNotPressureWashing = document.getElementById('notPressureWashing').checked;
+            const toggle = document.getElementById('notPwToggle');
+            const dot = document.getElementById('notPwDot');
+            if (isNotPressureWashing) {
+                toggle.style.background = '#f59e0b';
+                dot.style.left = 'calc(100% - 0.5rem - 3.5px)';
+            } else {
+                toggle.style.background = '';
+                dot.style.left = '2px';
+            }
+        }
+        
+        // Fetch a fresh location fix and reverse-geocode via the Google Maps
+        // API key to fill the address field. The previous URL had a literal
+        // `...&key=` placeholder that made every request 404 — now a proper
+        // geocode endpoint. Shows a spinner in the status badge while we
+        // wait and toasts any error. Caches the fix so map.html/jobs.html
+        // can reuse it without re-prompting.
         function useCurrentLocation() {
             const status = document.getElementById('addressStatus');
             const addrInput = document.getElementById('qAddress');
@@ -716,7 +858,6 @@
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     const { latitude: lat, longitude: lng } = position.coords;
-                    // Cache the fix so map.html / jobs.html can reuse it.
                     try { safeSet(window.CL_LOCATION_CACHE_KEY, { lat, lng, ts: Date.now() }); } catch (_) {}
                     try {
                         const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${encodeURIComponent(MAPS_API_KEY)}`;
@@ -745,25 +886,47 @@
             );
         }
 
-        // Build a minimal JOB object. Service type, dates, duration, and
-        // money details are all set later via the jobs.html edit modal and
-        // the linked estimate/invoice documents.
+        // Quick time selection
+        function setQuickTime(time) {
+            document.getElementById('qTime').value = time;
+            document.querySelectorAll('.time-chip').forEach(chip => {
+                chip.classList.remove('selected');
+            });
+            event.target.classList.add('selected');
+        }
+
+        // Get form data - now returns a JOB object
         function getFormData() {
+            // If customer is selected, use their info
+            const existingCustomer = selectedCustomerId ? customers.find(c => c.id === selectedCustomerId) : null;
+            
+            // Combine selected services into string
+            let serviceList = [...selectedServices];
+            // Include "Other" text if chip is selected
+            const otherInput = document.getElementById('otherServiceInput');
+            if (document.getElementById('otherChip')?.classList.contains('selected') && otherInput?.value.trim()) {
+                serviceList.push('Other: ' + otherInput.value.trim());
+            }
+            const serviceType = serviceList.length > 0 
+                ? (isNotPressureWashing ? '[NOT PW] ' : '') + serviceList.join(', ') 
+                : (isNotPressureWashing ? '[NOT PW]' : '');
+            
             const name = document.getElementById('qName').value.trim();
             const phone = document.getElementById('qPhone').value.trim();
             const address = document.getElementById('qAddress').value.trim();
+            
             return {
                 id: 'job_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
                 customerId: selectedCustomerId || null,
                 customerName: name,
                 customerPhone: phone,
                 address: address,
-                serviceType: '',
-                jobDate: '',
-                jobTime: '',
-                jobDuration: '',
-                quoteAmount: '',
-                squareFootage: '',
+                serviceType: serviceType,
+                jobDate: document.getElementById('qDate').value,
+                jobTime: document.getElementById('qTime').value,
+                jobDuration: document.getElementById('qDuration').value || '60',
+                quoteAmount: document.getElementById('qQuote').value,
+                squareFootage: document.getElementById('qSqft').value,
                 status: 'new',
                 notes: document.getElementById('qNotes').value.trim(),
                 waiverSigned: false,
@@ -789,33 +952,9 @@
             return true;
         }
 
-        // Save as Lead: create a `new` job with a 2-day follow-up and link
-        // (or create) a customer record. All scheduling/finance fields are
-        // intentionally left blank — they're added later via the edit modal.
-        function saveAsLead() {
-            if (!validate()) return;
-
-            const job = getFormData();
-            job.status = 'new';
-
-            const followUp = new Date();
-            followUp.setDate(followUp.getDate() + 2);
-            job.followUpDate = followUp.toISOString().split('T')[0];
-
-            maybeCreateCustomer(job);
-
-            CL_DATA.addJob(job);
-            loadData();
-            showSuccess('Lead saved!');
-            clearForm();
-            renderTodaysJobs();
-            renderUpcomingJobs();
-        }
-
         // Save as Customer: creates only a customer record, no job. Uses
-        // findOrCreateCustomer so saving the same name+phone twice doesn't
-        // duplicate the record; notes are applied to the (possibly existing)
-        // customer via updateCustomer when present.
+        // findOrCreateCustomer so re-saving the same name+phone doesn't
+        // duplicate. Notes/address patched onto the existing record if newer.
         function saveAsCustomer() {
             const name = document.getElementById('qName').value.trim();
             if (!name) {
@@ -837,6 +976,76 @@
             loadData();
             showSuccess('Customer saved!');
             clearForm();
+        }
+
+        // Save as lead (new status, no scheduling, no dates)
+        function saveAsLead() {
+            if (!validate()) return;
+            
+            const job = getFormData();
+            job.status = 'new';
+            
+            // Leads should NOT appear on the calendar - clear all dates
+            job.jobDate = '';
+            job.jobTime = '';
+            job.quoteDate = '';
+            
+            // Set follow-up for 2 days from now
+            const followUp = new Date();
+            followUp.setDate(followUp.getDate() + 2);
+            job.followUpDate = followUp.toISOString().split('T')[0];
+            
+            // Optionally create customer if name/phone provided
+            maybeCreateCustomer(job);
+            
+            CL_DATA.addJob(job);
+            loadData();
+            showSuccess('Lead saved!');
+            clearForm();
+        }
+
+        // Save as quote (has quote date, but no job date yet)
+        function saveAsQuote() {
+            if (!validate()) return;
+            
+            const job = getFormData();
+            job.status = 'quoted';
+            
+            // Quote has a quote date (today) but no job date
+            job.quoteDate = new Date().toISOString().split('T')[0];
+            job.jobDate = ''; // No job date until scheduled
+            job.jobTime = '';
+            
+            // Set follow-up for 3 days from now
+            const followUp = new Date();
+            followUp.setDate(followUp.getDate() + 3);
+            job.followUpDate = followUp.toISOString().split('T')[0];
+            
+            // Optionally create customer
+            maybeCreateCustomer(job);
+            
+            CL_DATA.addJob(job);
+            loadData();
+            showSuccess('Quote saved!');
+            clearForm();
+        }
+
+        // Save and schedule
+        function saveAndSchedule() {
+            if (!validate()) return;
+            
+            const job = getFormData();
+            job.status = job.jobDate ? 'scheduled' : 'quoted';
+            
+            // Optionally create customer if name/phone provided
+            maybeCreateCustomer(job);
+            
+            CL_DATA.addJob(job);
+            loadData();
+            showSuccess('Job scheduled!');
+            clearForm();
+            renderTodaysJobs();
+            renderUpcomingJobs();
         }
 
         // Helper: optionally create or link customer
@@ -984,14 +1193,28 @@
             setTimeout(() => toast.remove(), 2000);
         }
 
+        // Clear form
         function clearForm() {
             document.getElementById('qName').value = '';
             document.getElementById('qPhone').value = '';
             document.getElementById('qAddress').value = '';
+            document.getElementById('qDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('qTime').value = '';
+            document.getElementById('qDuration').value = '';
+            document.getElementById('qQuote').value = '';
+            document.getElementById('qSqft').value = '';
             document.getElementById('qNotes').value = '';
+            selectedServices = [];
             selectedCustomerId = null;
-            const banner = document.getElementById('selectedCustomerBanner');
-            if (banner) banner.classList.add('hidden');
+            isNotPressureWashing = false;
+            document.querySelectorAll('.service-chip, .time-chip').forEach(c => c.classList.remove('selected'));
+            document.getElementById('selectedCustomerBanner').classList.add('hidden');
+            document.getElementById('otherServiceInput').classList.add('hidden');
+            document.getElementById('otherServiceInput').value = '';
+            document.getElementById('notPressureWashing').checked = false;
+            toggleNotPW();
+            
+            // Refresh data
             loadData();
         }
 
@@ -1008,12 +1231,13 @@
             }
 
             container.innerHTML = todaysJobs.map(job => {
-                const total = getJobDisplayTotal(job);
+                const total = typeof getJobDisplayTotal === 'function' ? getJobDisplayTotal(job) : (parseFloat(job.quoteAmount) || 0);
+                const moneyBit = total > 0 ? ' • $' + total.toFixed(0) : '';
                 return `
                 <div class="glass-card rounded-xl p-3 flex justify-between items-center">
                     <div>
                         <p class="font-semibold">${job.customerName}</p>
-                        <p class="text-sm text-gray-400">${job.jobTime || ''} ${job.serviceType || ''}${total > 0 ? ' • $' + total.toFixed(0) : ''}</p>
+                        <p class="text-sm text-gray-400">${job.jobTime || ''} ${job.serviceType || ''}${moneyBit}</p>
                     </div>
                     <div class="flex gap-2">
                         ${job.customerPhone ? `
