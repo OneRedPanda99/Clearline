@@ -32,6 +32,32 @@ const CL_FIREBASE = (function() {
     // Per-sign-in latch so we don't refetch / re-bootstrap mid-session.
     let profileLoaded = false;
 
+    // Manager/Worker accounts use a bare username (no email). Firebase
+    // Auth still needs an email-shaped string, so we suffix the username
+    // with an IANA-reserved TLD that cannot collide with a real domain.
+    // Sign-in + user creation both pass the synthesized value to Firebase
+    // while the UI + Firestore `users/{uid}.username` keep the clean form.
+    const USERNAME_EMAIL_SUFFIX = '@clearline.invalid';
+    function toAuthEmail(usernameOrEmail) {
+        if (!usernameOrEmail) return '';
+        const s = String(usernameOrEmail).trim();
+        if (!s) return '';
+        return s.includes('@') ? s : (s + USERNAME_EMAIL_SUFFIX);
+    }
+
+    // Manager/Worker accounts use a bare username (no email). Firebase
+    // Auth still needs an email-shaped string, so we suffix the username
+    // with an IANA-reserved TLD that can never collide with a real email.
+    // sign-in + user creation both pass the synthesized value to Firebase
+    // while the UI + Firestore `users/{uid}.username` keep the clean form.
+    const USERNAME_EMAIL_SUFFIX = '@clearline.invalid';
+    function toAuthEmail(usernameOrEmail) {
+        if (!usernameOrEmail) return '';
+        const s = String(usernameOrEmail).trim();
+        if (!s) return '';
+        return s.includes('@') ? s : (s + USERNAME_EMAIL_SUFFIX);
+    }
+
     // Get Firebase config from CL_SECRETS (loaded via config.js)
     function getConfig() {
         return window.CL_SECRETS?.firebase || null;
@@ -259,20 +285,21 @@ const CL_FIREBASE = (function() {
         };
     }
 
-    // Sign in with email + password. Used by Managers and Workers, who are
-    // always pre-provisioned by the Owner via the Manager Panel (Phase 3).
-    // If the account isn't yet provisioned, `handleAuthStateChange` will
-    // sign them back out with `?notprovisioned=1`.
-    async function signInWithEmail(email, password) {
+    // Sign in with username + password. The input is treated as a plain
+    // username; `toAuthEmail` adds the reserved suffix so Firebase Auth
+    // (which requires an email-shaped value) accepts it. Anything that
+    // already contains an `@` is passed through unchanged, so the Owner
+    // can still use a real email on rare occasions.
+    async function signInWithEmail(username, password) {
         if (!isInitialized) {
             const ready = await init();
             if (!ready) return { ok: false, code: 'init-failed' };
         }
         try {
-            await auth.signInWithEmailAndPassword(email, password);
+            await auth.signInWithEmailAndPassword(toAuthEmail(username), password);
             return { ok: true };
         } catch (err) {
-            console.error('Email sign-in error:', err);
+            console.error('Sign-in error:', err);
             return { ok: false, code: (err && err.code) || 'unknown', message: err && err.message };
         }
     }
@@ -706,6 +733,8 @@ const CL_FIREBASE = (function() {
         getProfile: () => (userProfile ? Object.assign({}, userProfile) : null),
         getGlobalSettings,
         updateGlobalSettings,
+        toAuthEmail,
+        USERNAME_EMAIL_SUFFIX,
         can,
         get isSignedIn() { return !!currentUser; },
         get user() { return getUserInfo(); },

@@ -236,6 +236,54 @@ window.clearCachedLocation = function() {
 };
 
 /**
+ * Owner-only navigation: inject a "Panel" tab into every bottom nav on
+ * the current page when the signed-in user is an Owner. Idempotent:
+ * the link is added at most once per `.tab-bar-inner` (`data-owner-panel`
+ * attribute gates duplicate inserts). Hidden automatically for non-Owner
+ * roles so the tab bar collapses back to its default shape.
+ *
+ * Runs on both `cl-profile-updated` (fresh profile load) and
+ * DOMContentLoaded (page render before profile event), so whichever
+ * comes first wins.
+ */
+window.__applyOwnerNav = function(profile) {
+  const bars = document.querySelectorAll('.tab-bar-inner');
+  if (!bars.length) return;
+  const isOwner = !!(profile && profile.role === 'owner');
+  bars.forEach(bar => {
+    // Skip pages that already ship their own Panel link (e.g. the
+    // manager-panel page itself has one baked into its template).
+    const preExisting = bar.querySelector('a[href$="manager-panel.html"]:not([data-owner-panel])');
+    let link = bar.querySelector('[data-owner-panel]');
+    if (isOwner) {
+      if (preExisting) return;
+      if (!link) {
+        link = document.createElement('a');
+        link.href = 'manager-panel.html';
+        link.className = 'tab-item';
+        link.setAttribute('data-owner-panel', '1');
+        link.innerHTML = '<i class="fas fa-user-shield"></i><span>Panel</span>';
+        bar.appendChild(link);
+      }
+      if (/manager-panel\.html$/i.test(window.location.pathname)) {
+        link.classList.add('active');
+      }
+    } else if (link) {
+      link.remove();
+    }
+  });
+};
+window.addEventListener('cl-profile-updated', (e) => {
+  try { window.__applyOwnerNav(e.detail && e.detail.profile); } catch (_) {}
+});
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
+    if (p) window.__applyOwnerNav(p);
+  } catch (_) {}
+});
+
+/**
  * Derive the financial value to display for a job. The legacy `quoteAmount`
  * field on the job itself is no longer the source of truth — instead we
  * prefer the grand total stored on any linked invoice (highest priority)

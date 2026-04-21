@@ -68,8 +68,11 @@
 
             <form id="emailForm" class="space-y-3" autocomplete="on">
                 <div>
-                    <label class="text-xs text-slate-400 block mb-1">Email / Username</label>
-                    <input type="email" id="email" class="auth-input" autocomplete="username" required>
+                    <label class="text-xs text-slate-400 block mb-1">Username</label>
+                    <!-- Plain text, not `type=email`: Managers/Workers sign in
+                         with a bare username. firebase-sync.toAuthEmail()
+                         appends @clearline.invalid before calling Firebase. -->
+                    <input type="text" id="email" class="auth-input" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
                 </div>
                 <div>
                     <label class="text-xs text-slate-400 block mb-1">Password</label>

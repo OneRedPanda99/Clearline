@@ -1,4 +1,4 @@
-const CACHE_NAME = 'clearline-v12';
+const CACHE_NAME = 'clearline-v14';
 
 // Only precache local assets we control. CDN resources (Tailwind, Font Awesome,
 // Leaflet) are cached on-demand by the fetch handler — precaching them fails

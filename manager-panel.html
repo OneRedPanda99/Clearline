@@ -217,9 +217,7 @@
                 const statusPill = u.active === false
                     ? '<span class="text-[10px] uppercase tracking-wide text-red-300 bg-red-900/30 px-2 py-0.5 rounded-full ml-2">Inactive</span>'
                     : '';
-                const pendPill = u.pendingPasswordReset
-                    ? '<span class="text-[10px] uppercase tracking-wide text-amber-300 bg-amber-900/30 px-2 py-0.5 rounded-full ml-2">Reset pending</span>'
-                    : '';
+                const pendPill = '';
                 return `
                     <div class="user-card glass-card rounded-xl p-3 ${u.role} ${u.active === false ? 'inactive' : ''}">
                         <div class="flex justify-between items-start gap-2">
@@ -288,8 +286,12 @@
                     <input type="text" id="uf-displayName" value="${(u.displayName || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
                 </div>
                 <div>
-                    <label class="text-xs text-gray-400 block mb-1">Email / Username *</label>
-                    <input type="email" id="uf-username" value="${(u.username || '').replace(/"/g,'&quot;')}" ${isCreate ? '' : 'disabled'} class="w-full p-3 rounded-lg edit-field">
+                    <label class="text-xs text-gray-400 block mb-1">Username *</label>
+                    <!-- Plain username. firebase-sync appends the synthetic
+                         @clearline.invalid suffix only when talking to
+                         Firebase Auth; the user doc stores the bare form. -->
+                    <input type="text" id="uf-username" value="${(u.username || '').replace(/"/g,'&quot;')}" ${isCreate ? '' : 'disabled'} autocapitalize="none" autocorrect="off" spellcheck="false" class="w-full p-3 rounded-lg edit-field">
+                    ${isCreate ? '<p class="text-[11px] text-gray-500 mt-1">No email required — just a short login handle (e.g. "john").</p>' : ''}
                 </div>
                 ${isCreate ? `
                     <div>
@@ -337,12 +339,6 @@
                     </button>
                 </div>
 
-                ${!isCreate ? `
-                    <button onclick="resetPasswordFor('${u.uid}','${(u.username || '').replace(/'/g, "\\'")}')"
-                            class="w-full mt-2 bg-amber-600/20 text-amber-300 py-3 rounded-xl font-semibold border border-amber-600/40">
-                        <i class="fas fa-key mr-2"></i>Send Password Reset
-                    </button>
-                ` : ''}
             `;
         }
 
@@ -382,13 +378,20 @@
                     if (!password || password.length < 6) {
                         showToast('Password must be at least 6 characters', 'error'); return;
                     }
-                    // Create auth user on the secondary app so the Owner's
-                    // session remains untouched.
+                    if (/\s/.test(username)) {
+                        showToast('Username cannot contain spaces', 'error'); return;
+                    }
+                    // Firebase Auth still requires an email-shaped value.
+                    // Synthesize one and keep the bare username on the user
+                    // doc for the UI to display.
+                    const authEmail = CL_FIREBASE.toAuthEmail(username);
                     const sec = getSecondaryApp();
-                    const cred = await sec.auth().createUserWithEmailAndPassword(username, password);
+                    const cred = await sec.auth().createUserWithEmailAndPassword(authEmail, password);
                     const newUid = cred.user.uid;
                     await db.collection('users').doc(newUid).set({
                         ...base,
+                        username,
+                        authEmail,
                         createdBy: CL_FIREBASE.getCurrentUser().uid,
                         createdAt: new Date().toISOString(),
                         lastUpdated: new Date().toISOString()
@@ -415,31 +418,6 @@
             }
         }
 
-        async function resetPasswordFor(uid, email) {
-            if (!email) { showToast('No email on file', 'error'); return; }
-            if (!confirm('Send a password reset email to ' + email + '?')) return;
-            const db = CL_FIREBASE.getFirestore();
-            try {
-                // Uses the primary auth instance. The reset email is sent
-                // by Firebase directly; the worker clicks the link, sets
-                // a new password, and their UID is preserved.
-                await firebase.auth().sendPasswordResetEmail(email);
-                await db.collection('users').doc(uid).set({
-                    pendingPasswordReset: {
-                        issuedBy: CL_FIREBASE.getCurrentUser().uid,
-                        issuedAt: new Date().toISOString(),
-                        expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
-                    },
-                    lastUpdated: new Date().toISOString()
-                }, { merge: true });
-                showToast('Reset email sent');
-                closeModal('userModal');
-                await loadUsers();
-            } catch (err) {
-                console.error(err);
-                showToast('Reset failed: ' + (err.code || err.message), 'error');
-            }
-        }
 
         // -- Wire up on profile ready ----------------------------------
 
