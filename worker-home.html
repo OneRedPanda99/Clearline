@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#020617">
+    <title>My Jobs - Clearline</title>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script src="data-migration.js"></script>
+    <script src="firebase-sync.js"></script>
+    <script>
+        window.tailwind = { config: { theme: { extend: { colors: {
+            primary: '#0ea5e9', secondary: '#38bdf8', dark: '#0f172a', darker: '#020617', accent: '#06b6d4'
+        } } } } };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="app.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="app-header-inner">
+            <h1>My Jobs</h1>
+            <button onclick="CL_FIREBASE.signOut().then(()=>location.replace('signin.html?signedout=1'))"
+                    class="header-btn header-btn-right" title="Sign out">
+                <i class="fas fa-right-from-bracket"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="app-content">
+        <div class="content-wrapper">
+            <p class="text-sm text-gray-400 mb-3" id="greeting">Loading...</p>
+
+            <p class="section-title mb-2">This Week</p>
+            <div id="weekList" class="space-y-2 mb-4"></div>
+
+            <div id="estimatorQuickAdd" class="hidden mb-4">
+                <p class="section-title mb-2">Quick Actions</p>
+                <div class="flex gap-2">
+                    <a id="quickAddLink" href="quick-add.html" class="hidden flex-1 bg-primary text-white py-3 rounded-xl text-center font-semibold text-sm">
+                        <i class="fas fa-plus mr-1"></i>New Job
+                    </a>
+                    <a id="estFormLink" href="estimate.html" class="hidden flex-1 bg-cyan-600 text-white py-3 rounded-xl text-center font-semibold text-sm">
+                        <i class="fas fa-file-invoice mr-1"></i>Estimate
+                    </a>
+                </div>
+            </div>
+
+            <p class="section-title mb-2">Navigate</p>
+            <div id="navGrid" class="quick-grid mb-6"></div>
+        </div>
+    </main>
+
+    <nav class="tab-bar">
+        <div class="tab-bar-inner">
+            <a href="worker-home.html" class="tab-item active"><i class="fas fa-home"></i><span>Home</span></a>
+            <a id="nav-jobs" href="jobs.html" class="tab-item hidden"><i class="fas fa-briefcase"></i><span>Jobs</span></a>
+            <a id="nav-cal" href="calendar.html" class="tab-item hidden"><i class="fas fa-calendar"></i><span>Calendar</span></a>
+            <a id="nav-map" href="map.html" class="tab-item hidden"><i class="fas fa-map-marker-alt"></i><span>Map</span></a>
+            <a id="nav-est" href="estimate.html" class="tab-item hidden"><i class="fas fa-file-invoice"></i><span>Estimate</span></a>
+        </div>
+    </nav>
+
+    <script>
+        // Worker home. Shows only my jobs (assignedTo == uid OR createdBy == uid).
+        // NO pricing anywhere -- per spec, Assigned Workers never see dollar amounts.
+        // Estimator variant unlocks Quick Add / Estimate Form if the
+        // corresponding permission flag is true.
+        function weekBounds() {
+            const now = new Date();
+            const start = new Date(now); start.setHours(0,0,0,0);
+            const end = new Date(now); end.setDate(end.getDate() + 7);
+            return { startIso: start.toISOString().split('T')[0], endIso: end.toISOString().split('T')[0] };
+        }
+
+        function renderJobs(jobs) {
+            const { startIso, endIso } = weekBounds();
+            const week = jobs
+                .filter(j => j.jobDate && j.jobDate >= startIso && j.jobDate <= endIso)
+                .sort((a,b) => (a.jobDate + (a.jobTime||'')).localeCompare(b.jobDate + (b.jobTime||'')));
+
+            const container = document.getElementById('weekList');
+            if (!week.length) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No jobs scheduled this week.</p>';
+                return;
+            }
+            container.innerHTML = week.map(j => {
+                const d = j.jobDate ? new Date(j.jobDate + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) : '';
+                return `
+                    <div class="glass-card rounded-xl p-3">
+                        <p class="font-semibold">${j.customerName || 'Job'}</p>
+                        <p class="text-xs text-gray-400">${d} ${j.jobTime || ''} \u2022 ${j.serviceType || 'Service'}</p>
+                        ${j.squareFootage ? `<p class="text-[11px] text-gray-500 mt-0.5">${j.squareFootage} sq ft</p>` : ''}
+                        ${j.address ? `
+                            <a href="https://maps.google.com/?q=${encodeURIComponent(j.address)}" target="_blank" class="inline-block text-[11px] text-primary mt-1">
+                                <i class="fas fa-map-marker-alt mr-1"></i>${j.address}
+                            </a>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function applyNav(profile) {
+            const p = profile.permissions || {};
+            const isEstimator = profile.workerType === 'estimator';
+
+            if (isEstimator) {
+                document.getElementById('estimatorQuickAdd').classList.remove('hidden');
+                if (p.canCreateJobs) document.getElementById('quickAddLink').classList.remove('hidden');
+                if (p.canUseEstimateForm) document.getElementById('estFormLink').classList.remove('hidden');
+            }
+
+            // Bottom tab bar: show only what this worker is permitted to use.
+            if (isEstimator) document.getElementById('nav-jobs').classList.remove('hidden');
+            if (p.canViewCalendar) document.getElementById('nav-cal').classList.remove('hidden');
+            if (p.canViewMap) document.getElementById('nav-map').classList.remove('hidden');
+            if (p.canUseEstimateForm) document.getElementById('nav-est').classList.remove('hidden');
+
+            // Quick-grid on page body mirrors the tab bar.
+            const items = [];
+            if (isEstimator) items.push({ href: 'jobs.html', label: 'Jobs', icon: 'fa-briefcase', color: '#fb923c' });
+            if (p.canViewCalendar) items.push({ href: 'calendar.html', label: 'Calendar', icon: 'fa-calendar-alt', color: '#a78bfa' });
+            if (p.canViewMap) items.push({ href: 'map.html', label: 'Map', icon: 'fa-map-marked-alt', color: '#f87171' });
+            const grid = document.getElementById('navGrid');
+            grid.innerHTML = items.length
+                ? items.map(i => `<a href="${i.href}" class="quick-btn"><i class="fas ${i.icon}" style="color:${i.color};"></i><span>${i.label}</span></a>`).join('')
+                : '<p class="text-gray-500 text-sm">No additional pages available. Ask your Owner/Manager for access.</p>';
+        }
+
+        async function load(profile) {
+            const db = CL_FIREBASE.getFirestore();
+            const uid = CL_FIREBASE.getCurrentUser().uid;
+            const [assignedSnap, createdSnap] = await Promise.all([
+                db.collection('jobs').where('assignedTo', '==', uid).get(),
+                db.collection('jobs').where('createdBy', '==', uid).get()
+            ]);
+            const seen = new Set();
+            const jobs = [];
+            [assignedSnap, createdSnap].forEach(s => s.forEach(d => {
+                if (seen.has(d.id)) return;
+                seen.add(d.id);
+                jobs.push(d.data());
+            }));
+            renderJobs(jobs);
+        }
+
+        let started = false;
+        function start(profile) {
+            if (!profile) return;
+            if (profile.role === 'owner') { location.replace('index.html'); return; }
+            if (profile.role === 'manager') { location.replace('manager-home.html'); return; }
+            document.getElementById('greeting').textContent = 'Hello, ' + (profile.displayName || 'Worker');
+            applyNav(profile);
+            load(profile).catch(err => {
+                console.error(err);
+                document.getElementById('weekList').innerHTML = '<p class="text-red-400 text-sm">Could not load jobs: ' + (err.code || err.message) + '</p>';
+            });
+        }
+
+        window.addEventListener('cl-profile-updated', (e) => {
+            if (started) return; started = true;
+            start(e.detail && e.detail.profile);
+        });
+        document.addEventListener('DOMContentLoaded', () => {
+            setActiveNav();
+            setTimeout(() => {
+                if (started) return;
+                const p = CL_FIREBASE.getProfile && CL_FIREBASE.getProfile();
+                if (p) { started = true; start(p); }
+            }, 800);
+        });
+    </script>
+</body>
+</html>

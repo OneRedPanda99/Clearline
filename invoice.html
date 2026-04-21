@@ -125,7 +125,9 @@
                 <div class="form-group"><label for="customerPhone">Customer Phone:</label><input type="tel" id="customerPhone" placeholder="Enter phone number"></div>
 
                 <div class="section-header">PRICING &amp; MATERIALS</div>
-                <div class="two-column"><div class="form-group"><label for="gasCost">Gas Price ($/gal):</label><input type="number" id="gasCost" step="0.01" value="3.50" required></div></div>
+                <!-- Gas price row — Owner-only; Phase 4 hides for non-Owner and
+                     pulls the value silently from settings/global. -->
+                <div class="two-column" id="gasCostRow"><div class="form-group"><label for="gasCost">Gas Price ($/gal):</label><input type="number" id="gasCost" step="0.01" value="3.50" required></div></div>
                 <div class="form-group"><label for="chemicalName">Chemical Name:</label><input type="text" id="chemicalName" value="Krud Kutter" required></div>
                 <div class="two-column"><div class="form-group"><label for="chemicalCost">Chemical Price ($/gal):</label><input type="number" id="chemicalCost" step="0.01" value="15.00" required></div></div>
 
@@ -459,9 +461,61 @@
             form.appendChild(wrap);
         }
 
+        // Phase 4 permission gating for the invoice form. Mirrors estimate.html:
+        //   * Non-Owner roles never see the gas-price input; the field is
+        //     hidden but kept in the DOM so the calculator still works.
+        //   * Gas price is loaded silently from `settings/global`.
+        //   * Share/Send buttons are hidden when canSendEstimates is false.
+        let globalSettingsCache = null;
+        async function applyInvoicePermissions(profile) {
+            if (!profile) return;
+            const isOwner = profile.role === 'owner';
+            const gasRow = document.getElementById('gasCostRow');
+            const gasInput = document.getElementById('gasCost');
+            try {
+                globalSettingsCache = await CL_FIREBASE.getGlobalSettings();
+            } catch (_) { globalSettingsCache = null; }
+            if (globalSettingsCache && globalSettingsCache.gasPrice != null && gasInput) {
+                gasInput.value = globalSettingsCache.gasPrice;
+            }
+            if (!isOwner && gasRow) {
+                gasRow.style.display = 'none';
+                gasInput.type = 'hidden';
+            }
+            window.__canSendInvoices = isOwner || !!(profile.permissions && profile.permissions.canSendEstimates);
+            hideInvoiceSendButtonsIfBlocked();
+        }
+        function hideInvoiceSendButtonsIfBlocked() {
+            if (window.__canSendInvoices) return;
+            document.querySelectorAll('.share-buttons').forEach(row => row.style.display = 'none');
+        }
+
+        // On any save by a Manager, overwrite createdBy so the invoice
+        // becomes theirs (symmetric with the estimate takeover rule).
+        function _applyInvoiceOwnership(data) {
+            const profile = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
+            const uid = CL_FIREBASE.getCurrentUser().uid;
+            data.userId = uid;
+            data.createdBy = uid;
+            if (profile && profile.role === 'manager') data.takenOverAt = new Date().toISOString();
+            return data;
+        }
+        async function _syncInvoiceGasIfOwner(data) {
+            const profile = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
+            if (!profile || profile.role !== 'owner') return;
+            const newVal = parseFloat(data.gasCost);
+            if (isNaN(newVal)) return;
+            if (globalSettingsCache && parseFloat(globalSettingsCache.gasPrice) === newVal) return;
+            await CL_FIREBASE.updateGlobalSettings({ gasPrice: newVal });
+            globalSettingsCache = Object.assign({}, globalSettingsCache || {}, { gasPrice: newVal });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             installStickySaveToJob();
             loadInvoiceFromJobDoc();
+            const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
+            if (p) applyInvoicePermissions(p);
+            window.addEventListener('cl-profile-updated', (e) => applyInvoicePermissions(e.detail && e.detail.profile));
         });
         window.onload = function() {
             document.getElementById('invoiceDate').valueAsDate = new Date();
@@ -493,15 +547,28 @@
         async function saveDraftToCloud() {
             if (!CL_FIREBASE.isSignedIn) { document.getElementById('cloudSignInMsg').style.display='block'; showToast('Sign in to save to cloud','info'); return; }
             const db=CL_FIREBASE.getFirestore(), user=CL_FIREBASE.getCurrentUser(); if(!db||!user)return;
-            const data=collectInvoiceState(); data.userId=user.uid; data.status='draft'; document.getElementById('docStatus').value='draft';
+            const data = _applyInvoiceOwnership(collectInvoiceState());
+            data.status='draft'; document.getElementById('docStatus').value='draft';
             const docId=document.getElementById('firestoreDocId').value;
-            try { if(docId){await db.collection('invoices').doc(docId).set(data,{merge:true});}else{data.createdAt=new Date().toISOString();const ref=await db.collection('invoices').add(data);document.getElementById('firestoreDocId').value=ref.id;} showToast('Draft saved'); loadSavedInvoices(); } catch(e){console.error(e);showToast('Save failed','error');}
+            try {
+                await _syncInvoiceGasIfOwner(data);
+                if(docId){await db.collection('invoices').doc(docId).set(data,{merge:true});}
+                else{data.createdAt=new Date().toISOString();const ref=await db.collection('invoices').add(data);document.getElementById('firestoreDocId').value=ref.id;}
+                showToast('Draft saved'); loadSavedInvoices();
+            } catch(e){console.error(e);showToast('Save failed','error');}
         }
         async function markAsFinal() {
             if (!CL_FIREBASE.isSignedIn) { document.getElementById('cloudSignInMsg').style.display='block'; return; }
-            const db=CL_FIREBASE.getFirestore(); const data=collectInvoiceState(); data.userId=CL_FIREBASE.getCurrentUser().uid; data.status='final'; document.getElementById('docStatus').value='final';
+            const db=CL_FIREBASE.getFirestore();
+            const data = _applyInvoiceOwnership(collectInvoiceState());
+            data.status='final'; document.getElementById('docStatus').value='final';
             let docId=document.getElementById('firestoreDocId').value;
-            try { if(docId){await db.collection('invoices').doc(docId).set(data,{merge:true});}else{data.createdAt=new Date().toISOString();const ref=await db.collection('invoices').add(data);document.getElementById('firestoreDocId').value=ref.id;} applyFinalizedState(true); showToast('Invoice finalized'); loadSavedInvoices(); } catch(e){console.error(e);showToast('Error','error');}
+            try {
+                await _syncInvoiceGasIfOwner(data);
+                if(docId){await db.collection('invoices').doc(docId).set(data,{merge:true});}
+                else{data.createdAt=new Date().toISOString();const ref=await db.collection('invoices').add(data);document.getElementById('firestoreDocId').value=ref.id;}
+                applyFinalizedState(true); showToast('Invoice finalized'); loadSavedInvoices();
+            } catch(e){console.error(e);showToast('Error','error');}
         }
         function reopenInvoice() { document.getElementById('docStatus').value='draft'; applyFinalizedState(false); saveDraftToCloud(); }
         async function loadSavedInvoices() {

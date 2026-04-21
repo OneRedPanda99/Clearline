@@ -1,4 +1,4 @@
-const CACHE_NAME = 'clearline-v7';
+const CACHE_NAME = 'clearline-v12';
 
 // Only precache local assets we control. CDN resources (Tailwind, Font Awesome,
 // Leaflet) are cached on-demand by the fetch handler — precaching them fails
@@ -15,6 +15,10 @@ const STATIC_ASSETS = [
   '/Clearline/customer-tracker.html',
   '/Clearline/settings.html',
   '/Clearline/waiver.html',
+  '/Clearline/signin.html',
+  '/Clearline/manager-panel.html',
+  '/Clearline/manager-home.html',
+  '/Clearline/worker-home.html',
   '/Clearline/manifest.json',
   '/Clearline/utils.js',
   '/Clearline/firebase-sync.js',

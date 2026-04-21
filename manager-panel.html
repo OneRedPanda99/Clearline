@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#020617">
+    <title>Manager Panel - Clearline</title>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script src="data-migration.js"></script>
+    <script src="firebase-sync.js"></script>
+    <script>
+        window.tailwind = { config: { theme: { extend: { colors: {
+            primary: '#0ea5e9', secondary: '#38bdf8', dark: '#0f172a', darker: '#020617', accent: '#06b6d4'
+        } } } } };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="app.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .perm-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 8px; background: rgba(15,23,42,0.5); margin-bottom: 6px; }
+        .perm-row input[type=checkbox] { width: 18px; height: 18px; accent-color: #0ea5e9; }
+        .user-card { border-left: 4px solid transparent; }
+        .user-card.owner { border-left-color: #fbbf24; }
+        .user-card.manager { border-left-color: #a78bfa; }
+        .user-card.worker { border-left-color: #38bdf8; }
+        .user-card.inactive { opacity: 0.55; }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <div class="app-header-inner">
+            <a href="index.html" class="header-btn header-btn-left"><i class="fas fa-chevron-left"></i></a>
+            <h1>Manager Panel</h1>
+        </div>
+    </header>
+
+    <main class="app-content">
+        <div class="content-wrapper">
+            <div id="roleBanner" class="glass-card rounded-xl p-3 mb-3 text-sm text-gray-300"></div>
+
+            <!-- Owner-only: New user buttons -->
+            <div id="ownerActions" class="hidden flex gap-2 mb-4">
+                <button onclick="openNewUser('manager')" class="flex-1 bg-purple-600 text-white py-2.5 rounded-xl font-semibold text-sm">
+                    <i class="fas fa-user-tie mr-1"></i>New Manager
+                </button>
+                <button onclick="openNewUser('worker')" class="flex-1 bg-primary text-white py-2.5 rounded-xl font-semibold text-sm">
+                    <i class="fas fa-user-plus mr-1"></i>New Worker
+                </button>
+            </div>
+
+            <section id="managersSection" class="mb-5 hidden">
+                <h2 class="section-title mb-2">Managers</h2>
+                <div id="managersList" class="space-y-2"></div>
+            </section>
+
+            <section class="mb-5">
+                <h2 class="section-title mb-2"><span id="workersLabel">Workers</span></h2>
+                <div id="workersList" class="space-y-2"></div>
+            </section>
+
+            <p id="emptyState" class="hidden text-gray-500 text-sm text-center py-6">
+                No users yet. Create one with the buttons above.
+            </p>
+
+            <!-- Centralized job assignment. Owner sees every job; Manager
+                 sees only jobs on their team (assignedManager == me OR
+                 createdBy == me). Workers won't reach this page. -->
+            <section id="assignSection" class="mb-5 mt-6">
+                <div class="flex justify-between items-end mb-2">
+                    <h2 class="section-title">Assign Jobs</h2>
+                    <input id="assignSearch" placeholder="Search…" oninput="renderAssignList()"
+                           class="bg-slate-700/60 text-white text-sm rounded-lg px-3 py-1.5 w-40">
+                </div>
+                <p class="text-xs text-gray-500 mb-2" id="assignCount"></p>
+                <div id="assignList" class="space-y-2"></div>
+                <p id="assignEmpty" class="hidden text-gray-500 text-sm py-4">No jobs available to assign.</p>
+            </section>
+        </div>
+    </main>
+
+    <!-- User create/edit modal -->
+    <div id="userModal" class="modal" hidden role="dialog" aria-modal="true"
+         style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;align-items:flex-end;justify-content:center;">
+        <div class="modal-content bg-slate-800 rounded-t-2xl w-full overflow-y-auto"
+             style="max-height: calc(100dvh - 40px); padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));">
+            <div class="modal-header sticky top-0 bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center" style="z-index:10;">
+                <h2 id="userModalTitle" class="text-lg font-bold">User</h2>
+                <button class="modal-close-btn" onclick="closeModal('userModal')" aria-label="Close">&times;</button>
+            </div>
+            <div id="userModalBody" class="p-4 space-y-3"></div>
+        </div>
+    </div>
+
+    <nav class="tab-bar">
+        <div class="tab-bar-inner">
+            <a href="index.html" class="tab-item"><i class="fas fa-home"></i><span>Home</span></a>
+            <a href="jobs.html" class="tab-item"><i class="fas fa-briefcase"></i><span>Jobs</span></a>
+            <a href="manager-panel.html" class="tab-item active"><i class="fas fa-user-shield"></i><span>Panel</span></a>
+            <a href="customer-tracker.html" class="tab-item"><i class="fas fa-users"></i><span>Customers</span></a>
+        </div>
+    </nav>
+
+    <script>
+        // --------------------------------------------------------------
+        // Phase 3 Manager Panel
+        //
+        // Access matrix:
+        //   Owner   -> full list of Managers + all Workers; can create,
+        //              set flags, reassign, deactivate, password-reset.
+        //   Manager -> only assigned Workers; can deactivate + reset
+        //              password + (optionally) assign jobs. Cannot
+        //              create users or change permission flags.
+        //   Worker  -> redirected away with a warning.
+        //
+        // User creation uses a secondary Firebase app instance so
+        // createUserWithEmailAndPassword does NOT sign the Owner out.
+        // Password reset uses Firebase's admin-initiated reset email via
+        // sendPasswordResetEmail() -- this is admin-triggered, not
+        // self-service, and preserves the worker's UID (per Phase 3 plan
+        // risk note).
+        // --------------------------------------------------------------
+
+        const PERMISSION_KEYS = [
+            ['canCreateCustomers', 'Create customers'],
+            ['canEditOwnCustomers', 'Edit own customers'],
+            ['canCreateJobs', 'Create jobs (Estimator only)'],
+            ['canAttachJobToCustomer', 'Attach job to customer'],
+            ['canEditOwnJobs', 'Edit own jobs'],
+            ['canUseEstimateForm', 'Use Estimate form'],
+            ['canSendEstimates', 'Send estimates'],
+            ['canViewCalendar', 'View Calendar'],
+            ['canViewMap', 'View Map']
+        ];
+
+        let myProfile = null;
+        let managers = [];
+        let workers = [];
+        let secondaryApp = null;
+
+        function getSecondaryApp() {
+            if (secondaryApp) return secondaryApp;
+            const cfg = window.CL_SECRETS && window.CL_SECRETS.firebase;
+            secondaryApp = firebase.apps.find(a => a.name === 'clSecondary')
+                || firebase.initializeApp(cfg, 'clSecondary');
+            return secondaryApp;
+        }
+
+        function ensureAllowed(profile) {
+            myProfile = profile;
+            const banner = document.getElementById('roleBanner');
+            if (!profile) {
+                banner.textContent = 'Loading profile...';
+                return false;
+            }
+            if (profile.role === 'owner') {
+                banner.innerHTML = '<i class="fas fa-crown text-amber-400 mr-1"></i>Signed in as Owner. Full access.';
+                document.getElementById('ownerActions').classList.remove('hidden');
+                document.getElementById('managersSection').classList.remove('hidden');
+                return true;
+            }
+            if (profile.role === 'manager') {
+                banner.innerHTML = '<i class="fas fa-user-tie text-purple-300 mr-1"></i>Signed in as Manager. Managing your team only.';
+                document.getElementById('workersLabel').textContent = 'Your Team';
+                return true;
+            }
+            banner.innerHTML = '<i class="fas fa-ban text-red-400 mr-1"></i>Workers cannot access the Manager Panel.';
+            return false;
+        }
+
+        async function loadUsers() {
+            const db = CL_FIREBASE.getFirestore();
+            if (!db || !myProfile) return;
+
+            let snap;
+            if (myProfile.role === 'owner') {
+                snap = await db.collection('users').get();
+            } else {
+                // Manager: only our own workers.
+                snap = await db.collection('users')
+                    .where('assignedManager', '==', CL_FIREBASE.getCurrentUser().uid)
+                    .get();
+            }
+
+            managers = [];
+            workers = [];
+            snap.forEach(doc => {
+                const u = Object.assign({ uid: doc.id }, doc.data());
+                if (u.role === 'manager') managers.push(u);
+                else if (u.role === 'worker') workers.push(u);
+            });
+            renderLists();
+        }
+
+        function renderLists() {
+            if (myProfile.role === 'owner') {
+                renderSection('managersList', managers);
+            }
+            renderSection('workersList', workers);
+            const empty = (myProfile.role === 'owner' ? managers.length + workers.length : workers.length) === 0;
+            document.getElementById('emptyState').classList.toggle('hidden', !empty);
+        }
+
+        function renderSection(containerId, list) {
+            const c = document.getElementById(containerId);
+            if (!list.length) {
+                c.innerHTML = '<p class="text-gray-500 text-xs px-1">None.</p>';
+                return;
+            }
+            c.innerHTML = list.map(u => {
+                const subtitle = u.role === 'worker'
+                    ? `${u.workerType || 'assigned'} \u2022 ${managers.find(m => m.uid === u.assignedManager)?.displayName || 'Unassigned'}`
+                    : 'Manager';
+                const statusPill = u.active === false
+                    ? '<span class="text-[10px] uppercase tracking-wide text-red-300 bg-red-900/30 px-2 py-0.5 rounded-full ml-2">Inactive</span>'
+                    : '';
+                const pendPill = u.pendingPasswordReset
+                    ? '<span class="text-[10px] uppercase tracking-wide text-amber-300 bg-amber-900/30 px-2 py-0.5 rounded-full ml-2">Reset pending</span>'
+                    : '';
+                return `
+                    <div class="user-card glass-card rounded-xl p-3 ${u.role} ${u.active === false ? 'inactive' : ''}">
+                        <div class="flex justify-between items-start gap-2">
+                            <div class="flex-1 min-w-0">
+                                <p class="font-semibold truncate">${u.displayName || u.username || '(unnamed)'}${statusPill}${pendPill}</p>
+                                <p class="text-xs text-gray-400 truncate">${u.username || '\u2014'}</p>
+                                <p class="text-[11px] text-gray-500 mt-0.5">${subtitle}</p>
+                            </div>
+                            <button onclick="openEditUser('${u.uid}')" class="text-primary text-sm font-semibold">Edit</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // -- New user form ---------------------------------------------
+
+        function openNewUser(role) {
+            if (myProfile.role !== 'owner') {
+                showToast('Only Owner can create users', 'error');
+                return;
+            }
+            document.getElementById('userModalTitle').textContent = role === 'manager' ? 'New Manager' : 'New Worker';
+            document.getElementById('userModalBody').innerHTML = renderUserForm({
+                mode: 'create',
+                role: role
+            });
+            openModal('userModal');
+        }
+
+        function openEditUser(uid) {
+            const u = [...managers, ...workers].find(x => x.uid === uid);
+            if (!u) return;
+            document.getElementById('userModalTitle').textContent = u.displayName || 'Edit User';
+            document.getElementById('userModalBody').innerHTML = renderUserForm({
+                mode: 'edit',
+                user: u
+            });
+            openModal('userModal');
+        }
+
+        function renderUserForm({ mode, role, user }) {
+            const isCreate = mode === 'create';
+            const u = user || { role, permissions: {}, active: true };
+            const readOnlyFlags = myProfile.role !== 'owner';
+            const canAssignManager = myProfile.role === 'owner' && u.role === 'worker';
+
+            const mgrOpts = managers.map(m =>
+                `<option value="${m.uid}" ${m.uid === u.assignedManager ? 'selected' : ''}>${m.displayName || m.username}</option>`
+            ).join('');
+
+            const permRows = PERMISSION_KEYS.map(([key, label]) => `
+                <label class="perm-row text-sm">
+                    <span>${label}</span>
+                    <input type="checkbox" data-perm="${key}" ${u.permissions && u.permissions[key] ? 'checked' : ''} ${readOnlyFlags ? 'disabled' : ''}>
+                </label>
+            `).join('');
+
+            return `
+                <input type="hidden" id="userForm-mode" value="${mode}">
+                <input type="hidden" id="userForm-uid" value="${u.uid || ''}">
+                <input type="hidden" id="userForm-role" value="${u.role || role}">
+
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Display Name *</label>
+                    <input type="text" id="uf-displayName" value="${(u.displayName || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Email / Username *</label>
+                    <input type="email" id="uf-username" value="${(u.username || '').replace(/"/g,'&quot;')}" ${isCreate ? '' : 'disabled'} class="w-full p-3 rounded-lg edit-field">
+                </div>
+                ${isCreate ? `
+                    <div>
+                        <label class="text-xs text-gray-400 block mb-1">Initial Password *</label>
+                        <input type="text" id="uf-password" class="w-full p-3 rounded-lg edit-field" autocomplete="off">
+                        <p class="text-[11px] text-gray-500 mt-1">Share with the user out-of-band. They can't reset it themselves.</p>
+                    </div>
+                ` : ''}
+                ${u.role === 'worker' ? `
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Worker Type</label>
+                            <select id="uf-workerType" class="w-full p-3 rounded-lg edit-field" ${readOnlyFlags ? 'disabled' : ''}>
+                                <option value="assigned" ${u.workerType === 'assigned' ? 'selected' : ''}>Assigned</option>
+                                <option value="estimator" ${u.workerType === 'estimator' ? 'selected' : ''}>Estimator</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Assigned Manager</label>
+                            <select id="uf-assignedManager" class="w-full p-3 rounded-lg edit-field" ${canAssignManager ? '' : 'disabled'}>
+                                <option value="">\u2014 None \u2014</option>
+                                ${mgrOpts}
+                            </select>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Active</label>
+                    <label class="inline-flex items-center gap-2 text-sm">
+                        <input type="checkbox" id="uf-active" ${u.active !== false ? 'checked' : ''} style="width:18px;height:18px;accent-color:#0ea5e9;">
+                        <span>Account active (uncheck to deactivate)</span>
+                    </label>
+                </div>
+
+                <div>
+                    <p class="text-xs text-gray-400 mb-1">Permissions${readOnlyFlags ? ' (Owner-only to edit)' : ''}</p>
+                    ${permRows}
+                </div>
+
+                <div class="flex gap-2 pt-2">
+                    <button onclick="closeModal('userModal')" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold">Cancel</button>
+                    <button onclick="submitUserForm()" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold">
+                        ${isCreate ? 'Create User' : 'Save Changes'}
+                    </button>
+                </div>
+
+                ${!isCreate ? `
+                    <button onclick="resetPasswordFor('${u.uid}','${(u.username || '').replace(/'/g, "\\'")}')"
+                            class="w-full mt-2 bg-amber-600/20 text-amber-300 py-3 rounded-xl font-semibold border border-amber-600/40">
+                        <i class="fas fa-key mr-2"></i>Send Password Reset
+                    </button>
+                ` : ''}
+            `;
+        }
+
+        async function submitUserForm() {
+            const db = CL_FIREBASE.getFirestore();
+            const mode = document.getElementById('userForm-mode').value;
+            const uid = document.getElementById('userForm-uid').value;
+            const role = document.getElementById('userForm-role').value;
+            const displayName = document.getElementById('uf-displayName').value.trim();
+            const username = document.getElementById('uf-username').value.trim();
+            if (!displayName || !username) {
+                showToast('Name and email are required', 'error'); return;
+            }
+
+            const perms = {};
+            document.querySelectorAll('[data-perm]').forEach(inp => {
+                perms[inp.getAttribute('data-perm')] = !!inp.checked;
+            });
+
+            const base = {
+                role,
+                displayName,
+                username,
+                active: document.getElementById('uf-active').checked,
+                permissions: perms
+            };
+            if (role === 'worker') {
+                const wt = document.getElementById('uf-workerType');
+                const am = document.getElementById('uf-assignedManager');
+                if (wt) base.workerType = wt.value;
+                if (am) base.assignedManager = am.value || null;
+            }
+
+            try {
+                if (mode === 'create') {
+                    const password = document.getElementById('uf-password').value;
+                    if (!password || password.length < 6) {
+                        showToast('Password must be at least 6 characters', 'error'); return;
+                    }
+                    // Create auth user on the secondary app so the Owner's
+                    // session remains untouched.
+                    const sec = getSecondaryApp();
+                    const cred = await sec.auth().createUserWithEmailAndPassword(username, password);
+                    const newUid = cred.user.uid;
+                    await db.collection('users').doc(newUid).set({
+                        ...base,
+                        createdBy: CL_FIREBASE.getCurrentUser().uid,
+                        createdAt: new Date().toISOString(),
+                        lastUpdated: new Date().toISOString()
+                    });
+                    await sec.auth().signOut();
+                    showToast('User created');
+                } else {
+                    // Manager is restricted: strip permission/role changes before writing.
+                    const patch = { lastUpdated: new Date().toISOString() };
+                    if (myProfile.role === 'owner') {
+                        Object.assign(patch, base);
+                    } else {
+                        // Manager path: only active flag persists.
+                        patch.active = base.active;
+                    }
+                    await db.collection('users').doc(uid).set(patch, { merge: true });
+                    showToast('Saved');
+                }
+                closeModal('userModal');
+                await loadUsers();
+            } catch (err) {
+                console.error(err);
+                showToast('Error: ' + (err.code || err.message || 'unknown'), 'error');
+            }
+        }
+
+        async function resetPasswordFor(uid, email) {
+            if (!email) { showToast('No email on file', 'error'); return; }
+            if (!confirm('Send a password reset email to ' + email + '?')) return;
+            const db = CL_FIREBASE.getFirestore();
+            try {
+                // Uses the primary auth instance. The reset email is sent
+                // by Firebase directly; the worker clicks the link, sets
+                // a new password, and their UID is preserved.
+                await firebase.auth().sendPasswordResetEmail(email);
+                await db.collection('users').doc(uid).set({
+                    pendingPasswordReset: {
+                        issuedBy: CL_FIREBASE.getCurrentUser().uid,
+                        issuedAt: new Date().toISOString(),
+                        expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+                    },
+                    lastUpdated: new Date().toISOString()
+                }, { merge: true });
+                showToast('Reset email sent');
+                closeModal('userModal');
+                await loadUsers();
+            } catch (err) {
+                console.error(err);
+                showToast('Reset failed: ' + (err.code || err.message), 'error');
+            }
+        }
+
+        // -- Wire up on profile ready ----------------------------------
+
+        function start(profile) {
+            if (!ensureAllowed(profile)) return;
+            Promise.all([
+                loadUsers().catch(err => { console.error(err); showToast('Could not load users: ' + (err.code || err.message), 'error'); }),
+                loadAssignableJobs().catch(err => { console.error(err); })
+            ]);
+        }
+
+        // -- Assign Jobs section ---------------------------------------
+        let assignableJobs = [];
+
+        async function loadAssignableJobs() {
+            const db = CL_FIREBASE.getFirestore();
+            const uid = CL_FIREBASE.getCurrentUser().uid;
+            let docs;
+            if (myProfile.role === 'owner') {
+                const snap = await db.collection('jobs').get();
+                docs = snap.docs.map(d => d.data());
+            } else {
+                // Manager: jobs on my team or that I created.
+                const [aSnap, cSnap] = await Promise.all([
+                    db.collection('jobs').where('assignedManager', '==', uid).get(),
+                    db.collection('jobs').where('createdBy', '==', uid).get()
+                ]);
+                const seen = new Set();
+                docs = [];
+                [aSnap, cSnap].forEach(s => s.forEach(d => {
+                    if (seen.has(d.id)) return;
+                    seen.add(d.id);
+                    docs.push(d.data());
+                }));
+            }
+            // Hide completed jobs — they don't need reassignment.
+            assignableJobs = docs.filter(j => j.status !== 'completed')
+                .sort((a, b) => (b.jobDate || '').localeCompare(a.jobDate || ''));
+            renderAssignList();
+        }
+
+        function renderAssignList() {
+            const search = (document.getElementById('assignSearch').value || '').toLowerCase().trim();
+            const container = document.getElementById('assignList');
+            const empty = document.getElementById('assignEmpty');
+            const count = document.getElementById('assignCount');
+
+            const filtered = assignableJobs.filter(j => {
+                if (!search) return true;
+                return (j.customerName || '').toLowerCase().includes(search)
+                    || (j.address || '').toLowerCase().includes(search)
+                    || (j.serviceType || '').toLowerCase().includes(search);
+            });
+            count.textContent = filtered.length + ' job(s)';
+
+            if (!filtered.length) {
+                container.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+
+            // Owner can assign to any worker; Manager only to their own.
+            const myUid = CL_FIREBASE.getCurrentUser().uid;
+            const targets = myProfile.role === 'owner'
+                ? workers.filter(w => w.active !== false)
+                : workers.filter(w => w.active !== false && w.assignedManager === myUid);
+
+            if (!targets.length) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No active workers available to assign. Create one above first.</p>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(j => {
+                const opts = ['<option value="">— Unassigned —</option>']
+                    .concat(targets.map(w =>
+                        `<option value="${w.uid}" ${w.uid === j.assignedTo ? 'selected' : ''}>${(w.displayName || w.username || w.uid)}</option>`
+                    )).join('');
+                const dateLabel = j.jobDate
+                    ? new Date(j.jobDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    : 'No date';
+                return `
+                    <div class="glass-card rounded-xl p-3" data-job-id="${j.id}">
+                        <div class="flex justify-between items-start gap-2">
+                            <div class="min-w-0 flex-1">
+                                <p class="font-semibold truncate">${j.customerName || 'Job'}</p>
+                                <p class="text-[11px] text-gray-500">${dateLabel} • ${j.serviceType || 'Service'}${j.address ? ' • ' + j.address : ''}</p>
+                            </div>
+                            <span class="status-badge status-${j.status || 'new'}">${j.status || 'new'}</span>
+                        </div>
+                        <div class="flex gap-2 mt-2">
+                            <select class="assign-select flex-1 bg-slate-700/60 text-white text-sm rounded-lg px-2 py-1.5" data-job-id="${j.id}">
+                                ${opts}
+                            </select>
+                            <button class="bg-primary text-white text-sm rounded-lg px-3 py-1.5 font-semibold"
+                                    onclick="saveAssignment('${j.id}', this)">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function saveAssignment(jobId, btn) {
+            const db = CL_FIREBASE.getFirestore();
+            const select = document.querySelector(`select.assign-select[data-job-id="${jobId}"]`);
+            if (!select) return;
+            const workerUid = select.value || null;
+
+            // Derive assignedManager: either this manager (if I am one) or
+            // the target worker's assignedManager (when Owner assigns).
+            let assignedManager = null;
+            if (workerUid) {
+                const worker = workers.find(w => w.uid === workerUid);
+                if (!worker) { showToast('Worker not found', 'error'); return; }
+                assignedManager = worker.assignedManager
+                    || (myProfile.role === 'manager' ? CL_FIREBASE.getCurrentUser().uid : null);
+            }
+
+            const origLabel = btn.textContent;
+            btn.disabled = true; btn.textContent = 'Saving…';
+            try {
+                await db.collection('jobs').doc(jobId).set({
+                    assignedTo: workerUid,
+                    assignedManager,
+                    lastUpdated: new Date().toISOString()
+                }, { merge: true });
+                // Keep local state in sync for subsequent searches.
+                const j = assignableJobs.find(x => x.id === jobId);
+                if (j) { j.assignedTo = workerUid; j.assignedManager = assignedManager; }
+                btn.textContent = 'Saved ✓';
+                setTimeout(() => { btn.textContent = origLabel; btn.disabled = false; }, 1200);
+            } catch (err) {
+                console.error(err);
+                btn.textContent = origLabel;
+                btn.disabled = false;
+                showToast('Assign failed: ' + (err.code || err.message), 'error');
+            }
+        }
+
+        // If firebase-sync already loaded profile before this script ran,
+        // the event has already fired. Poll a few times as a safety net.
+        let started = false;
+        window.addEventListener('cl-profile-updated', (e) => {
+            if (started) return; started = true;
+            start(e.detail && e.detail.profile);
+        });
+        document.addEventListener('DOMContentLoaded', () => {
+            setActiveNav();
+            setTimeout(() => {
+                if (started) return;
+                const p = CL_FIREBASE.getProfile && CL_FIREBASE.getProfile();
+                if (p) { started = true; start(p); }
+            }, 800);
+        });
+    </script>
+</body>
+</html>

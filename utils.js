@@ -251,7 +251,8 @@ window.clearCachedLocation = function() {
  *     linked documents yet.
  *   - Return 0 when nothing usable is present.
  */
-window.getJobDisplayTotal = function(job) {
+// Internal raw computation; never reveal $ to non-Owner callers.
+window._rawJobDisplayTotal = function(job) {
   if (!job) return 0;
   const docs = job.documents || {};
   const latest = (arr) => {
@@ -278,6 +279,18 @@ window.getJobDisplayTotal = function(job) {
 
   const q = parseFloat(job.quoteAmount);
   return isNaN(q) ? 0 : q;
+};
+
+// Public accessor. Returns 0 for any role other than Owner so that every
+// job card, stat total, and Estimated Total block across the app hides
+// dollar amounts from Managers and Workers without every template having
+// to role-check individually.
+window.getJobDisplayTotal = function(job) {
+  try {
+    const role = (window.CL_FIREBASE && CL_FIREBASE.role) || null;
+    if (role && role !== 'owner') return 0;
+  } catch (_) {}
+  return window._rawJobDisplayTotal(job);
 };
 
 // Business config — loaded from settings (set via Settings page)

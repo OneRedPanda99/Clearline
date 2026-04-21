@@ -128,6 +128,11 @@
                     <i class="fas fa-map-marked-alt" style="color: #f87171;"></i>
                     <span>Map</span>
                 </a>
+                <!-- Manager Panel tile — hidden by default; revealed for Owner via JS below. -->
+                <a id="managerPanelTile" href="manager-panel.html" class="quick-btn hidden">
+                    <i class="fas fa-user-shield" style="color: #fbbf24;"></i>
+                    <span>Manager Panel</span>
+                </a>
             </div>
 
             <!-- Forms & Documents -->
@@ -431,11 +436,27 @@
             openChecklist();
         }
 
+        // Reveal the Manager Panel tile and any other Owner-only UI once
+        // the Firebase profile has loaded. Non-Owner roles get redirected
+        // by signin.html, but defence-in-depth keeps the tile hidden in
+        // case they deep-link here.
+        function applyRoleUI(profile) {
+            if (!profile) return;
+            const tile = document.getElementById('managerPanelTile');
+            if (tile && profile.role === 'owner') tile.classList.remove('hidden');
+            if (profile.role === 'manager') location.replace('manager-home.html');
+            else if (profile.role === 'worker') location.replace('worker-home.html');
+        }
+        window.addEventListener('cl-profile-updated', (e) => applyRoleUI(e.detail && e.detail.profile));
+
         // Init
         document.addEventListener('DOMContentLoaded', () => {
             applyContactSettings();
             loadDashboard();
             setActiveNav();
+            // If profile already loaded before DOMContentLoaded, apply it now.
+            const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
+            if (p) applyRoleUI(p);
         });
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {

@@ -133,7 +133,8 @@
     <header class="app-header">
         <div class="app-header-inner">
             <h1>Customers</h1>
-            <button onclick="openAddModal()" class="header-btn header-btn-right" style="color: var(--primary);">
+            <!-- Hidden by default; revealed for roles with canCreateCustomers. -->
+            <button id="newCustomerBtn" onclick="openAddModal()" class="header-btn header-btn-right hidden" style="color: var(--primary);">
                 <i class="fas fa-plus"></i>
             </button>
         </div>
@@ -292,11 +293,25 @@
             return jobs.filter(j => j.customerId === customerId);
         }
 
+        // Phase 4: show the New Customer button only when the current
+        // role is Owner OR has the `canCreateCustomers` permission flag.
+        function applyCustomerPermissions(profile) {
+            if (!profile) return;
+            const isOwner = profile.role === 'owner';
+            const perms = profile.permissions || {};
+            const canCreate = isOwner || !!perms.canCreateCustomers;
+            const btn = document.getElementById('newCustomerBtn');
+            if (btn && canCreate) btn.classList.remove('hidden');
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             loadData();
             renderCustomers();
             setActiveNav();
+            const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
+            if (p) applyCustomerPermissions(p);
+            window.addEventListener('cl-profile-updated', (e) => applyCustomerPermissions(e.detail && e.detail.profile));
             
             // Check URL parameters
             const urlParams = new URLSearchParams(window.location.search);

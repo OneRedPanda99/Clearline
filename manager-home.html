@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#020617">
+    <title>Team Home - Clearline</title>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script src="data-migration.js"></script>
+    <script src="firebase-sync.js"></script>
+    <script>
+        window.tailwind = { config: { theme: { extend: { colors: {
+            primary: '#0ea5e9', secondary: '#38bdf8', dark: '#0f172a', darker: '#020617', accent: '#06b6d4'
+        } } } } };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="app.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="app-header-inner">
+            <h1>Team</h1>
+            <button onclick="CL_FIREBASE.signOut().then(()=>location.replace('signin.html?signedout=1'))"
+                    class="header-btn header-btn-right" title="Sign out">
+                <i class="fas fa-right-from-bracket"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="app-content">
+        <div class="content-wrapper">
+            <p class="text-sm text-gray-400 mb-3" id="greeting">Loading...</p>
+
+            <div class="stats-grid">
+                <div class="stat-card"><p class="value" style="color:#60a5fa;" id="s-leads">0</p><p class="label">Leads</p></div>
+                <div class="stat-card"><p class="value" style="color:#fbbf24;" id="s-quoted">0</p><p class="label">Quoted</p></div>
+                <div class="stat-card"><p class="value" style="color:#a78bfa;" id="s-scheduled">0</p><p class="label">Scheduled</p></div>
+                <div class="stat-card"><p class="value" style="color:#34d399;" id="s-done">0</p><p class="label">Done</p></div>
+            </div>
+
+            <p class="section-title mb-2">This Week</p>
+            <div id="weekList" class="space-y-2 mb-4"></div>
+
+            <p class="section-title mb-2">Navigate</p>
+            <div class="quick-grid mb-6">
+                <a href="jobs.html" class="quick-btn"><i class="fas fa-briefcase" style="color:#fb923c;"></i><span>Jobs</span></a>
+                <a href="calendar.html" class="quick-btn"><i class="fas fa-calendar-alt" style="color:#a78bfa;"></i><span>Calendar</span></a>
+                <a href="map.html" class="quick-btn"><i class="fas fa-map-marked-alt" style="color:#f87171;"></i><span>Map</span></a>
+                <a href="customer-tracker.html" class="quick-btn"><i class="fas fa-users" style="color:#38bdf8;"></i><span>Customers</span></a>
+                <a href="manager-panel.html" class="quick-btn"><i class="fas fa-user-shield" style="color:#fbbf24;"></i><span>Panel</span></a>
+            </div>
+        </div>
+    </main>
+
+    <nav class="tab-bar">
+        <div class="tab-bar-inner">
+            <a href="manager-home.html" class="tab-item active"><i class="fas fa-home"></i><span>Home</span></a>
+            <a href="jobs.html" class="tab-item"><i class="fas fa-briefcase"></i><span>Jobs</span></a>
+            <a href="calendar.html" class="tab-item"><i class="fas fa-calendar"></i><span>Calendar</span></a>
+            <a href="map.html" class="tab-item"><i class="fas fa-map-marker-alt"></i><span>Map</span></a>
+            <a href="customer-tracker.html" class="tab-item"><i class="fas fa-users"></i><span>Customers</span></a>
+        </div>
+    </nav>
+
+    <script>
+        // Manager home. Shows team-scoped stats + jobs this week. No $.
+        // Filter rule: jobs where assignedManager == my uid OR createdBy == my uid.
+        function weekBounds() {
+            const now = new Date();
+            const start = new Date(now); start.setHours(0,0,0,0);
+            const end = new Date(now); end.setDate(end.getDate() + 7);
+            return { startIso: start.toISOString().split('T')[0], endIso: end.toISOString().split('T')[0] };
+        }
+
+        function renderJobs(jobs) {
+            const { startIso, endIso } = weekBounds();
+            const week = jobs
+                .filter(j => j.jobDate && j.jobDate >= startIso && j.jobDate <= endIso)
+                .sort((a,b) => (a.jobDate + (a.jobTime||'')).localeCompare(b.jobDate + (b.jobTime||'')));
+
+            document.getElementById('s-leads').textContent = jobs.filter(j => j.status === 'new').length;
+            document.getElementById('s-quoted').textContent = jobs.filter(j => j.status === 'quoted').length;
+            document.getElementById('s-scheduled').textContent = jobs.filter(j => j.status === 'scheduled').length;
+            document.getElementById('s-done').textContent = jobs.filter(j => j.status === 'completed').length;
+
+            const container = document.getElementById('weekList');
+            if (!week.length) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No jobs scheduled this week.</p>';
+                return;
+            }
+            container.innerHTML = week.map(j => {
+                const d = j.jobDate ? new Date(j.jobDate + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) : '';
+                return `
+                    <a href="jobs.html?highlight=${encodeURIComponent(j.id)}" class="glass-card rounded-xl p-3 block">
+                        <p class="font-semibold">${j.customerName || 'Job'}</p>
+                        <p class="text-xs text-gray-400">${d} ${j.jobTime || ''} \u2022 ${j.serviceType || 'Service'}</p>
+                        ${j.address ? `<p class="text-[11px] text-gray-500 mt-0.5"><i class="fas fa-map-marker-alt mr-1"></i>${j.address}</p>` : ''}
+                    </a>
+                `;
+            }).join('');
+        }
+
+        async function load() {
+            const db = CL_FIREBASE.getFirestore();
+            const uid = CL_FIREBASE.getCurrentUser().uid;
+            const [mgrSnap, createdSnap] = await Promise.all([
+                db.collection('jobs').where('assignedManager', '==', uid).get(),
+                db.collection('jobs').where('createdBy', '==', uid).get()
+            ]);
+            const seen = new Set();
+            const jobs = [];
+            [mgrSnap, createdSnap].forEach(s => s.forEach(d => {
+                if (seen.has(d.id)) return;
+                seen.add(d.id);
+                jobs.push(d.data());
+            }));
+            renderJobs(jobs);
+        }
+
+        let started = false;
+        function start(profile) {
+            if (!profile) return;
+            if (profile.role === 'worker') { location.replace('worker-home.html'); return; }
+            if (profile.role === 'owner') { location.replace('index.html'); return; }
+            document.getElementById('greeting').textContent = 'Hello, ' + (profile.displayName || 'Manager');
+            load().catch(err => {
+                console.error(err);
+                document.getElementById('weekList').innerHTML = '<p class="text-red-400 text-sm">Could not load jobs: ' + (err.code || err.message) + '</p>';
+            });
+        }
+
+        window.addEventListener('cl-profile-updated', (e) => {
+            if (started) return; started = true;
+            start(e.detail && e.detail.profile);
+        });
+        document.addEventListener('DOMContentLoaded', () => {
+            setActiveNav();
+            setTimeout(() => {
+                if (started) return;
+                const p = CL_FIREBASE.getProfile && CL_FIREBASE.getProfile();
+                if (p) { started = true; start(p); }
+            }, 800);
+        });
+    </script>
+</body>
+</html>

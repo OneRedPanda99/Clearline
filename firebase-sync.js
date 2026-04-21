@@ -26,6 +26,12 @@ const CL_FIREBASE = (function() {
     let pushInProgress = false;
     let pushPending = false;
 
+    // Phase 2 state: the user's profile doc from `users/{uid}`.
+    // Shape: { role, displayName, username, active, permissions, workerType?, assignedManager? }
+    let userProfile = null;
+    // Per-sign-in latch so we don't refetch / re-bootstrap mid-session.
+    let profileLoaded = false;
+
     // Get Firebase config from CL_SECRETS (loaded via config.js)
     function getConfig() {
         return window.CL_SECRETS?.firebase || null;
@@ -117,22 +123,129 @@ const CL_FIREBASE = (function() {
         ]);
     }
 
-    // Handle auth state changes
-    function handleAuthStateChange(user) {
+    // Handle auth state changes. Orchestrates profile load, the Owner
+    // auto-bootstrap on first Google sign-in, inactive-account sign-out,
+    // and the unauthenticated redirect to signin.html. Any page that
+    // loads firebase-sync.js is therefore protected: no signed-in +
+    // active user means the page redirects to the sign-in splash.
+    async function handleAuthStateChange(user) {
         currentUser = user;
-        
-        // Dispatch event for UI updates
-        window.dispatchEvent(new CustomEvent('cl-auth-change', { 
+        // Reset per-session latches so each sign-in fires once.
+        migrationRan = false;
+        profileLoaded = false;
+        userProfile = null;
+
+        window.dispatchEvent(new CustomEvent('cl-auth-change', {
             detail: { user: user ? getUserInfo() : null }
         }));
 
-        if (user) {
-            console.log('User signed in:', user.email);
-            // Trigger sync when user signs in
-            syncFromCloud();
-        } else {
+        if (!user) {
             console.log('User signed out');
+            redirectToSignIn();
+            return;
         }
+        console.log('User signed in:', user.email);
+
+        try {
+            await _loadOrSeedProfile();
+        } catch (err) {
+            console.error('[CL_FIREBASE] Profile load failed:', err);
+            // Leave the user on the current page; let them retry. They may
+            // be offline. Avoid a redirect loop.
+            return;
+        }
+
+        // Block sign-in for deactivated accounts.
+        if (userProfile && userProfile.active === false) {
+            console.warn('[CL_FIREBASE] Account deactivated, signing out');
+            try { await auth.signOut(); } catch (_) {}
+            redirectToSignIn('deactivated');
+            return;
+        }
+
+        // If we have an authenticated user with NO profile (email-password
+        // user not yet provisioned by the Owner), don't keep them in a
+        // half-authenticated state. Sign out + redirect with a hint.
+        if (!userProfile) {
+            console.warn('[CL_FIREBASE] No user profile — sign-in rejected');
+            try { await auth.signOut(); } catch (_) {}
+            redirectToSignIn('notprovisioned');
+            return;
+        }
+
+        window.dispatchEvent(new CustomEvent('cl-profile-updated', {
+            detail: { profile: Object.assign({}, userProfile) }
+        }));
+
+        // Only sync data once we know the account is active and provisioned.
+        syncFromCloud();
+    }
+
+    // Read `users/{uid}`. If the doc is missing and this is a Google sign-in
+    // for the configured Owner (or any Google sign-in when `ownerUid` is
+    // blank on a fresh project), seed an Owner profile. Email/password
+    // users without a pre-provisioned profile are rejected upstream.
+    async function _loadOrSeedProfile() {
+        if (profileLoaded) return;
+        if (!currentUser || !db) return;
+        const ref = db.collection('users').doc(currentUser.uid);
+        const snap = await ref.get();
+        const data = snap.exists ? snap.data() : null;
+        if (data && data.role) {
+            userProfile = {
+                role: data.role,
+                displayName: data.displayName || currentUser.displayName || '',
+                username: data.username || currentUser.email || '',
+                active: data.active !== false,
+                permissions: data.permissions || {},
+                workerType: data.workerType || null,
+                assignedManager: data.assignedManager || null
+            };
+            profileLoaded = true;
+            return;
+        }
+
+        // No role yet — attempt Owner bootstrap if this is a Google sign-in.
+        const providerId = (currentUser.providerData[0] && currentUser.providerData[0].providerId) || '';
+        const isGoogle = providerId === 'google.com';
+        const configuredOwner = (window.CL_SECRETS && window.CL_SECRETS.ownerUid) || '';
+        const ownerMatch = isGoogle && (!configuredOwner || configuredOwner === currentUser.uid);
+
+        if (!ownerMatch) {
+            userProfile = null;
+            profileLoaded = true;
+            return;
+        }
+
+        const bootstrap = {
+            role: 'owner',
+            displayName: currentUser.displayName || '',
+            username: currentUser.email || '',
+            active: true,
+            permissions: {
+                canCreateCustomers: true, canEditOwnCustomers: true,
+                canCreateJobs: true, canAttachJobToCustomer: true, canEditOwnJobs: true,
+                canUseEstimateForm: true, canSendEstimates: true,
+                canViewCalendar: true, canViewMap: true
+            },
+            bootstrappedAt: new Date().toISOString()
+        };
+        await ref.set(bootstrap, { merge: true });
+        userProfile = bootstrap;
+        profileLoaded = true;
+        console.log('[CL_FIREBASE] Owner profile bootstrapped');
+    }
+
+    // Redirect to the sign-in splash unless we're already there. Keeps the
+    // query string intact so downstream code can show a contextual banner
+    // (e.g. ?deactivated=1 or ?notprovisioned=1).
+    function redirectToSignIn(reason) {
+        if (typeof window === 'undefined') return;
+        const here = (window.location.pathname || '').toLowerCase();
+        if (here.endsWith('/signin.html') || here.endsWith('signin.html')) return;
+        const q = reason ? ('?' + reason + '=1') : '';
+        // Use replace so the signed-out page doesn't stay in back-history.
+        window.location.replace('signin.html' + q);
     }
 
     // Get current user info
@@ -144,6 +257,24 @@ const CL_FIREBASE = (function() {
             displayName: currentUser.displayName,
             photoURL: currentUser.photoURL
         };
+    }
+
+    // Sign in with email + password. Used by Managers and Workers, who are
+    // always pre-provisioned by the Owner via the Manager Panel (Phase 3).
+    // If the account isn't yet provisioned, `handleAuthStateChange` will
+    // sign them back out with `?notprovisioned=1`.
+    async function signInWithEmail(email, password) {
+        if (!isInitialized) {
+            const ready = await init();
+            if (!ready) return { ok: false, code: 'init-failed' };
+        }
+        try {
+            await auth.signInWithEmailAndPassword(email, password);
+            return { ok: true };
+        } catch (err) {
+            console.error('Email sign-in error:', err);
+            return { ok: false, code: (err && err.code) || 'unknown', message: err && err.message };
+        }
     }
 
     // Sign in with Google (also requests Calendar access)
@@ -220,12 +351,106 @@ const CL_FIREBASE = (function() {
         currentUser = null;
     }
 
-    // Sync data to cloud. No longer shares a guard with syncFromCloud — a
-    // pull in flight used to swallow pushes whole, which is why customer
-    // saves weren't reaching Firestore. Writes that land while another push
-    // is already running are coalesced: we set `pushPending` and fire one
-    // more `set` when the current one finishes, picking up any state the
-    // later caller had added to localStorage in the meantime.
+    // ------------------------------------------------------------
+    // Phase 1 storage model (new):
+    //   * `customers/{id}` and `jobs/{id}` are top-level collections.
+    //     Each doc carries a `createdBy` field with the owner's uid.
+    //     This is the foundation for later cross-user visibility
+    //     (Manager seeing Worker jobs, etc.) in Phase 2+.
+    //   * `users/{uid}` still holds per-user state we don't want to
+    //     expose to other roles: settings, deletedCustomers,
+    //     deletedJobs, migrationVersion, lastSync.
+    //   * A one-time migration moves the legacy blob arrays from the
+    //     user doc into the top-level collections, then strips them.
+    // ------------------------------------------------------------
+    const MIGRATION_VERSION = 'v3';
+
+    // True once per sign-in: prevents repeated migration attempts.
+    let migrationRan = false;
+
+    // Stamp a customer/job with the fields needed for the top-level
+    // collection (createdBy + lastUpdated). Never overwrites an
+    // existing createdBy — records keep their original author so
+    // future rules scope them correctly.
+    function _stampForCloud(entity) {
+        if (!entity) return entity;
+        const out = { ...entity };
+        if (!out.createdBy && currentUser) out.createdBy = currentUser.uid;
+        if (!out.lastUpdated) out.lastUpdated = new Date().toISOString();
+        return out;
+    }
+
+    // Batch-upsert a list of records to a top-level collection, and
+    // issue deletes for any ids in `tombstones`. Chunked to respect
+    // Firestore's 500-ops-per-batch limit.
+    // Non-owners only push docs they created, since rules reject other
+    // writes and one bad op would fail the whole batch.
+    async function _syncCollection(collName, items, tombstones) {
+        const coll = db.collection(collName);
+        const myUid = currentUser ? currentUser.uid : null;
+        const canPushAll = userProfile && userProfile.role === 'owner';
+        const mine = (v) => canPushAll || !v || !v.createdBy || v.createdBy === myUid;
+
+        const ops = [];
+        (items || []).forEach(it => {
+            if (!it || !it.id) return;
+            if (!mine(it)) return; // skip docs we can't write
+            ops.push({ type: 'set', ref: coll.doc(it.id), data: _stampForCloud(it) });
+        });
+        (tombstones || []).forEach(t => {
+            if (!t || !t.id) return;
+            if (!canPushAll) return; // only Owner deletes cross-user entries
+            ops.push({ type: 'delete', ref: coll.doc(t.id) });
+        });
+
+        for (let i = 0; i < ops.length; i += 450) {
+            const batch = db.batch();
+            ops.slice(i, i + 450).forEach(op => {
+                if (op.type === 'set') batch.set(op.ref, op.data, { merge: true });
+                else batch.delete(op.ref);
+            });
+            await batch.commit();
+        }
+    }
+
+    // One-time migration from the legacy blob to top-level collections.
+    // Idempotent via `users/{uid}.migrationVersion`.
+    async function _runMigrationIfNeeded() {
+        if (migrationRan) return;
+        if (!currentUser || !db) return;
+        const userRef = db.collection('users').doc(currentUser.uid);
+        const snap = await userRef.get();
+        if (snap.exists && snap.data().migrationVersion === MIGRATION_VERSION) {
+            migrationRan = true;
+            return;
+        }
+
+        const data = snap.exists ? snap.data() : {};
+        const customers = Array.isArray(data.customers) ? data.customers : [];
+        const jobs = Array.isArray(data.jobs) ? data.jobs : [];
+        if (customers.length || jobs.length) {
+            console.log('[CL_FIREBASE] Phase-1 migration: moving',
+                customers.length, 'customer(s) and', jobs.length,
+                'job(s) to top-level collections');
+            await _syncCollection('customers', customers, []);
+            await _syncCollection('jobs', jobs, []);
+        }
+        // Strip the blob fields and stamp the version. Keep tombstones
+        // + settings on the user doc.
+        const patch = {
+            migrationVersion: MIGRATION_VERSION,
+            customers: firebase.firestore.FieldValue.delete(),
+            jobs: firebase.firestore.FieldValue.delete()
+        };
+        await userRef.set(patch, { merge: true });
+        migrationRan = true;
+        console.log('[CL_FIREBASE] Phase-1 migration complete');
+    }
+
+    // Sync data to cloud. Writes each customer/job to its own top-level
+    // doc and keeps tombstones + settings on the user doc. Coalesces
+    // concurrent pushes via `pushPending` so debounced save bursts
+    // collapse to one final upload.
     async function syncToCloud() {
         if (!currentUser || !db) return false;
         if (pushInProgress) {
@@ -235,22 +460,25 @@ const CL_FIREBASE = (function() {
 
         pushInProgress = true;
         try {
-            const userDoc = db.collection('users').doc(currentUser.uid);
+            await _runMigrationIfNeeded();
 
-            // Snapshot local data at the moment we actually upload, so any
-            // writes queued via `pushPending` get picked up automatically.
             const localData = CL_DATA.exportAll();
-            localData.lastSync = new Date().toISOString();
-            localData.deviceId = getDeviceId();
+            const customers = localData.customers || [];
+            const jobs = localData.jobs || [];
+            const deletedCustomers = localData.deletedCustomers || [];
+            const deletedJobs = localData.deletedJobs || [];
 
-            // Save to Firestore. Tombstones must be included or deleted
-            // records re-surface on other devices after mergeFromCloud runs.
-            await userDoc.set({
-                customers: localData.customers || [],
-                jobs: localData.jobs || [],
-                deletedCustomers: localData.deletedCustomers || [],
-                deletedJobs: localData.deletedJobs || [],
+            await Promise.all([
+                _syncCollection('customers', customers, deletedCustomers),
+                _syncCollection('jobs', jobs, deletedJobs)
+            ]);
+
+            const userRef = db.collection('users').doc(currentUser.uid);
+            await userRef.set({
+                deletedCustomers,
+                deletedJobs,
                 settings: JSON.parse(localStorage.getItem('cl-settings') || '{}'),
+                migrationVersion: MIGRATION_VERSION,
                 lastSync: firebase.firestore.FieldValue.serverTimestamp(),
                 lastDevice: getDeviceId()
             }, { merge: true });
@@ -258,8 +486,6 @@ const CL_FIREBASE = (function() {
             console.log('Data synced to cloud');
             return true;
         } catch (err) {
-            // Surface loudly so a silent rules-deny or missing-database error
-            // doesn't masquerade as "working" while Firestore stays empty.
             const code = err && (err.code || err.name) || 'unknown';
             const msg = err && err.message || String(err);
             console.error('[CL_FIREBASE] syncToCloud failed:', code, msg, err);
@@ -276,45 +502,88 @@ const CL_FIREBASE = (function() {
             pushInProgress = false;
             if (pushPending) {
                 pushPending = false;
-                // Run once more so any writes queued during the in-flight
-                // upload actually land. 50ms to let the microtask queue drain.
                 setTimeout(syncToCloud, 50);
             }
         }
     }
 
-    // Sync data from cloud. Only guards against overlapping *pulls* now;
-    // concurrent pushes are allowed because Firestore serializes them and
-    // using `{merge:true}` is idempotent.
+    // Role-aware job fetch.
+    //   Owner:   every job
+    //   Manager: jobs where assignedManager == me OR createdBy == me
+    //   Worker:  jobs where assignedTo == me OR createdBy == me
+    // Firestore has no native OR across fields, so the non-owner cases
+    // run two queries and dedupe by doc id.
+    async function _fetchJobsForRole() {
+        const uid = currentUser.uid;
+        const role = (userProfile && userProfile.role) || 'worker';
+        if (role === 'owner') {
+            const snap = await db.collection('jobs').get();
+            return snap.docs.map(d => d.data());
+        }
+        const queries = role === 'manager'
+            ? [
+                db.collection('jobs').where('assignedManager', '==', uid).get(),
+                db.collection('jobs').where('createdBy', '==', uid).get()
+              ]
+            : [
+                db.collection('jobs').where('assignedTo', '==', uid).get(),
+                db.collection('jobs').where('createdBy', '==', uid).get()
+              ];
+        const snaps = await Promise.all(queries);
+        const seen = new Set();
+        const out = [];
+        snaps.forEach(s => s.forEach(d => {
+            if (seen.has(d.id)) return;
+            seen.add(d.id);
+            out.push(d.data());
+        }));
+        return out;
+    }
+
+    // Customers are readable by any authenticated user (rules enforce).
+    async function _fetchAllCustomers() {
+        const snap = await db.collection('customers').get();
+        return snap.docs.map(d => d.data());
+    }
+
+    // Sync data from cloud. Pulls the per-user state doc plus the
+    // role-appropriate set of jobs + all customers. Merge path into
+    // CL_DATA is unchanged, so the rest of the app sees local arrays.
     async function syncFromCloud() {
         if (!currentUser || !db || pullInProgress) return false;
 
         pullInProgress = true;
         try {
-            const userDoc = await db.collection('users').doc(currentUser.uid).get();
-            
-            if (!userDoc.exists) {
+            await _runMigrationIfNeeded();
+
+            const userRef = db.collection('users').doc(currentUser.uid);
+            const [userSnap, customers, jobs] = await Promise.all([
+                userRef.get(),
+                _fetchAllCustomers(),
+                _fetchJobsForRole()
+            ]);
+
+            if (!userSnap.exists) {
                 console.log('New user - uploading local data');
                 await syncToCloud();
                 return true;
             }
 
-            const cloudData = userDoc.data();
+            const userData = userSnap.data();
 
-            // Always merge — let mergeFromCloud handle conflict resolution
             CL_DATA.mergeFromCloud({
                 version: 2,
-                customers: cloudData.customers || [],
-                jobs: cloudData.jobs || [],
-                deletedCustomers: cloudData.deletedCustomers || [],
-                deletedJobs: cloudData.deletedJobs || []
+                customers,
+                jobs,
+                deletedCustomers: userData.deletedCustomers || [],
+                deletedJobs: userData.deletedJobs || []
             });
 
-            if (cloudData.settings) {
+            if (userData.settings) {
                 const currentSettings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
-                cloudData.settings.firebaseConfig = currentSettings.firebaseConfig;
-                cloudData.settings.gcalClientId = currentSettings.gcalClientId;
-                localStorage.setItem('cl-settings', JSON.stringify(cloudData.settings));
+                userData.settings.firebaseConfig = currentSettings.firebaseConfig;
+                userData.settings.gcalClientId = currentSettings.gcalClientId;
+                localStorage.setItem('cl-settings', JSON.stringify(userData.settings));
             }
 
             localStorage.setItem('cl-last-sync', new Date().toISOString());
@@ -381,11 +650,51 @@ const CL_FIREBASE = (function() {
         return db;
     }
 
+    // Phase 4: app-wide settings doc at `settings/global`.
+    // Owner writes; any signed-in user reads. Used by the estimate form
+    // to keep gas-price + chemical prices in sync without exposing the
+    // gas-price field to non-Owner roles.
+    async function getGlobalSettings() {
+        if (!db) return null;
+        try {
+            const snap = await db.collection('settings').doc('global').get();
+            return snap.exists ? snap.data() : {};
+        } catch (err) {
+            console.warn('[CL_FIREBASE] getGlobalSettings failed:', err);
+            return null;
+        }
+    }
+
+    async function updateGlobalSettings(patch) {
+        if (!db || !userProfile || userProfile.role !== 'owner') {
+            return { ok: false, code: 'not-owner' };
+        }
+        try {
+            await db.collection('settings').doc('global').set(
+                Object.assign({}, patch, { updatedAt: new Date().toISOString(), updatedBy: currentUser.uid }),
+                { merge: true }
+            );
+            return { ok: true };
+        } catch (err) {
+            console.error('[CL_FIREBASE] updateGlobalSettings failed:', err);
+            return { ok: false, code: err.code || 'unknown', message: err.message };
+        }
+    }
+
+    // Convenience: check if the current user has a named permission flag.
+    // Owner always returns true.
+    function can(flag) {
+        if (!userProfile) return false;
+        if (userProfile.role === 'owner') return true;
+        return !!(userProfile.permissions && userProfile.permissions[flag]);
+    }
+
     // Public API
     return {
         init,
         isConfigured,
         signInWithGoogle,
+        signInWithEmail,
         signOut,
         getUserInfo,
         getCurrentUser,
@@ -394,8 +703,14 @@ const CL_FIREBASE = (function() {
         syncFromCloud,
         getCalendarToken,
         isCalendarConnected,
+        getProfile: () => (userProfile ? Object.assign({}, userProfile) : null),
+        getGlobalSettings,
+        updateGlobalSettings,
+        can,
         get isSignedIn() { return !!currentUser; },
-        get user() { return getUserInfo(); }
+        get user() { return getUserInfo(); },
+        get role() { return userProfile ? userProfile.role : null; },
+        get permissions() { return userProfile ? Object.assign({}, userProfile.permissions) : {}; }
     };
 })();
 
