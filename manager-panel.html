@@ -381,12 +381,28 @@
                     if (/\s/.test(username)) {
                         showToast('Username cannot contain spaces', 'error'); return;
                     }
+                    // Check username isn't already taken in Firestore
+                    const existingSnap = await db.collection('users')
+                        .where('username', '==', username).limit(1).get();
+                    if (!existingSnap.empty) {
+                        showToast('Username "' + username + '" is already taken', 'error'); return;
+                    }
                     // Firebase Auth still requires an email-shaped value.
                     // Synthesize one and keep the bare username on the user
                     // doc for the UI to display.
                     const authEmail = CL_FIREBASE.toAuthEmail(username);
                     const sec = getSecondaryApp();
-                    const cred = await sec.auth().createUserWithEmailAndPassword(authEmail, password);
+                    let cred;
+                    try {
+                        cred = await sec.auth().createUserWithEmailAndPassword(authEmail, password);
+                    } catch (authErr) {
+                        if (authErr.code === 'auth/email-already-in-use') {
+                            showToast('Username "' + username + '" is already registered', 'error');
+                        } else {
+                            showToast('Error: ' + (authErr.code || authErr.message), 'error');
+                        }
+                        return;
+                    }
                     const newUid = cred.user.uid;
                     await db.collection('users').doc(newUid).set({
                         ...base,
