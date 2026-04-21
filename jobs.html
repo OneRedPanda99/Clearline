@@ -335,6 +335,8 @@
         let tokenExpiry = parseInt(localStorage.getItem('gcal-token-expiry') || '0');
 
         // Use CL_DATA for separate jobs
+        let allManagers = [];
+        let allWorkers = [];
         let jobs = [];
         let currentTab = 'scheduled';
         let editPhotoState = { before: [], after: [] };
@@ -370,6 +372,19 @@
         function loadData() {
             normalizeLegacyStatuses();
             jobs = CL_DATA.getJobs();
+        }
+
+        async function loadUsers() {
+            if (typeof firebase === 'undefined' || !CL_FIREBASE.isConfigured()) return;
+            const db = firebase.firestore();
+            const snap = await db.collection('users').get();
+            allManagers = [];
+            allWorkers = [];
+            snap.forEach(doc => {
+                const u = { uid: doc.id, ...doc.data() };
+                if (u.role === 'manager') allManagers.push(u);
+                else if (u.role === 'worker') allWorkers.push(u);
+            });
         }
 
         // Load Google Calendar API
@@ -450,6 +465,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             loadData();
+            loadUsers();
             updateStats();
             renderJobs();
             getUserLocation(); // Get user location for distance estimates
@@ -785,6 +801,14 @@
                             <p class="bg-slate-700 p-3 rounded-lg text-sm">${job.notes}</p>
                         </div>
                     ` : ''}
+                    
+                    ${(job.assignedManager || job.assignedTo) ? `
+                        <div class="bg-slate-700/50 p-3 rounded-xl">
+                            <p class="text-xs text-gray-400 mb-1">Assigned To</p>
+                            ${job.assignedManager ? `<p class="text-sm"><i class="fas fa-user-tie mr-1 text-sky-400"></i>${allManagers.find(m => m.uid === job.assignedManager)?.displayName || 'Manager'}</p>` : ''}
+                            ${job.assignedTo ? `<p class="text-sm"><i class="fas fa-hard-hat mr-1 text-yellow-400"></i>${allWorkers.find(w => w.uid === job.assignedTo)?.displayName || 'Worker'}</p>` : ''}
+                        </div>
+                    ` : ''}
 
                     ${job.beforePhotos && job.beforePhotos.length ? `
                         <div>
@@ -1008,6 +1032,24 @@
                                 <label class="text-xs text-gray-400 block mb-1">Follow-up</label>
                                 <input type="date" id="editFollowUp" value="${job.followUpDate || ''}" class="w-full p-3 rounded-lg edit-field">
                             </div>
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Assigned Manager</label>
+                                <select id="editAssignedManager" class="w-full p-3 rounded-lg edit-field">
+                                    <option value="">— None —</option>
+                                    ${allManagers.map(m =>
+                                        `<option value="${m.uid}" ${job.assignedManager === m.uid ? 'selected' : ''}>${m.displayName || m.username}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Assigned Worker</label>
+                                <select id="editAssignedTo" class="w-full p-3 rounded-lg edit-field">
+                                    <option value="">— None —</option>
+                                    ${allWorkers.map(w =>
+                                        `<option value="${w.uid}" ${job.assignedTo === w.uid ? 'selected' : ''}>${w.displayName || w.username}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
                         </div>
                         <div>
                             <label class="text-xs text-gray-400 block mb-1">Before Photos</label>
@@ -1076,6 +1118,8 @@
                 amountPaid: paid,
                 followUpDate: document.getElementById('editFollowUp').value,
                 notes: document.getElementById('editNotes').value.trim(),
+                assignedManager: document.getElementById('editAssignedManager').value || null,
+                assignedTo: document.getElementById('editAssignedTo').value || null,
                 beforePhotos: editPhotoState.before,
                 afterPhotos: editPhotoState.after
             };
