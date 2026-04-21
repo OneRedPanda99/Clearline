@@ -45,19 +45,6 @@ const CL_FIREBASE = (function() {
         return s.includes('@') ? s : (s + USERNAME_EMAIL_SUFFIX);
     }
 
-    // Manager/Worker accounts use a bare username (no email). Firebase
-    // Auth still needs an email-shaped string, so we suffix the username
-    // with an IANA-reserved TLD that can never collide with a real email.
-    // sign-in + user creation both pass the synthesized value to Firebase
-    // while the UI + Firestore `users/{uid}.username` keep the clean form.
-    const USERNAME_EMAIL_SUFFIX = '@clearline.invalid';
-    function toAuthEmail(usernameOrEmail) {
-        if (!usernameOrEmail) return '';
-        const s = String(usernameOrEmail).trim();
-        if (!s) return '';
-        return s.includes('@') ? s : (s + USERNAME_EMAIL_SUFFIX);
-    }
-
     // Get Firebase config from CL_SECRETS (loaded via config.js)
     function getConfig() {
         return window.CL_SECRETS?.firebase || null;
