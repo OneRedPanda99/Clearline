@@ -498,12 +498,16 @@
 
             // Owner can assign to any worker; Manager only to their own.
             const myUid = CL_FIREBASE.getCurrentUser().uid;
-            const targets = myProfile.role === 'owner'
+            const targetWorkers = myProfile.role === 'owner'
                 ? workers.filter(w => w.active !== false)
                 : workers.filter(w => w.active !== false && w.assignedManager === myUid);
+            const targetManagers = myProfile.role === 'owner'
+                ? managers.filter(m => m.active !== false)
+                : [];
+            const targets = [...targetManagers, ...targetWorkers];
 
             if (!targets.length) {
-                container.innerHTML = '<p class="text-gray-500 text-sm">No active workers available to assign. Create one above first.</p>';
+                container.innerHTML = '<p class="text-gray-500 text-sm">No active staff available to assign.</p>';
                 return;
             }
 
@@ -542,29 +546,37 @@
             const db = CL_FIREBASE.getFirestore();
             const select = document.querySelector(`select.assign-select[data-job-id="${jobId}"]`);
             if (!select) return;
-            const workerUid = select.value || null;
+            const selectedUid = select.value || null;
 
-            // Derive assignedManager: either this manager (if I am one) or
-            // the target worker's assignedManager (when Owner assigns).
+            let assignedTo = null;
             let assignedManager = null;
-            if (workerUid) {
-                const worker = workers.find(w => w.uid === workerUid);
-                if (!worker) { showToast('Worker not found', 'error'); return; }
-                assignedManager = worker.assignedManager
-                    || (myProfile.role === 'manager' ? CL_FIREBASE.getCurrentUser().uid : null);
+
+            if (selectedUid) {
+                const isManager = managers.find(m => m.uid === selectedUid);
+                if (isManager) {
+                    // Assigning a manager directly — they supervise the job, no worker yet
+                    assignedManager = selectedUid;
+                    assignedTo = null;
+                } else {
+                    const worker = workers.find(w => w.uid === selectedUid);
+                    if (!worker) { showToast('Staff member not found', 'error'); return; }
+                    assignedTo = selectedUid;
+                    assignedManager = worker.assignedManager
+                        || (myProfile.role === 'manager' ? CL_FIREBASE.getCurrentUser().uid : null);
+                }
             }
 
             const origLabel = btn.textContent;
             btn.disabled = true; btn.textContent = 'Saving…';
             try {
-                await db.collection('jobs').doc(jobId).set({
-                    assignedTo: workerUid,
-                    assignedManager,
-                    lastUpdated: new Date().toISOString()
-                }, { merge: true });
-                // Keep local state in sync for subsequent searches.
-                const j = assignableJobs.find(x => x.id === jobId);
-                if (j) { j.assignedTo = workerUid; j.assignedManager = assignedManager; }
+            await db.collection('jobs').doc(jobId).set({
+                assignedTo: assignedTo,
+                assignedManager: assignedManager,
+                lastUpdated: new Date().toISOString()
+            }, { merge: true });
+            // Keep local state in sync
+            const j = assignableJobs.find(x => x.id === jobId);
+            if (j) { j.assignedTo = assignedTo; j.assignedManager = assignedManager; }
                 btn.textContent = 'Saved ✓';
                 setTimeout(() => { btn.textContent = origLabel; btn.disabled = false; }, 1200);
             } catch (err) {
