@@ -90,12 +90,31 @@ const CL_FIREBASE = (function() {
             auth = firebase.auth();
             db = firebase.firestore();
 
-            // Enable offline persistence
+            // Use SESSION persistence so auth state lives in sessionStorage
+            // (same-origin, not blocked by Edge/Firefox tracking prevention).
+            // LOCAL (the default) relies on IndexedDB from gstatic.com, which
+            // Edge blocks as a third-party storage access — causing the app to
+            // appear signed-out on a normal page load and requiring Ctrl+Shift+R.
+            try {
+                await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+            } catch (err) {
+                // Gracefully fall back to whatever the browser allows.
+                console.warn('Could not set auth persistence:', err.code || err);
+            }
+
+            // Enable offline persistence. Note: the compat SDK's
+            // enablePersistence() will log a deprecation hint about
+            // FirestoreSettings.cache — that's a Firebase internals warning
+            // and can be ignored until we migrate to the modular SDK.
             try {
                 await db.enablePersistence({ synchronizeTabs: true });
             } catch (err) {
+                // failed-precondition  → multiple tabs open (expected, harmless)
+                // unimplemented        → browser doesn't support IndexedDB
+                // Any other code       → likely blocked by tracking prevention;
+                //                        app still works fine without offline cache.
                 if (err.code !== 'failed-precondition' && err.code !== 'unimplemented') {
-                    console.warn('Persistence error:', err.code);
+                    console.warn('Offline persistence unavailable:', err.code || err);
                 }
             }
 
