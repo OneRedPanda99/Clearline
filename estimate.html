@@ -522,7 +522,8 @@
                         <div class="form-group">
                             <label>Surface Type:</label>
                             <select name="surfaceType" onchange="applySurfaceDefaults(this)">
-                                <option value="siding">Flat Siding / Vinyl</option>
+                                <option value="siding">Vinyl Siding (Flat Panels)</option>
+                                <option value="vinylFence">Vinyl Fence</option>
                                 <option value="concrete" selected>Concrete / Flatwork</option>
                                 <option value="roof">Roof</option>
                                 <option value="fence">Wood Fence</option>
@@ -722,7 +723,8 @@
                 <div class="form-group">
                     <label>Surface Type:</label>
                     <select name="surfaceType" onchange="applySurfaceDefaults(this)">
-                        <option value="siding">Flat Siding / Vinyl</option>
+                        <option value="siding">Vinyl Siding (Flat Panels)</option>
+                        <option value="vinylFence">Vinyl Fence</option>
                         <option value="concrete" selected>Concrete / Flatwork</option>
                         <option value="roof">Roof</option>
                         <option value="fence">Wood Fence</option>
@@ -813,18 +815,28 @@
         }
         
         const SURFACE_PROFILES = {
-            siding:   { label: 'Flat Siding / Vinyl',  shCoverage: 4000, sqftPerHr: 1250, defaultPrice: 0.20 },
-            concrete: { label: 'Concrete / Flatwork',   shCoverage: 4000, sqftPerHr: 1750, defaultPrice: 0.30 },
-            roof:     { label: 'Roof',                  shCoverage: 1250, sqftPerHr:  600, defaultPrice: 0.45 },
-            fence:    { label: 'Wood Fence',            shCoverage: 2500, sqftPerHr:  650, defaultPrice: 0.35 },
-            other:    { label: 'Other / Mixed',         shCoverage: 3000, sqftPerHr: 1000, defaultPrice: 0.30 }
+            siding:       { label: 'Vinyl Siding (Flat Panels)', shCoverage: 4000, sqftPerHr: 1250, defaultPrice: 0.20 },
+            vinylFence:   { label: 'Vinyl Fence',                shCoverage: 3000, sqftPerHr:  650, defaultPrice: 0.25 },
+            concrete:     { label: 'Concrete / Flatwork',        shCoverage: 4000, sqftPerHr: 1750, defaultPrice: 0.30 },
+            roof:         { label: 'Roof',                       shCoverage: 1250, sqftPerHr:  600, defaultPrice: 0.45 },
+            fence:        { label: 'Wood Fence',                 shCoverage: 2500, sqftPerHr:  650, defaultPrice: 0.35 },
+            other:        { label: 'Other / Mixed',              shCoverage: 3000, sqftPerHr: 1000, defaultPrice: 0.30 }
         };
 
         function getSurfaceProfile(key) {
             return SURFACE_PROFILES[key] || SURFACE_PROFILES.other;
         }
 
+        function getNextEstimateNumber() {
+            const year = new Date().getFullYear();
+            const key = 'cl-est-counter-' + year;
+            const current = parseInt(localStorage.getItem(key) || '0') + 1;
+            localStorage.setItem(key, current);
+            return 'EST-' + year + '-' + String(current).padStart(3, '0');
+        }
+
         const FUEL_RATE_GAL_PER_HR = 0.675; // 13HP Loncin, moderate load
+        const INTERNAL_LABOR_RATE  = 25;    // effective hourly cost — update here if it changes
 
         function calculateTimeFromDirtLevel(squareFootage, dirtLevel, numWorkers, surfaceType) {
             const profile = getSurfaceProfile(surfaceType);
@@ -921,64 +933,75 @@
             let tableRows = '';
             
             services.forEach((service, index) => {
-                // Calculate time based on dirt level and surface type
-                const estimatedHours = calculateTimeFromDirtLevel(
-                    service.squareFootage, 
-                    service.dirtLevel, 
-                    service.numWorkers,
-                    service.surfaceType
+                // A service with a negative price-per-sqft is a deduction/area-reduction.
+                // It adjusts the price only — no fuel or chemical is consumed for it.
+                const isDeduction = service.pricePerSqFt < 0;
+
+                // Calculate time and consumables only for real services
+                const estimatedHours    = isDeduction ? 0 : calculateTimeFromDirtLevel(
+                    service.squareFootage, service.dirtLevel, service.numWorkers, service.surfaceType
                 );
-                
-                // Calculate chemical usage based on surface profile
-                const profile = getSurfaceProfile(service.surfaceType);
-                const estimatedChemical = service.squareFootage / profile.shCoverage;
-                
-                // Calculate fuel usage
-                const fuelRatePerHour = FUEL_RATE_GAL_PER_HR;
-                const serviceFuelGallons = fuelRatePerHour * service.numWorkers * estimatedHours;
-                
+                const profile           = getSurfaceProfile(service.surfaceType);
+                const estimatedChemical = isDeduction ? 0 : service.squareFootage / profile.shCoverage;
+                const fuelRatePerHour   = FUEL_RATE_GAL_PER_HR;
+                const serviceFuelGallons = isDeduction ? 0 : fuelRatePerHour * service.numWorkers * estimatedHours;
+
                 // Calculate costs
-                const serviceFuelCost = serviceFuelGallons * gasCost;
-                const serviceChemicalCost = estimatedChemical * chemicalCost;
+                const serviceFuelCost          = serviceFuelGallons * gasCost;
+                const serviceChemicalCost      = estimatedChemical * chemicalCost;
                 const servicePressureWashingCost = service.squareFootage * service.pricePerSqFt;
-                
-                // Add to totals
+
+                // Add to totals (deductions contribute negative price but no time/fuel/chem)
                 totalPressureWashing += servicePressureWashingCost;
-                totalFuelCost += serviceFuelCost;
-                totalChemicalCost += serviceChemicalCost;
-                totalEstimatedTime += estimatedHours;
-                totalSquareFootage += service.squareFootage;
-                totalFuelGallons += serviceFuelGallons;
-                totalChemical += estimatedChemical;
-                
+                totalFuelCost        += serviceFuelCost;
+                totalChemicalCost    += serviceChemicalCost;
+                totalEstimatedTime   += estimatedHours;
+                // Only count real area in the summary; deduction area was already inside the parent service
+                if (!isDeduction) {
+                    totalSquareFootage += service.squareFootage;
+                    totalFuelGallons   += serviceFuelGallons;
+                    totalChemical      += estimatedChemical;
+                }
+
                 // Add service group header
                 if (services.length > 1) {
                     tableRows += `
                         <tr class="service-group-header">
-                            <td colspan="4"><strong>${service.description} (Level ${service.dirtLevel} Dirt)</strong></td>
+                            <td colspan="4"><strong>${service.description}${isDeduction ? ' — Area Deduction' : ' (Level ' + service.dirtLevel + ' Dirt)'}</strong></td>
                         </tr>`;
                 }
-                
-                // Add service rows
-                tableRows += `
-                    <tr>
-                        <td>${services.length > 1 ? '  ' : ''}Pressure Washing${services.length > 1 ? ' - ' + service.description : ''}</td>
-                        <td>${service.squareFootage.toLocaleString()} sq ft</td>
-                        <td>${service.pricePerSqFt.toFixed(2)}/sq ft</td>
-                        <td>$${servicePressureWashingCost.toFixed(2)}</td>
-                    </tr>
-                    <tr>
-                        <td>${services.length > 1 ? '  ' : ''}Gas Fee (${service.numWorkers} machine${service.numWorkers > 1 ? 's' : ''})</td>
-                        <td>${serviceFuelGallons.toFixed(1)} gal</td>
-                        <td>$${gasCost.toFixed(2)}/gal</td>
-                        <td>$${serviceFuelCost.toFixed(2)}</td>
-                    </tr>
-                    <tr>
-                        <td>${services.length > 1 ? '  ' : ''}${chemicalName}</td>
-                        <td>${estimatedChemical.toFixed(2)} gal</td>
-                        <td>$${chemicalCost.toFixed(2)}/gal</td>
-                        <td>$${serviceChemicalCost.toFixed(2)}</td>
-                    </tr>`;
+
+                if (isDeduction) {
+                    // Deduction: single adjustment row only — no fuel or chemical
+                    tableRows += `
+                        <tr>
+                            <td>${services.length > 1 ? '  ' : ''}Deduction — ${service.description}</td>
+                            <td>${service.squareFootage.toLocaleString()} sq ft</td>
+                            <td>$${service.pricePerSqFt.toFixed(2)}/sq ft</td>
+                            <td>$${servicePressureWashingCost.toFixed(2)}</td>
+                        </tr>`;
+                } else {
+                    // Normal service: price + fuel + chemical rows
+                    tableRows += `
+                        <tr>
+                            <td>${services.length > 1 ? '  ' : ''}Pressure Washing${services.length > 1 ? ' - ' + service.description : ''}</td>
+                            <td>${service.squareFootage.toLocaleString()} sq ft</td>
+                            <td>$${service.pricePerSqFt.toFixed(2)}/sq ft</td>
+                            <td>$${servicePressureWashingCost.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                            <td>${services.length > 1 ? '  ' : ''}Gas Fee (${service.numWorkers} machine${service.numWorkers > 1 ? 's' : ''})</td>
+                            <td>${serviceFuelGallons.toFixed(1)} gal</td>
+                            <td>$${gasCost.toFixed(2)}/gal</td>
+                            <td>$${serviceFuelCost.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                            <td>${services.length > 1 ? '  ' : ''}${chemicalName}</td>
+                            <td>${estimatedChemical.toFixed(2)} gal</td>
+                            <td>$${chemicalCost.toFixed(2)}/gal</td>
+                            <td>$${serviceChemicalCost.toFixed(2)}</td>
+                        </tr>`;
+                }
             });
             
             // Calculate final totals
@@ -1019,27 +1042,28 @@
                     <td><strong>$${totalAfterDiscount.toFixed(2)}</strong></td>
                 </tr>`;
             
-            // Generate sequential estimate number
-            function getNextEstimateNumber() {
-                const year = new Date().getFullYear();
-                const key = 'cl-est-counter-' + year;
-                const current = parseInt(localStorage.getItem(key) || '0') + 1;
-                localStorage.setItem(key, current);
-                return 'EST-' + year + '-' + String(current).padStart(3, '0');
-            }
-            const estimateNum = getNextEstimateNumber();
+            // Reuse existing number if one was already assigned to this estimate;
+            // only burn a new number on the very first generate.
+            const estimateNum = (lastEstimateData && lastEstimateData.estimateNum)
+                ? lastEstimateData.estimateNum
+                : getNextEstimateNumber();
             const today = new Date().toLocaleDateString();
             
-            // Count unique number of workers needed
-            const uniqueWorkers = Math.max(...services.map(s => s.numWorkers));
-            
-            // Generate service details text
+            // Count unique number of workers needed (ignore deductions)
+            const realServices = services.filter(s => s.pricePerSqFt >= 0);
+            const uniqueWorkers = realServices.length > 0 ? Math.max(...realServices.map(s => s.numWorkers)) : 1;
+
+            // Generate service details text (deductions shown separately, not in bullet list)
             let serviceDetailsText = '';
             if (services.length > 1) {
-                serviceDetailsText = `Multiple Services (${services.length}):<br>`;
-                services.forEach(service => {
+                serviceDetailsText = `Multiple Services (${realServices.length}):<br>`;
+                realServices.forEach(service => {
                     serviceDetailsText += `• ${service.description}: ${service.squareFootage.toLocaleString()} sq ft (Level ${service.dirtLevel})<br>`;
                 });
+                const deductions = services.filter(s => s.pricePerSqFt < 0);
+                if (deductions.length > 0) {
+                    serviceDetailsText += `<em style="font-size:11px;color:#666;">Deductions: ${deductions.map(d => d.description).join(', ')}</em><br>`;
+                }
             } else {
                 const service = services[0];
                 serviceDetailsText = `Pressure Washing<br>Area: ${totalSquareFootage.toLocaleString()} sq ft<br>Dirt Level: ${service.dirtLevel}<br>`;
@@ -1130,7 +1154,7 @@
             document.getElementById('estimateContent').innerHTML = estimateHTML;
 
             // Internal margin summary (not printed)
-            const internalLaborRate = 25; // effective hourly cost — adjust as needed
+            const internalLaborRate = INTERNAL_LABOR_RATE;
             const laborCost = totalEstimatedTime * internalLaborRate;
             const totalInternalCost = laborCost + totalFuelCost + totalChemicalCost;
             const grossProfit = totalAfterDiscount - totalInternalCost;
@@ -1386,11 +1410,12 @@
                             <div class="form-group">
                                 <label>Surface Type:</label>
                                 <select name="surfaceType" onchange="applySurfaceDefaults(this)">
-                                    <option value="siding"   ${serviceData.surfaceType==='siding'  ?'selected':''}>Flat Siding / Vinyl</option>
-                                    <option value="concrete" ${(!serviceData.surfaceType||serviceData.surfaceType==='concrete')?'selected':''}>Concrete / Flatwork</option>
-                                    <option value="roof"     ${serviceData.surfaceType==='roof'    ?'selected':''}>Roof</option>
-                                    <option value="fence"    ${serviceData.surfaceType==='fence'   ?'selected':''}>Wood Fence</option>
-                                    <option value="other"    ${serviceData.surfaceType==='other'   ?'selected':''}>Other / Mixed</option>
+                                    <option value="siding"      ${serviceData.surfaceType==='siding'     ?'selected':''}>Vinyl Siding (Flat Panels)</option>
+                                    <option value="vinylFence"  ${serviceData.surfaceType==='vinylFence' ?'selected':''}>Vinyl Fence</option>
+                                    <option value="concrete"    ${(!serviceData.surfaceType||serviceData.surfaceType==='concrete')?'selected':''}>Concrete / Flatwork</option>
+                                    <option value="roof"        ${serviceData.surfaceType==='roof'       ?'selected':''}>Roof</option>
+                                    <option value="fence"       ${serviceData.surfaceType==='fence'      ?'selected':''}>Wood Fence</option>
+                                    <option value="other"       ${serviceData.surfaceType==='other'      ?'selected':''}>Other / Mixed</option>
                                 </select>
                             </div>
                             
@@ -1941,7 +1966,7 @@
                     div.innerHTML = `
                         <div class="service-header"><h4>Service ${serviceCounter}</h4><button type="button" class="remove-service" onclick="removeService(${serviceCounter})">Remove</button></div>
                         <div class="form-group"><label>Property/Area Description:</label><input type="text" name="description" value="${sd.description||''}" required></div>
-                        <div class="form-group"><label>Surface Type:</label><select name="surfaceType" onchange="applySurfaceDefaults(this)"><option value="siding" ${sd.surfaceType==='siding'?'selected':''}>Flat Siding / Vinyl</option><option value="concrete" ${(!sd.surfaceType||sd.surfaceType==='concrete')?'selected':''}>Concrete / Flatwork</option><option value="roof" ${sd.surfaceType==='roof'?'selected':''}>Roof</option><option value="fence" ${sd.surfaceType==='fence'?'selected':''}>Wood Fence</option><option value="other" ${sd.surfaceType==='other'?'selected':''}>Other / Mixed</option></select></div>
+                        <div class="form-group"><label>Surface Type:</label><select name="surfaceType" onchange="applySurfaceDefaults(this)"><option value="siding" ${sd.surfaceType==='siding'?'selected':''}>Vinyl Siding (Flat Panels)</option><option value="vinylFence" ${sd.surfaceType==='vinylFence'?'selected':''}>Vinyl Fence</option><option value="concrete" ${(!sd.surfaceType||sd.surfaceType==='concrete')?'selected':''}>Concrete / Flatwork</option><option value="roof" ${sd.surfaceType==='roof'?'selected':''}>Roof</option><option value="fence" ${sd.surfaceType==='fence'?'selected':''}>Wood Fence</option><option value="other" ${sd.surfaceType==='other'?'selected':''}>Other / Mixed</option></select></div>
                         <div class="two-column"><div class="form-group"><label>Square Footage:</label><input type="number" name="squareFootage" value="${sd.squareFootage||''}" required></div><div class="form-group"><label>Price per Sq Ft ($):</label><input type="number" name="pricePerSqFt" step="0.01" value="${sd.pricePerSqFt||'0.30'}" required></div></div>
                         <div class="two-column"><div class="form-group"><label>Number of Workers:</label><select name="numWorkers" required><option value="1" ${sd.numWorkers==='1'?'selected':''}>1 Worker</option><option value="2" ${sd.numWorkers==='2'?'selected':''}>2 Workers</option></select></div>
                         <div class="form-group"><label>Dirt Level:</label><div style="margin:10px 0"><input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="${sd.dirtLevel||'3.5'}" style="width:100%" oninput="updateDirtDisplay(this)"><div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-top:5px"><span>Light Work</span><span>Heavy Work</span></div><div style="text-align:center;margin-top:5px"><span name="dirtDisplay" style="font-weight:bold;color:#333">Level ${sd.dirtLevel||'3.5'}</span></div></div></div></div>
