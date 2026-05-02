@@ -427,6 +427,9 @@
                 print-color-adjust: exact;
             }
             a[href]::after { content: none; }
+            .download-btn  { display: none !important; }
+            .share-buttons { display: none !important; }
+            .no-print      { display: none !important; }
             @page {
                 size: letter portrait;
                 margin: 0;
@@ -515,6 +518,17 @@
                             <label>Property/Area Description:</label>
                             <input type="text" name="description" placeholder="e.g. Main House, Driveway, Pool Deck" required>
                         </div>
+
+                        <div class="form-group">
+                            <label>Surface Type:</label>
+                            <select name="surfaceType" onchange="applySurfaceDefaults(this)">
+                                <option value="siding">Flat Siding / Vinyl</option>
+                                <option value="concrete" selected>Concrete / Flatwork</option>
+                                <option value="roof">Roof</option>
+                                <option value="fence">Wood Fence</option>
+                                <option value="other">Other / Mixed</option>
+                            </select>
+                        </div>
                         
                         <div class="two-column">
                             <div class="form-group">
@@ -553,12 +567,12 @@
                         
                         <div class="dirt-level-info">
                             <strong>Dirt Level Guide:</strong><br>
-                            Level 1: Maintenance cleaning, minimal buildup<br>
-                            Level 2: Light cleaning, some dust/dirt<br>
-                            Level 3: Normal residential cleaning<br>
-                            Level 3.5: Heavy buildup, typical baseline (2000 sq ft ≈ 10 hours)<br>
-                            Level 4: Very dirty, requires extra time<br>
-                            Level 5: Extreme conditions, maximum time needed
+                            1 — Maintenance, minimal buildup &nbsp;|&nbsp;
+                            2 — Light dust/dirt &nbsp;|&nbsp;
+                            3 — Normal residential &nbsp;|&nbsp;
+                            3.5 — Heavy buildup (default) &nbsp;|&nbsp;
+                            4 — Very dirty &nbsp;|&nbsp;
+                            5 — Extreme
                         </div>
                     </div>
                 </div>
@@ -704,6 +718,17 @@
                     <label>Property/Area Description:</label>
                     <input type="text" name="description" placeholder="e.g. Main House, Driveway, Pool Deck" required>
                 </div>
+
+                <div class="form-group">
+                    <label>Surface Type:</label>
+                    <select name="surfaceType" onchange="applySurfaceDefaults(this)">
+                        <option value="siding">Flat Siding / Vinyl</option>
+                        <option value="concrete" selected>Concrete / Flatwork</option>
+                        <option value="roof">Roof</option>
+                        <option value="fence">Wood Fence</option>
+                        <option value="other">Other / Mixed</option>
+                    </select>
+                </div>
                 
                 <div class="two-column">
                     <div class="form-group">
@@ -726,15 +751,15 @@
                     </div>
                         <div class="form-group">
                             <label>Dirt Level:</label>
-                            <div style="margin: 10px 0;">
+                            <div style="margin:10px 0">
                                 <input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="3.5" 
-                                       style="width: 100%;" oninput="updateDirtDisplay(this)">
-                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 5px;">
+                                       style="width:100%" oninput="updateDirtDisplay(this)">
+                                <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-top:5px">
                                     <span>Light Work</span>
                                     <span>Heavy Work</span>
                                 </div>
-                                <div style="text-align: center; margin-top: 5px;">
-                                    <span name="dirtDisplay" style="font-weight: bold; color: #333;">Level 3.5</span>
+                                <div style="text-align:center;margin-top:5px">
+                                    <span name="dirtDisplay" style="font-weight:bold;color:#333">Level 3.5</span>
                                 </div>
                             </div>
                         </div>
@@ -742,12 +767,12 @@
                 
                 <div class="dirt-level-info">
                     <strong>Dirt Level Guide:</strong><br>
-                    Level 1: Maintenance cleaning, minimal buildup<br>
-                    Level 2: Light cleaning, some dust/dirt<br>
-                    Level 3: Normal residential cleaning<br>
-                    Level 3.5: Heavy buildup, typical baseline (2000 sq ft ≈ 10 hours)<br>
-                    Level 4: Very dirty, requires extra time<br>
-                    Level 5: Extreme conditions, maximum time needed
+                    1 — Maintenance, minimal buildup &nbsp;|&nbsp;
+                    2 — Light dust/dirt &nbsp;|&nbsp;
+                    3 — Normal residential &nbsp;|&nbsp;
+                    3.5 — Heavy buildup (default) &nbsp;|&nbsp;
+                    4 — Very dirty &nbsp;|&nbsp;
+                    5 — Extreme
                 </div>
             `;
             
@@ -773,46 +798,55 @@
             });
         }
         
+        function applySurfaceDefaults(selectEl) {
+            const profile = getSurfaceProfile(selectEl.value);
+            const serviceItem = selectEl.closest('.service-item');
+            if (!serviceItem) return;
+            const priceInput = serviceItem.querySelector('[name="pricePerSqFt"]');
+            if (priceInput) priceInput.value = profile.defaultPrice.toFixed(2);
+        }
+
         function updateDirtDisplay(slider) {
             const value = parseFloat(slider.value);
             const display = slider.parentNode.querySelector('[name="dirtDisplay"]');
             display.textContent = `Level ${value.toFixed(1)}`;
         }
         
-        function calculateTimeFromDirtLevel(squareFootage, dirtLevel, numWorkers) {
-            // Baseline: 2000 sq ft at dirt level 3.5 = 10 hours with 1 worker
-            const baseSquareFootage = 2000;
-            const baseDirtLevel = 3.5;
-            const baseHours = 10;
-            
-            // Calculate time multipliers
-            const squareFootageRatio = squareFootage / baseSquareFootage;
-            
-            // Dirt level multiplier (exponential scaling)
+        const SURFACE_PROFILES = {
+            siding:   { label: 'Flat Siding / Vinyl',  shCoverage: 4000, sqftPerHr: 1250, defaultPrice: 0.20 },
+            concrete: { label: 'Concrete / Flatwork',   shCoverage: 4000, sqftPerHr: 1750, defaultPrice: 0.30 },
+            roof:     { label: 'Roof',                  shCoverage: 1250, sqftPerHr:  600, defaultPrice: 0.45 },
+            fence:    { label: 'Wood Fence',            shCoverage: 2500, sqftPerHr:  650, defaultPrice: 0.35 },
+            other:    { label: 'Other / Mixed',         shCoverage: 3000, sqftPerHr: 1000, defaultPrice: 0.30 }
+        };
+
+        function getSurfaceProfile(key) {
+            return SURFACE_PROFILES[key] || SURFACE_PROFILES.other;
+        }
+
+        const FUEL_RATE_GAL_PER_HR = 0.675; // 13HP Loncin, moderate load
+
+        function calculateTimeFromDirtLevel(squareFootage, dirtLevel, numWorkers, surfaceType) {
+            const profile = getSurfaceProfile(surfaceType);
+
+            // Dirt multiplier — divides production rate (more dirt = slower output)
             let dirtMultiplier;
-            if (dirtLevel <= 1) {
-                dirtMultiplier = 0.5; // Level 1: 50% of baseline time
-            } else if (dirtLevel <= 2) {
-                dirtMultiplier = 0.7; // Level 2: 70% of baseline time
-            } else if (dirtLevel <= 3) {
-                dirtMultiplier = 0.85; // Level 3: 85% of baseline time
-            } else if (dirtLevel <= 3.5) {
-                dirtMultiplier = 1.0; // Level 3.5: 100% baseline
-            } else if (dirtLevel <= 4) {
-                dirtMultiplier = 1.25; // Level 4: 125% of baseline time
-            } else {
-                dirtMultiplier = 1.6; // Level 5: 160% of baseline time
-            }
-            
-            // Calculate base time for 1 worker
-            let estimatedHours = baseHours * squareFootageRatio * dirtMultiplier;
-            
-            // Adjust for multiple workers (efficiency factor)
-            if (numWorkers === 2) {
-                estimatedHours = estimatedHours * 0.6; // 2 workers are 60% as efficient per person but total faster
-            }
-            
-            return estimatedHours;
+            if      (dirtLevel <= 1.0) dirtMultiplier = 0.50;
+            else if (dirtLevel <= 2.0) dirtMultiplier = 0.70;
+            else if (dirtLevel <= 3.0) dirtMultiplier = 0.85;
+            else if (dirtLevel <= 3.5) dirtMultiplier = 1.00;
+            else if (dirtLevel <= 4.0) dirtMultiplier = 1.25;
+            else                       dirtMultiplier = 1.60;
+
+            // Effective rate after dirt penalty
+            const effectiveSqftPerHr = profile.sqftPerHr / dirtMultiplier;
+
+            let hours = squareFootage / effectiveSqftPerHr;
+
+            // Two workers: faster overall but not perfectly linear
+            if (numWorkers === 2) hours *= 0.60;
+
+            return hours;
         }
         
         function generateEstimate() {
@@ -852,6 +886,7 @@
                 const pricePerSqFt = parseFloat(item.querySelector('[name="pricePerSqFt"]').value);
                 const numWorkers = parseInt(item.querySelector('[name="numWorkers"]').value);
                 const dirtLevel = parseFloat(item.querySelector('[name="dirtLevel"]').value);
+                const surfaceType = item.querySelector('[name="surfaceType"]').value;
                 
                 if (description && squareFootage && pricePerSqFt && numWorkers && dirtLevel) {
                     services.push({
@@ -859,7 +894,8 @@
                         squareFootage,
                         pricePerSqFt,
                         numWorkers,
-                        dirtLevel
+                        dirtLevel,
+                        surfaceType
                     });
                     hasValidService = true;
                 } else if (description || squareFootage || pricePerSqFt) {
@@ -885,18 +921,20 @@
             let tableRows = '';
             
             services.forEach((service, index) => {
-                // Calculate time based on dirt level
+                // Calculate time based on dirt level and surface type
                 const estimatedHours = calculateTimeFromDirtLevel(
                     service.squareFootage, 
                     service.dirtLevel, 
-                    service.numWorkers
+                    service.numWorkers,
+                    service.surfaceType
                 );
                 
-                // Calculate chemical usage (0.3 gal per 1000 sq ft)
-                const estimatedChemical = (service.squareFootage / 1000) * 0.3;
+                // Calculate chemical usage based on surface profile
+                const profile = getSurfaceProfile(service.surfaceType);
+                const estimatedChemical = service.squareFootage / profile.shCoverage;
                 
                 // Calculate fuel usage
-                const fuelRatePerHour = 0.675; // gallons per hour per machine
+                const fuelRatePerHour = FUEL_RATE_GAL_PER_HR;
                 const serviceFuelGallons = fuelRatePerHour * service.numWorkers * estimatedHours;
                 
                 // Calculate costs
@@ -927,19 +965,19 @@
                         <td>${services.length > 1 ? '  ' : ''}Pressure Washing${services.length > 1 ? ' - ' + service.description : ''}</td>
                         <td>${service.squareFootage.toLocaleString()} sq ft</td>
                         <td>${service.pricePerSqFt.toFixed(2)}/sq ft</td>
-                        <td>${servicePressureWashingCost.toFixed(2)}</td>
+                        <td>$${servicePressureWashingCost.toFixed(2)}</td>
                     </tr>
                     <tr>
                         <td>${services.length > 1 ? '  ' : ''}Gas Fee (${service.numWorkers} machine${service.numWorkers > 1 ? 's' : ''})</td>
                         <td>${serviceFuelGallons.toFixed(1)} gal</td>
-                        <td>${gasCost.toFixed(2)}/gal</td>
-                        <td>${serviceFuelCost.toFixed(2)}</td>
+                        <td>$${gasCost.toFixed(2)}/gal</td>
+                        <td>$${serviceFuelCost.toFixed(2)}</td>
                     </tr>
                     <tr>
                         <td>${services.length > 1 ? '  ' : ''}${chemicalName}</td>
                         <td>${estimatedChemical.toFixed(2)} gal</td>
-                        <td>${chemicalCost.toFixed(2)}/gal</td>
-                        <td>${serviceChemicalCost.toFixed(2)}</td>
+                        <td>$${chemicalCost.toFixed(2)}/gal</td>
+                        <td>$${serviceChemicalCost.toFixed(2)}</td>
                     </tr>`;
             });
             
@@ -981,9 +1019,15 @@
                     <td><strong>$${totalAfterDiscount.toFixed(2)}</strong></td>
                 </tr>`;
             
-            // Generate estimate number and date
-            const estimateNum = 'EST-' + new Date().getFullYear() + '-' + 
-                              String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+            // Generate sequential estimate number
+            function getNextEstimateNumber() {
+                const year = new Date().getFullYear();
+                const key = 'cl-est-counter-' + year;
+                const current = parseInt(localStorage.getItem(key) || '0') + 1;
+                localStorage.setItem(key, current);
+                return 'EST-' + year + '-' + String(current).padStart(3, '0');
+            }
+            const estimateNum = getNextEstimateNumber();
             const today = new Date().toLocaleDateString();
             
             // Count unique number of workers needed
@@ -1084,6 +1128,42 @@
             };
             
             document.getElementById('estimateContent').innerHTML = estimateHTML;
+
+            // Internal margin summary (not printed)
+            const internalLaborRate = 25; // effective hourly cost — adjust as needed
+            const laborCost = totalEstimatedTime * internalLaborRate;
+            const totalInternalCost = laborCost + totalFuelCost + totalChemicalCost;
+            const grossProfit = totalAfterDiscount - totalInternalCost;
+            const marginPct = totalAfterDiscount > 0
+                ? ((grossProfit / totalAfterDiscount) * 100).toFixed(1)
+                : '0.0';
+
+            const marginColor = grossProfit > 0 ? '#166534' : '#991b1b';
+            const marginBg    = grossProfit > 0 ? '#dcfce7' : '#fee2e2';
+
+            const marginHTML = `
+                <div style="background:${marginBg};border:1px solid ${marginColor};padding:12px;
+                            margin-top:12px;border-radius:6px;" class="no-print">
+                    <strong style="color:${marginColor};">Internal Margin Summary (not printed)</strong>
+                    <table style="width:100%;margin-top:8px;font-size:13px;border-collapse:collapse;">
+                        <tr><td>Labor (${totalEstimatedTime.toFixed(1)} hrs @ $${internalLaborRate}/hr)</td>
+                            <td style="text-align:right;">$${laborCost.toFixed(2)}</td></tr>
+                        <tr><td>Fuel</td>
+                            <td style="text-align:right;">$${totalFuelCost.toFixed(2)}</td></tr>
+                        <tr><td>Chemical</td>
+                            <td style="text-align:right;">$${totalChemicalCost.toFixed(2)}</td></tr>
+                        <tr style="border-top:1px solid ${marginColor};font-weight:bold;">
+                            <td>Total Cost</td>
+                            <td style="text-align:right;">$${totalInternalCost.toFixed(2)}</td></tr>
+                        <tr style="font-weight:bold;color:${marginColor};">
+                            <td>Gross Profit</td>
+                            <td style="text-align:right;">$${grossProfit.toFixed(2)} (${marginPct}%)</td></tr>
+                    </table>
+                </div>
+            `;
+            document.getElementById('estimateContent').innerHTML += marginHTML;
+
+            hideSendButtonsIfBlocked();
         }
         
         // Share functions
@@ -1105,7 +1185,7 @@
                 return;
             }
             const text = generateShareText();
-            const subject = `Estimate from Clearline - ${lastEstimateData.customerName}`;
+            const subject = `Estimate from SC Pressure Point - ${lastEstimateData.customerName}`;
             const emailUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
             window.location.href = emailUrl;
         }
@@ -1156,7 +1236,7 @@
             text += `Questions? Call or text:\n`;
             text += `📞 ${CL_CONFIG.phoneDisplay}\n`;
             text += `✉️ ${CL_CONFIG.email}\n`;
-            text += `\nThank you for choosing Clearline!`;
+            text += `\nThank you for choosing SC Pressure Point!`;
             
             return text;
         }
@@ -1221,7 +1301,8 @@
                     squareFootage: item.querySelector('[name="squareFootage"]').value,
                     pricePerSqFt: item.querySelector('[name="pricePerSqFt"]').value,
                     numWorkers: item.querySelector('[name="numWorkers"]').value,
-                    dirtLevel: item.querySelector('[name="dirtLevel"]').value
+                    dirtLevel: item.querySelector('[name="dirtLevel"]').value,
+                    surfaceType: item.querySelector('[name="surfaceType"]') ? item.querySelector('[name="surfaceType"]').value : 'concrete'
                 };
                 estimateData.services.push(service);
             });
@@ -1301,6 +1382,17 @@
                                 <label>Property/Area Description:</label>
                                 <input type="text" name="description" placeholder="e.g. Main House, Driveway, Pool Deck" value="${serviceData.description || ''}" required>
                             </div>
+
+                            <div class="form-group">
+                                <label>Surface Type:</label>
+                                <select name="surfaceType" onchange="applySurfaceDefaults(this)">
+                                    <option value="siding"   ${serviceData.surfaceType==='siding'  ?'selected':''}>Flat Siding / Vinyl</option>
+                                    <option value="concrete" ${(!serviceData.surfaceType||serviceData.surfaceType==='concrete')?'selected':''}>Concrete / Flatwork</option>
+                                    <option value="roof"     ${serviceData.surfaceType==='roof'    ?'selected':''}>Roof</option>
+                                    <option value="fence"    ${serviceData.surfaceType==='fence'   ?'selected':''}>Wood Fence</option>
+                                    <option value="other"    ${serviceData.surfaceType==='other'   ?'selected':''}>Other / Mixed</option>
+                                </select>
+                            </div>
                             
                             <div class="two-column">
                                 <div class="form-group">
@@ -1339,12 +1431,12 @@
                             
                             <div class="dirt-level-info">
                                 <strong>Dirt Level Guide:</strong><br>
-                                Level 1: Maintenance cleaning, minimal buildup<br>
-                                Level 2: Light cleaning, some dust/dirt<br>
-                                Level 3: Normal residential cleaning<br>
-                                Level 3.5: Heavy buildup, typical baseline (2000 sq ft ≈ 10 hours)<br>
-                                Level 4: Very dirty, requires extra time<br>
-                                Level 5: Extreme conditions, maximum time needed
+                                1 — Maintenance, minimal buildup &nbsp;|&nbsp;
+                                2 — Light dust/dirt &nbsp;|&nbsp;
+                                3 — Normal residential &nbsp;|&nbsp;
+                                3.5 — Heavy buildup (default) &nbsp;|&nbsp;
+                                4 — Very dirty &nbsp;|&nbsp;
+                                5 — Extreme
                             </div>
                         `;
                         
@@ -1796,7 +1888,8 @@
                     squareFootage: item.querySelector('[name="squareFootage"]').value,
                     pricePerSqFt: item.querySelector('[name="pricePerSqFt"]').value,
                     numWorkers: item.querySelector('[name="numWorkers"]').value,
-                    dirtLevel: item.querySelector('[name="dirtLevel"]').value
+                    dirtLevel: item.querySelector('[name="dirtLevel"]').value,
+                    surfaceType: item.querySelector('[name="surfaceType"]') ? item.querySelector('[name="surfaceType"]').value : 'concrete'
                 });
             });
             return {
@@ -1848,10 +1941,11 @@
                     div.innerHTML = `
                         <div class="service-header"><h4>Service ${serviceCounter}</h4><button type="button" class="remove-service" onclick="removeService(${serviceCounter})">Remove</button></div>
                         <div class="form-group"><label>Property/Area Description:</label><input type="text" name="description" value="${sd.description||''}" required></div>
+                        <div class="form-group"><label>Surface Type:</label><select name="surfaceType" onchange="applySurfaceDefaults(this)"><option value="siding" ${sd.surfaceType==='siding'?'selected':''}>Flat Siding / Vinyl</option><option value="concrete" ${(!sd.surfaceType||sd.surfaceType==='concrete')?'selected':''}>Concrete / Flatwork</option><option value="roof" ${sd.surfaceType==='roof'?'selected':''}>Roof</option><option value="fence" ${sd.surfaceType==='fence'?'selected':''}>Wood Fence</option><option value="other" ${sd.surfaceType==='other'?'selected':''}>Other / Mixed</option></select></div>
                         <div class="two-column"><div class="form-group"><label>Square Footage:</label><input type="number" name="squareFootage" value="${sd.squareFootage||''}" required></div><div class="form-group"><label>Price per Sq Ft ($):</label><input type="number" name="pricePerSqFt" step="0.01" value="${sd.pricePerSqFt||'0.30'}" required></div></div>
                         <div class="two-column"><div class="form-group"><label>Number of Workers:</label><select name="numWorkers" required><option value="1" ${sd.numWorkers==='1'?'selected':''}>1 Worker</option><option value="2" ${sd.numWorkers==='2'?'selected':''}>2 Workers</option></select></div>
                         <div class="form-group"><label>Dirt Level:</label><div style="margin:10px 0"><input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="${sd.dirtLevel||'3.5'}" style="width:100%" oninput="updateDirtDisplay(this)"><div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-top:5px"><span>Light Work</span><span>Heavy Work</span></div><div style="text-align:center;margin-top:5px"><span name="dirtDisplay" style="font-weight:bold;color:#333">Level ${sd.dirtLevel||'3.5'}</span></div></div></div></div>
-                        <div class="dirt-level-info"><strong>Dirt Level Guide:</strong><br>Level 1: Maintenance<br>Level 2: Light<br>Level 3: Normal<br>Level 3.5: Heavy (baseline)<br>Level 4: Very dirty<br>Level 5: Extreme</div>
+                        <div class="dirt-level-info"><strong>Dirt Level Guide:</strong><br>1 — Maintenance, minimal buildup &nbsp;|&nbsp; 2 — Light dust/dirt &nbsp;|&nbsp; 3 — Normal residential &nbsp;|&nbsp; 3.5 — Heavy buildup (default) &nbsp;|&nbsp; 4 — Very dirty &nbsp;|&nbsp; 5 — Extreme</div>
                     `;
                     container.appendChild(div);
                 });
