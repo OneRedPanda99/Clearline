@@ -216,14 +216,24 @@
         }
         .estimate-logo-header .estimate-meta {
             text-align: right;
+            background: #0f172a;
+            color: white;
+            padding: 12px 18px;
+            border-radius: 6px;
+            align-self: center;
         }
         .estimate-logo-header .estimate-meta h1 {
-            font-size: 26px;
-            margin-bottom: 4px;
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            margin-bottom: 6px;
+            color: white;
         }
         .estimate-logo-header .estimate-meta p {
-            font-size: 13px;
-            margin: 0;
+            font-size: 12px;
+            margin: 2px 0;
+            color: #94a3b8;
+            letter-spacing: 0.5px;
         }
 
         /* extended-info toggle */
@@ -486,6 +496,14 @@
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
+            .estimate-logo-header .estimate-meta {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                background: #0f172a !important;
+                color: white !important;
+            }
+            .estimate-logo-header .estimate-meta h1 { color: white !important; }
+            .estimate-logo-header .estimate-meta p { color: #94a3b8 !important; }
             a[href]::after { content: none; }
             .download-btn  { display: none !important; }
             .share-buttons { display: none !important; }
@@ -1215,15 +1233,19 @@
                         <p><strong>${customerName}</strong></p>
                         ${customerAddress ? `<p>${customerAddress.replace(/\n/g, '<br>')}</p>` : ''}
                     </div>
-                    <div>
-                        <h3>SERVICE DETAILS:</h3>
-                        <p>${serviceDetailsText}</p>
-                        <p>Total Area: ${totalSquareFootage.toLocaleString()} sq ft</p>
-                        <p>Estimated Time: ${totalEstimatedTime.toFixed(1)} hrs &nbsp;|&nbsp; Workers: ${uniqueWorkers}</p>
-                        ${additionalCost > 0 ? `<p>Additional: ${additionalReason}</p>` : ''}
+                    <div style="background:#0f172a;color:white;padding:14px 16px;border-radius:6px;">
+                        <h3 style="color:#94a3b8;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;border-bottom:1px solid #1e293b;padding-bottom:6px;">Service Details</h3>
+                        <p style="color:white;margin-bottom:6px;">${serviceDetailsText}</p>
+                        <p style="color:#e2e8f0;font-size:13px;margin-bottom:4px;">📐 Total Area: <strong style="color:white;">${totalSquareFootage.toLocaleString()} sq ft</strong></p>
+                        <p style="color:#e2e8f0;font-size:13px;margin-bottom:4px;">⏱ Est. Time: <strong style="color:white;">${totalEstimatedTime.toFixed(1)} hrs</strong> &nbsp;|&nbsp; Workers: <strong style="color:white;">${uniqueWorkers}</strong></p>
+                        ${additionalCost > 0 ? `<p style="color:#fbbf24;font-size:13px;">+ ${additionalReason}</p>` : ''}
                     </div>
                 </div>
                 
+                <p style="font-size:12px;color:#444;background:#f8f9fa;border-left:3px solid #0ea5e9;padding:8px 12px;margin-bottom:10px;">
+                    ✅ All material and supply costs are included in the pricing below.
+                </p>
+
                 <table class="estimate-table">
                     <thead>
                         <tr>
