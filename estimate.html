@@ -216,24 +216,17 @@
         }
         .estimate-logo-header .estimate-meta {
             text-align: right;
-            background: #0f172a;
-            color: white;
-            padding: 12px 18px;
-            border-radius: 6px;
-            align-self: center;
         }
         .estimate-logo-header .estimate-meta h1 {
             font-size: 28px;
             font-weight: 900;
             letter-spacing: 3px;
-            margin-bottom: 6px;
-            color: white;
+            margin-bottom: 4px;
         }
         .estimate-logo-header .estimate-meta p {
             font-size: 12px;
             margin: 2px 0;
-            color: #94a3b8;
-            letter-spacing: 0.5px;
+            color: #555;
         }
 
         /* extended-info toggle */
@@ -496,14 +489,6 @@
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
-            .estimate-logo-header .estimate-meta {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-                background: #0f172a !important;
-                color: white !important;
-            }
-            .estimate-logo-header .estimate-meta h1 { color: white !important; }
-            .estimate-logo-header .estimate-meta p { color: #94a3b8 !important; }
             a[href]::after { content: none; }
             .download-btn  { display: none !important; }
             .share-buttons { display: none !important; }
@@ -688,7 +673,7 @@
                 
                 <div class="extended-info-toggle">
                     <input type="checkbox" id="extendedInfo">
-                    <label for="extendedInfo">📋 Extended Information (show rates, gas &amp; chemical to customer)</label>
+                    <label for="extendedInfo">Extended Information (show rates, gas &amp; chemical to customer)</label>
                 </div>
 
                 <button type="button" class="calc-button" onclick="generateEstimate()" style="margin-top:10px;">
@@ -711,15 +696,15 @@
                 </div>
                 
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-                    <button type="button" class="add-service-btn" onclick="saveDraftToCloud()" style="flex:1;margin-bottom:0;background:#0ea5e9;">☁️ Save Draft</button>
-                    <button type="button" class="add-service-btn" onclick="markAsFinal()" style="flex:1;margin-bottom:0;background:#f59e0b;">✅ Mark as Final</button>
+                    <button type="button" class="add-service-btn" onclick="saveDraftToCloud()" style="flex:1;margin-bottom:0;background:#0ea5e9;">Save Draft</button>
+                    <button type="button" class="add-service-btn" onclick="markAsFinal()" style="flex:1;margin-bottom:0;background:#f59e0b;">Mark as Final</button>
                 </div>
                 <div class="two-column">
                     <button type="button" class="add-service-btn" onclick="saveEstimate()" style="margin-bottom: 5px;">
-                        💾 Save to File
+                        Save to File
                     </button>
                     <button type="button" class="add-service-btn" onclick="document.getElementById('loadFile').click()" style="margin-bottom: 5px;">
-                        📁 Load from File
+                        Load from File
                     </button>
                 </div>
                 
@@ -1095,17 +1080,15 @@
                             <td>$${service.pricePerSqFt.toFixed(2)}/sq ft</td>
                             <td>$${servicePressureWashingCost.toFixed(2)}</td>
                         </tr>
-                        <tr>
-                            <td>${services.length > 1 ? '  ' : ''}Gas Fee (${service.numWorkers} machine${service.numWorkers > 1 ? 's' : ''})</td>
-                            <td>${serviceFuelGallons.toFixed(1)} gal</td>
-                            <td>$${gasCost.toFixed(2)}/gal</td>
-                            <td>$${serviceFuelCost.toFixed(2)}</td>
+                        <tr style="color:#666;font-size:12px;">
+                            <td style="padding-left:16px;font-style:italic;">Gas (${service.numWorkers} machine${service.numWorkers > 1 ? 's' : ''}, ${serviceFuelGallons.toFixed(1)} gal @ $${gasCost.toFixed(2)}/gal)</td>
+                            <td colspan="2" style="font-style:italic;">included</td>
+                            <td style="font-style:italic;">$${serviceFuelCost.toFixed(2)}</td>
                         </tr>
-                        <tr>
-                            <td>${services.length > 1 ? '  ' : ''}${chemicalName}</td>
-                            <td>${estimatedChemical.toFixed(2)} gal</td>
-                            <td>$${chemicalCost.toFixed(2)}/gal</td>
-                            <td>$${serviceChemicalCost.toFixed(2)}</td>
+                        <tr style="color:#666;font-size:12px;">
+                            <td style="padding-left:16px;font-style:italic;">${chemicalName} (${estimatedChemical.toFixed(2)} gal @ $${chemicalCost.toFixed(2)}/gal)</td>
+                            <td colspan="2" style="font-style:italic;">included</td>
+                            <td style="font-style:italic;">$${serviceChemicalCost.toFixed(2)}</td>
                         </tr>`;
                 }
             });
@@ -1154,11 +1137,11 @@
                     <td><strong>$${customerTotal.toFixed(2)}</strong></td>
                 </tr>`;
 
-            // Extended footer rows
+            // Extended footer rows — same totals as customer view, price never changes
             extendedRows += `
                 <tr class="subtotal-row">
                     <td colspan="3"><strong>Subtotal</strong></td>
-                    <td><strong>$${subtotal.toFixed(2)}</strong></td>
+                    <td><strong>$${customerSubtotal.toFixed(2)}</strong></td>
                 </tr>`;
             if (discountPercent > 0) {
                 extendedRows += `
@@ -1166,13 +1149,13 @@
                         <td>Discount: ${discountReason}</td>
                         <td>1</td>
                         <td>${discountPercent}% off</td>
-                        <td>-$${discountAmount.toFixed(2)}</td>
+                        <td>-$${customerDiscountAmount.toFixed(2)}</td>
                     </tr>`;
             }
             extendedRows += `
                 <tr class="total-row">
                     <td colspan="3"><strong>ESTIMATED TOTAL</strong></td>
-                    <td><strong>$${totalAfterDiscount.toFixed(2)}</strong></td>
+                    <td><strong>$${customerTotal.toFixed(2)}</strong></td>
                 </tr>`;
             
             // Reuse existing number if one was already assigned to this estimate;
@@ -1210,7 +1193,7 @@
             const estimateHTML = `
                 <div class="estimate-logo-header">
                     <div class="logo-block">
-                        <img src="logo.png" alt="SC Pressure Point Logo" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+                        <img src="https://raw.githubusercontent.com/OneRedPanda99/Clearline/main/images/Logo.png" alt="SC Pressure Point Logo" onerror="this.style.display='none'">
                         <div style="display:none;width:60px;height:60px;background:#0ea5e9;border-radius:6px;display:flex;align-items:center;justify-content:center;">
                             <span style="color:white;font-weight:bold;font-size:10px;text-align:center;line-height:1.2;">SC<br>PP</span>
                         </div>
@@ -1236,14 +1219,14 @@
                     <div style="background:#0f172a;color:white;padding:14px 16px;border-radius:6px;">
                         <h3 style="color:#94a3b8;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;border-bottom:1px solid #1e293b;padding-bottom:6px;">Service Details</h3>
                         <p style="color:white;margin-bottom:6px;">${serviceDetailsText}</p>
-                        <p style="color:#e2e8f0;font-size:13px;margin-bottom:4px;">📐 Total Area: <strong style="color:white;">${totalSquareFootage.toLocaleString()} sq ft</strong></p>
-                        <p style="color:#e2e8f0;font-size:13px;margin-bottom:4px;">⏱ Est. Time: <strong style="color:white;">${totalEstimatedTime.toFixed(1)} hrs</strong> &nbsp;|&nbsp; Workers: <strong style="color:white;">${uniqueWorkers}</strong></p>
+                        <p style="color:#e2e8f0;font-size:13px;margin-bottom:4px;">Total Area: <strong style="color:white;">${totalSquareFootage.toLocaleString()} sq ft</strong></p>
+                        <p style="color:#e2e8f0;font-size:13px;margin-bottom:4px;">Est. Time: <strong style="color:white;">${totalEstimatedTime.toFixed(1)} hrs</strong> &nbsp;|&nbsp; Workers: <strong style="color:white;">${uniqueWorkers}</strong></p>
                         ${additionalCost > 0 ? `<p style="color:#fbbf24;font-size:13px;">+ ${additionalReason}</p>` : ''}
                     </div>
                 </div>
                 
                 <p style="font-size:12px;color:#444;background:#f8f9fa;border-left:3px solid #0ea5e9;padding:8px 12px;margin-bottom:10px;">
-                    ✅ All material and supply costs are included in the pricing below.
+                    All material and supply costs are included in the pricing below.
                 </p>
 
                 <table class="estimate-table">
@@ -1281,13 +1264,13 @@
                 
                 <div class="share-buttons">
                     <button class="share-btn sms" onclick="shareViaSMS()">
-                        📱 Text to Customer
+                        Text to Customer
                     </button>
                     <button class="share-btn email" onclick="shareViaEmail()">
-                        ✉️ Email to Customer
+                        Email to Customer
                     </button>
                     <button class="share-btn copy" onclick="copyEstimateText()">
-                        📋 Copy Text
+                        Copy Text
                     </button>
                 </div>
             `;
@@ -1340,7 +1323,7 @@
             const marginHTML = `
                 <div style="background:${marginBg};border:1px solid ${marginColor};padding:12px;
                             margin-top:12px;border-radius:6px;" class="no-print">
-                    <strong style="color:${marginColor};">🔒 Internal Margin Summary (not printed)</strong>
+                    <strong style="color:${marginColor};">Internal Margin Summary (not printed)</strong>
                     <table style="width:100%;margin-top:8px;font-size:13px;border-collapse:collapse;">
                         <tr><td><strong>Revenue (customer total)</strong></td>
                             <td style="text-align:right;"><strong>$${revenue.toFixed(2)}</strong></td></tr>
