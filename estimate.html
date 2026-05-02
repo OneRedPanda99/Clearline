@@ -190,6 +190,66 @@
             padding: 20px;
         }
         
+        .estimate-logo-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            border-bottom: 2px solid black;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .estimate-logo-header .logo-block {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .estimate-logo-header .logo-block img {
+            height: 60px;
+            width: auto;
+            object-fit: contain;
+        }
+        .estimate-logo-header .logo-text {
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #555;
+        }
+        .estimate-logo-header .estimate-meta {
+            text-align: right;
+        }
+        .estimate-logo-header .estimate-meta h1 {
+            font-size: 26px;
+            margin-bottom: 4px;
+        }
+        .estimate-logo-header .estimate-meta p {
+            font-size: 13px;
+            margin: 0;
+        }
+
+        /* extended-info toggle */
+        .extended-info-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f0f8ff;
+            border: 1px solid #0ea5e9;
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        .extended-info-toggle input[type=checkbox] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .extended-info-toggle label {
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            color: #0369a1;
+        }
+
         .estimate-header {
             text-align: center;
             border-bottom: 2px solid black;
@@ -608,7 +668,12 @@
                     <textarea id="notes" placeholder="Any additional notes or terms"></textarea>
                 </div>
                 
-                <button type="button" class="calc-button" onclick="generateEstimate()">
+                <div class="extended-info-toggle">
+                    <input type="checkbox" id="extendedInfo">
+                    <label for="extendedInfo">📋 Extended Information (show rates, gas &amp; chemical to customer)</label>
+                </div>
+
+                <button type="button" class="calc-button" onclick="generateEstimate()" style="margin-top:10px;">
                     GENERATE ESTIMATE
                 </button>
                 
@@ -930,7 +995,8 @@
             let totalFuelGallons = 0;
             let totalChemical = 0;
             
-            let tableRows = '';
+            let customerRows = '';
+            let extendedRows = '';
             
             services.forEach((service, index) => {
                 // A service with a negative price-per-sqft is a deduction/area-reduction.
@@ -963,17 +1029,40 @@
                     totalChemical      += estimatedChemical;
                 }
 
-                // Add service group header
+                // --- CUSTOMER TABLE ROWS (clean view) ---
                 if (services.length > 1) {
-                    tableRows += `
+                    customerRows += `
+                        <tr class="service-group-header">
+                            <td colspan="4"><strong>${service.description}${isDeduction ? ' — Area Deduction' : ''}</strong></td>
+                        </tr>`;
+                }
+                if (isDeduction) {
+                    customerRows += `
+                        <tr>
+                            <td>Deduction — ${service.description}</td>
+                            <td>${service.squareFootage.toLocaleString()} sq ft</td>
+                            <td>—</td>
+                            <td>$${servicePressureWashingCost.toFixed(2)}</td>
+                        </tr>`;
+                } else {
+                    customerRows += `
+                        <tr>
+                            <td>${services.length > 1 ? service.description : 'Pressure Washing'}</td>
+                            <td>${service.squareFootage.toLocaleString()} sq ft</td>
+                            <td>${estimatedHours.toFixed(1)} hrs</td>
+                            <td>$${servicePressureWashingCost.toFixed(2)}</td>
+                        </tr>`;
+                }
+
+                // --- EXTENDED TABLE ROWS (full detail) ---
+                if (services.length > 1) {
+                    extendedRows += `
                         <tr class="service-group-header">
                             <td colspan="4"><strong>${service.description}${isDeduction ? ' — Area Deduction' : ' (Level ' + service.dirtLevel + ' Dirt)'}</strong></td>
                         </tr>`;
                 }
-
                 if (isDeduction) {
-                    // Deduction: single adjustment row only — no fuel or chemical
-                    tableRows += `
+                    extendedRows += `
                         <tr>
                             <td>${services.length > 1 ? '  ' : ''}Deduction — ${service.description}</td>
                             <td>${service.squareFootage.toLocaleString()} sq ft</td>
@@ -981,8 +1070,7 @@
                             <td>$${servicePressureWashingCost.toFixed(2)}</td>
                         </tr>`;
                 } else {
-                    // Normal service: price + fuel + chemical rows
-                    tableRows += `
+                    extendedRows += `
                         <tr>
                             <td>${services.length > 1 ? '  ' : ''}Pressure Washing${services.length > 1 ? ' - ' + service.description : ''}</td>
                             <td>${service.squareFootage.toLocaleString()} sq ft</td>
@@ -1005,29 +1093,57 @@
             });
             
             // Calculate final totals
+            // Customer total: pressure washing only (gas & chem are internal costs)
+            const customerSubtotal = totalPressureWashing + additionalCost;
+            const customerDiscountAmount = customerSubtotal * (discountPercent / 100);
+            const customerTotal = customerSubtotal - customerDiscountAmount;
+
+            // Extended total: includes gas & chemical as line items
             const subtotal = totalPressureWashing + totalFuelCost + totalChemicalCost + additionalCost;
             const discountAmount = subtotal * (discountPercent / 100);
             const totalAfterDiscount = subtotal - discountAmount;
             
             // Add additional cost row if there's an additional cost
             if (additionalCost > 0) {
-                tableRows += `
+                const addRow = `
                     <tr>
                         <td>${additionalReason}</td>
                         <td>1</td>
                         <td>$${additionalCost.toFixed(2)}</td>
                         <td>$${additionalCost.toFixed(2)}</td>
                     </tr>`;
+                customerRows += addRow;
+                extendedRows += addRow;
             }
-            
-            tableRows += `
+
+            // Customer footer rows
+            customerRows += `
+                <tr class="subtotal-row">
+                    <td colspan="3"><strong>Subtotal</strong></td>
+                    <td><strong>$${customerSubtotal.toFixed(2)}</strong></td>
+                </tr>`;
+            if (discountPercent > 0) {
+                customerRows += `
+                    <tr>
+                        <td>Discount: ${discountReason}</td>
+                        <td colspan="2">${discountPercent}% off</td>
+                        <td>-$${customerDiscountAmount.toFixed(2)}</td>
+                    </tr>`;
+            }
+            customerRows += `
+                <tr class="total-row">
+                    <td colspan="3"><strong>ESTIMATED TOTAL</strong></td>
+                    <td><strong>$${customerTotal.toFixed(2)}</strong></td>
+                </tr>`;
+
+            // Extended footer rows
+            extendedRows += `
                 <tr class="subtotal-row">
                     <td colspan="3"><strong>Subtotal</strong></td>
                     <td><strong>$${subtotal.toFixed(2)}</strong></td>
                 </tr>`;
-            
             if (discountPercent > 0) {
-                tableRows += `
+                extendedRows += `
                     <tr>
                         <td>Discount: ${discountReason}</td>
                         <td>1</td>
@@ -1035,8 +1151,7 @@
                         <td>-$${discountAmount.toFixed(2)}</td>
                     </tr>`;
             }
-            
-            tableRows += `
+            extendedRows += `
                 <tr class="total-row">
                     <td colspan="3"><strong>ESTIMATED TOTAL</strong></td>
                     <td><strong>$${totalAfterDiscount.toFixed(2)}</strong></td>
@@ -1069,12 +1184,29 @@
                 serviceDetailsText = `Pressure Washing<br>Area: ${totalSquareFootage.toLocaleString()} sq ft<br>Dirt Level: ${service.dirtLevel}<br>`;
             }
             
+            const showExtended = document.getElementById('extendedInfo').checked;
+            const activeRows  = showExtended ? extendedRows : customerRows;
+            const displayTotal = showExtended ? totalAfterDiscount : customerTotal;
+
             // Generate complete estimate HTML
             const estimateHTML = `
-                <div class="estimate-header">
-                    <p style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#555;margin-bottom:4px;">Pressure Point Pressure Washing</p>
-                    <h1 style="font-size:26px;margin-bottom:4px;">ESTIMATE</h1>
-                    <p>Estimate #: ${estimateNum} &nbsp;|&nbsp; Date: ${today}</p>
+                <div class="estimate-logo-header">
+                    <div class="logo-block">
+                        <img src="logo.png" alt="SC Pressure Point Logo" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+                        <div style="display:none;width:60px;height:60px;background:#0ea5e9;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                            <span style="color:white;font-weight:bold;font-size:10px;text-align:center;line-height:1.2;">SC<br>PP</span>
+                        </div>
+                        <div>
+                            <div class="logo-text" style="font-weight:bold;font-size:13px;color:#000;">SC Pressure Point</div>
+                            <div class="logo-text">Pressure Washing</div>
+                            <div class="logo-text">Columbia, SC</div>
+                        </div>
+                    </div>
+                    <div class="estimate-meta">
+                        <h1>ESTIMATE</h1>
+                        <p>Estimate #: ${estimateNum}</p>
+                        <p>Date: ${today}</p>
+                    </div>
                 </div>
                 
                 <div class="estimate-details">
@@ -1096,13 +1228,13 @@
                     <thead>
                         <tr>
                             <th>Description</th>
-                            <th>Qty</th>
-                            <th>Rate</th>
+                            <th>Size</th>
+                            ${showExtended ? '<th>Rate</th>' : '<th>Est. Time</th>'}
                             <th>Amount</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${tableRows}
+                        ${activeRows}
                     </tbody>
                 </table>
                 
@@ -1117,7 +1249,7 @@
                     * This is an estimate. Actual costs may vary based on job conditions and dirt levels.
                 </p>
                 <div class="print-footer" style="margin-top: 18px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 11px; color: #555; display: flex; justify-content: space-between;">
-                    <span>Pressure Point Pressure Washing — Columbia, SC</span>
+                    <span>SC Pressure Point — Columbia, SC</span>
                     <span>Thank you for your business!</span>
                 </div>
                 
@@ -1147,7 +1279,7 @@
                 services,
                 totalSquareFootage,
                 totalEstimatedTime,
-                total: totalAfterDiscount,
+                total: displayTotal,
                 notes
             };
             
@@ -1157,32 +1289,66 @@
             const internalLaborRate = INTERNAL_LABOR_RATE;
             const laborCost = totalEstimatedTime * internalLaborRate;
             const totalInternalCost = laborCost + totalFuelCost + totalChemicalCost;
-            const grossProfit = totalAfterDiscount - totalInternalCost;
-            const marginPct = totalAfterDiscount > 0
-                ? ((grossProfit / totalAfterDiscount) * 100).toFixed(1)
+            // Revenue = customer-facing total (gas & chem are our internal costs)
+            const revenue = customerTotal;
+            const grossProfit = revenue - totalInternalCost;
+            const marginPct = revenue > 0
+                ? ((grossProfit / revenue) * 100).toFixed(1)
                 : '0.0';
 
             const marginColor = grossProfit > 0 ? '#166534' : '#991b1b';
             const marginBg    = grossProfit > 0 ? '#dcfce7' : '#fee2e2';
 
+            // Build per-service detail rows for margin summary
+            let serviceRateRows = '';
+            services.filter(s => s.pricePerSqFt >= 0).forEach(s => {
+                const prof = getSurfaceProfile(s.surfaceType);
+                const hrs  = calculateTimeFromDirtLevel(s.squareFootage, s.dirtLevel, s.numWorkers, s.surfaceType);
+                const fuelG = FUEL_RATE_GAL_PER_HR * s.numWorkers * hrs;
+                const chemG = s.squareFootage / prof.shCoverage;
+                serviceRateRows += `
+                    <tr style="font-size:11px;color:#555;">
+                        <td style="padding-left:10px;">${s.description}</td>
+                        <td style="text-align:right;">$${s.pricePerSqFt.toFixed(2)}/sq ft</td>
+                        <td style="text-align:right;">${fuelG.toFixed(1)} gal @ $${gasCost.toFixed(2)} = $${(fuelG*gasCost).toFixed(2)}</td>
+                        <td style="text-align:right;">${chemG.toFixed(2)} gal @ $${chemicalCost.toFixed(2)} = $${(chemG*chemicalCost).toFixed(2)}</td>
+                    </tr>`;
+            });
+
             const marginHTML = `
                 <div style="background:${marginBg};border:1px solid ${marginColor};padding:12px;
                             margin-top:12px;border-radius:6px;" class="no-print">
-                    <strong style="color:${marginColor};">Internal Margin Summary (not printed)</strong>
+                    <strong style="color:${marginColor};">🔒 Internal Margin Summary (not printed)</strong>
                     <table style="width:100%;margin-top:8px;font-size:13px;border-collapse:collapse;">
+                        <tr><td><strong>Revenue (customer total)</strong></td>
+                            <td style="text-align:right;"><strong>$${revenue.toFixed(2)}</strong></td></tr>
+                        <tr style="border-top:1px solid #ccc;"><td colspan="2" style="padding-top:6px;font-weight:bold;color:#444;">— Costs —</td></tr>
                         <tr><td>Labor (${totalEstimatedTime.toFixed(1)} hrs @ $${internalLaborRate}/hr)</td>
                             <td style="text-align:right;">$${laborCost.toFixed(2)}</td></tr>
-                        <tr><td>Fuel</td>
+                        <tr><td>Fuel — ${totalFuelGallons.toFixed(1)} gal total @ $${gasCost.toFixed(2)}/gal</td>
                             <td style="text-align:right;">$${totalFuelCost.toFixed(2)}</td></tr>
-                        <tr><td>Chemical</td>
+                        <tr><td>${chemicalName} — ${totalChemical.toFixed(2)} gal @ $${chemicalCost.toFixed(2)}/gal</td>
                             <td style="text-align:right;">$${totalChemicalCost.toFixed(2)}</td></tr>
                         <tr style="border-top:1px solid ${marginColor};font-weight:bold;">
                             <td>Total Cost</td>
                             <td style="text-align:right;">$${totalInternalCost.toFixed(2)}</td></tr>
-                        <tr style="font-weight:bold;color:${marginColor};">
+                        <tr style="font-weight:bold;color:${marginColor};font-size:15px;">
                             <td>Gross Profit</td>
                             <td style="text-align:right;">$${grossProfit.toFixed(2)} (${marginPct}%)</td></tr>
                     </table>
+                    ${serviceRateRows ? `
+                    <details style="margin-top:10px;font-size:12px;">
+                        <summary style="cursor:pointer;font-weight:bold;color:#444;">Per-Service Rate &amp; Materials Breakdown</summary>
+                        <table style="width:100%;margin-top:6px;border-collapse:collapse;">
+                            <thead><tr style="font-size:11px;color:#888;">
+                                <th style="text-align:left;">Service</th>
+                                <th style="text-align:right;">Rate</th>
+                                <th style="text-align:right;">Gas</th>
+                                <th style="text-align:right;">${chemicalName}</th>
+                            </tr></thead>
+                            <tbody>${serviceRateRows}</tbody>
+                        </table>
+                    </details>` : ''}
                 </div>
             `;
             document.getElementById('estimateContent').innerHTML += marginHTML;
