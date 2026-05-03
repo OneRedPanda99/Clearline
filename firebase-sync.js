@@ -97,7 +97,7 @@ const CL_FIREBASE = (function() {
             // Edge blocks as a third-party storage access — causing the app to
             // appear signed-out on a normal page load and requiring Ctrl+Shift+R.
             try {
-                await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
             } catch (err) {
                 // Gracefully fall back to whatever the browser allows.
                 console.warn('Could not set auth persistence:', err.code || err);
