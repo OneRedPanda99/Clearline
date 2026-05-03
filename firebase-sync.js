@@ -497,7 +497,9 @@ const CL_FIREBASE = (function() {
     // concurrent pushes via `pushPending` so debounced save bursts
     // collapse to one final upload.
     async function syncToCloud() {
-        if (!currentUser || !db) return false;
+        if (!currentUser || !db) {
+            showToast('Not signed in', 'error');
+            return false;      
         if (pushInProgress) {
             pushPending = true;
             return false;
