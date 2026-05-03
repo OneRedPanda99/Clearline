@@ -1173,6 +1173,7 @@
         function markComplete(id) {
             CL_DATA.updateJob(id, { status: 'completed' });
             if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                showToast('Signed in, syncing...', 'info');
                 CL_FIREBASE.syncToCloud();
             } else {
                 setTimeout(() => {
