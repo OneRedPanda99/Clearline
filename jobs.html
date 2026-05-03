@@ -1124,7 +1124,7 @@
                 afterPhotos: editPhotoState.after
             };
             CL_DATA.updateJob(id, updates);
-            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+            if (CL_FIREBASE && CL_FIREBASE.isSignedIn) {
                 CL_FIREBASE.syncToCloud();
             } else {
                 setTimeout(() => {
@@ -1173,7 +1173,7 @@
         function markComplete(id) {
             CL_DATA.updateJob(id, { status: 'completed' });
             alert('isSignedIn: ' + CL_FIREBASE.isSignedIn);
-            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+            if (CL_FIREBASE && CL_FIREBASE.isSignedIn) {
                 CL_FIREBASE.syncToCloud();
             } else {
                 setTimeout(() => {
@@ -1187,7 +1187,7 @@
 
         function markScheduled(id) {
             CL_DATA.updateJob(id, { status: 'scheduled' });
-            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+            if (CL_FIREBASE && CL_FIREBASE.isSignedIn) {
                 CL_FIREBASE.syncToCloud();
             } else {
                 setTimeout(() => {
