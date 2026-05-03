@@ -222,6 +222,7 @@ const CL_FIREBASE = (function() {
             db.collection('customers').onSnapshot(() => {
                 if (!pullInProgress) syncFromCloud();
             });
+        }
     }
 
     // Read `users/{uid}`. If the doc is missing and this is a Google sign-in
