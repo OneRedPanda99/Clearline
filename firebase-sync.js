@@ -529,11 +529,13 @@ const CL_FIREBASE = (function() {
             }, { merge: true });
 
             console.log('Data synced to cloud');
+            showToast('Synced to cloud ✓', 'success');
             return true;
         } catch (err) {
             const code = err && (err.code || err.name) || 'unknown';
             const msg = err && err.message || String(err);
             console.error('[CL_FIREBASE] syncToCloud failed:', code, msg, err);
+            showToast('Sync failed: ' + code, 'error');
             if (typeof window !== 'undefined' && typeof showToast === 'function') {
                 try { showToast('Cloud sync failed: ' + code, 'error'); } catch (_) {}
             }
