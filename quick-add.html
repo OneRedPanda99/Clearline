@@ -972,6 +972,7 @@
                 if (notes) patch.notes = notes;
                 if (address && !customer.address) patch.address = address;
                 if (Object.keys(patch).length) CL_DATA.updateCustomer(customer.id, patch);
+                if (CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
             }
             loadData();
             showSuccess('Customer saved!');
@@ -999,6 +1000,7 @@
             maybeCreateCustomer(job);
             
             CL_DATA.addJob(job);
+            if (CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
             loadData();
             showSuccess('Lead saved!');
             clearForm();
