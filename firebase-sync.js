@@ -31,6 +31,7 @@ const CL_FIREBASE = (function() {
     let userProfile = null;
     // Per-sign-in latch so we don't refetch / re-bootstrap mid-session.
     let profileLoaded = false;
+    let realtimeListenersActive = false;
 
     // Manager/Worker accounts use a bare username (no email). Firebase
     // Auth still needs an email-shaped string, so we suffix the username
@@ -166,6 +167,7 @@ const CL_FIREBASE = (function() {
         migrationRan = false;
         profileLoaded = false;
         userProfile = null;
+        realtimeListenersActive = false;
 
         window.dispatchEvent(new CustomEvent('cl-auth-change', {
             detail: { user: user ? getUserInfo() : null }
@@ -211,6 +213,15 @@ const CL_FIREBASE = (function() {
 
         // Only sync data once we know the account is active and provisioned.
         syncFromCloud();
+
+        if (!realtimeListenersActive) {
+            realtimeListenersActive = true;
+            db.collection('jobs').onSnapshot(() => {
+                if (!pullInProgress) syncFromCloud();
+            });
+            db.collection('customers').onSnapshot(() => {
+                if (!pullInProgress) syncFromCloud();
+            });
     }
 
     // Read `users/{uid}`. If the doc is missing and this is a Google sign-in
