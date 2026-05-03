@@ -617,7 +617,7 @@ const CL_FIREBASE = (function() {
             const userData = userSnap.data();
 
             CL_DATA.mergeFromCloud({
-                version: 2,
+                version: 3,
                 customers,
                 jobs,
                 deletedCustomers: userData.deletedCustomers || [],
