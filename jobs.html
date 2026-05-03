@@ -1124,6 +1124,13 @@
                 afterPhotos: editPhotoState.after
             };
             CL_DATA.updateJob(id, updates);
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.syncToCloud();
+            } else {
+                setTimeout(() => {
+                    if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
+                }, 3000);
+            }
             loadData();
             updateStats();
             renderJobs();
@@ -1165,6 +1172,13 @@
 
         function markComplete(id) {
             CL_DATA.updateJob(id, { status: 'completed' });
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.syncToCloud();
+            } else {
+                setTimeout(() => {
+                    if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
+                }, 3000);
+            }
             loadData();
             updateStats();
             renderJobs();
@@ -1172,6 +1186,13 @@
 
         function markScheduled(id) {
             CL_DATA.updateJob(id, { status: 'scheduled' });
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.syncToCloud();
+            } else {
+                setTimeout(() => {
+                    if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
+                }, 3000);
+            }
             loadData();
             updateStats();
             renderJobs();
