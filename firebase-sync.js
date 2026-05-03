@@ -499,7 +499,8 @@ const CL_FIREBASE = (function() {
     async function syncToCloud() {
         if (!currentUser || !db) {
             showToast('Not signed in', 'error');
-            return false;      
+            return false;
+        }
         if (pushInProgress) {
             pushPending = true;
             return false;
