@@ -113,12 +113,19 @@ var CL_DATA = {
             this._syncTimer = null;
             if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
                 CL_FIREBASE.syncToCloud();
-            } else if (window.CL_FIREBASE) {
-                // Auth not ready yet — wait for it then sync
-                window.addEventListener('cl-profile-updated', () => {
-                    CL_FIREBASE.syncToCloud();
-                }, { once: true });
+                return;
             }
+            // Auth not ready yet — poll for up to 10 seconds then sync
+            let attempts = 0;
+            const poll = setInterval(() => {
+                attempts++;
+                if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                    clearInterval(poll);
+                    CL_FIREBASE.syncToCloud();
+                } else if (attempts >= 20) {
+                    clearInterval(poll);
+                }
+            }, 500);
         }, 200);
     },
 
