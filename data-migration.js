@@ -469,6 +469,8 @@ var CL_DATA = {
 if (typeof window !== 'undefined') {
     CL_DATA.migrate();
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(() => {});
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+            registrations.forEach(r => r.unregister());
+        });
     }
 }
