@@ -454,7 +454,15 @@
             applyContactSettings();
             loadDashboard();
             setActiveNav();
-            // If profile already loaded before DOMContentLoaded, apply it now.
+
+            // If Firebase is configured but user isn't signed in after 5 seconds, redirect to sign-in
+            if (CL_FIREBASE && CL_FIREBASE.isConfigured()) {
+                setTimeout(() => {
+                    if (!CL_FIREBASE.isSignedIn) {
+                        window.location.href = 'signin.html';
+                    }
+                }, 5000);
+            }
             const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
             if (p) applyRoleUI(p);
         });
