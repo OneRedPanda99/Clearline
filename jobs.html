@@ -208,20 +208,42 @@
         .jobs-map-btn:active {
             transform: scale(0.94);
         }
+        .jobs-add-circle {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #2e7bff 0%, #1d4ed8 100%);
+            color: #fff;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(46, 123, 255, 0.4);
+        }
+        .jobs-add-circle i { font-size: 16px; }
+        .jobs-add-circle:active { transform: scale(0.94); }
     </style>
 </head>
 <body>
     <!-- Header -->
     <header class="app-header">
         <div class="app-header-inner jobs-head-inner">
-            <div class="jobs-head-wing" aria-hidden="true"></div>
+            <div class="jobs-head-wing jobs-head-wing-actions" style="justify-content:flex-start;">
+                <button type="button" id="jobsSearchToggle" class="jobs-map-btn" aria-label="Search jobs" aria-pressed="false">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
             <div class="jobs-head-center">
                 <h1>Jobs</h1>
                 <span id="syncPill" class="jobs-sync-pill" title="Sync status">• Local</span>
             </div>
             <div class="jobs-head-wing jobs-head-wing-actions">
-                <button type="button" class="jobs-lead-chip" onclick="openAddLeadModal()" title="Add lead / estimate visit" aria-label="Add lead or estimate visit">
-                    <i class="fas fa-user-plus" aria-hidden="true"></i>
+                <button type="button" class="jobs-map-btn" onclick="setTab('all'); document.getElementById('jobsSearchInput')?.focus();" title="Show all jobs" aria-label="Filter all jobs">
+                    <i class="fas fa-sliders-h"></i>
+                </button>
+                <button type="button" class="jobs-add-circle" onclick="openAddLeadModal()" title="Add job / lead" aria-label="Add job or lead">
+                    <i class="fas fa-plus" aria-hidden="true"></i>
                 </button>
                 <a href="map.html" class="jobs-map-btn" title="Map view" aria-label="Map view">
                     <i class="fas fa-map-marker-alt"></i>
@@ -232,27 +254,16 @@
 
     <main class="app-content">
       <div class="content-wrapper">
-        <!-- Tab Navigation -->
-        <div class="filter-tabs" style="display: flex; gap: 4px; margin-bottom: 12px; background: rgba(51,65,85,0.5); padding: 4px; border-radius: 12px;">
-            <button onclick="setTab('leads')" data-tab="leads" class="tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Leads</button>
-            <button onclick="setTab('scheduled')" data-tab="scheduled" class="tab-btn active" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Scheduled</button>
-            <button onclick="setTab('completed')" data-tab="completed" class="tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Done</button>
+        <div id="jobsSearchWrap" class="hidden" style="margin-bottom:12px;">
+            <input type="search" id="jobsSearchInput" placeholder="Search name, phone, address…" class="w-full rounded-xl" style="padding:12px 14px;font-size:16px;">
         </div>
 
-        <!-- Summary Stats — clickable shortcuts to matching tab (#11) -->
-        <div class="stats-grid">
-            <div class="stat-card" role="button" tabindex="0" style="cursor:pointer;" onclick="setTab('leads')">
-                <p class="value" style="color: #3b82f6;" id="stat-leads">0</p>
-                <p class="label">Leads</p>
-            </div>
-            <div class="stat-card" role="button" tabindex="0" style="cursor:pointer;" onclick="setTab('scheduled')">
-                <p class="value" style="color: #a78bfa;" id="stat-scheduled">0</p>
-                <p class="label">Scheduled</p>
-            </div>
-            <div class="stat-card" role="button" tabindex="0" style="cursor:pointer;" onclick="setTab('completed')">
-                <p class="value" style="color: #34d399;" id="stat-completed">0</p>
-                <p class="label">Done</p>
-            </div>
+        <!-- Filter chips -->
+        <div class="jobs-filter-scroll" id="jobsFilterScroll" role="tablist">
+            <button type="button" role="tab" class="jobs-filter-pill active" onclick="setTab('all')" data-tab="all">All (<span id="count-all">0</span>)</button>
+            <button type="button" role="tab" class="jobs-filter-pill" onclick="setTab('booked')" data-tab="booked">Booked (<span id="count-booked">0</span>)</button>
+            <button type="button" role="tab" class="jobs-filter-pill" onclick="setTab('estimate')" data-tab="estimate">Estimate (<span id="count-estimate">0</span>)</button>
+            <button type="button" role="tab" class="jobs-filter-pill" onclick="setTab('completed')" data-tab="completed">Completed (<span id="count-completed">0</span>)</button>
         </div>
 
         <!-- Jobs List -->
@@ -281,17 +292,17 @@
                 <i class="fas fa-briefcase"></i>
                 <span>Jobs</span>
             </a>
-            <a href="estimate.html" class="tab-item tab-item--cta">
-                <i class="fas fa-file-invoice-dollar"></i>
-                <span>Estimate</span>
-            </a>
-            <a href="calendar.html" class="tab-item">
-                <i class="fas fa-calendar"></i>
+            <a href="calendar.html" class="tab-item tab-item--fab">
+                <span class="tab-fab-circle"><i class="fas fa-plus"></i></span>
                 <span>Calendar</span>
             </a>
             <a href="customer-tracker.html" class="tab-item">
                 <i class="fas fa-users"></i>
                 <span>Customers</span>
+            </a>
+            <a href="more.html" class="tab-item">
+                <i class="fas fa-ellipsis-h"></i>
+                <span>More</span>
             </a>
         </div>
     </nav>
@@ -458,7 +469,8 @@
         let allWorkers = [];
         let jobs = [];
         let customers = [];
-        let currentTab = 'scheduled';
+        let currentTab = 'all';
+        let jobsSearchQuery = '';
         let editPhotoState = { before: [], after: [] };
         
         // Default job categories (used if no custom ones in settings)
@@ -728,6 +740,17 @@
             setActiveNav();
             updateSyncPill();
 
+            document.getElementById('jobsSearchToggle')?.addEventListener('click', () => {
+                const w = document.getElementById('jobsSearchWrap');
+                const hid = w.classList.toggle('hidden');
+                document.getElementById('jobsSearchToggle').setAttribute('aria-pressed', hid ? 'false' : 'true');
+                if (!hid) document.getElementById('jobsSearchInput')?.focus();
+            });
+            document.getElementById('jobsSearchInput')?.addEventListener('input', (e) => {
+                jobsSearchQuery = e.target.value;
+                renderJobs();
+            });
+
             // Deep-link support: jobs.html?highlight=<id>[&edit=1] (#4)
             const params = new URLSearchParams(window.location.search);
             const highlight = params.get('highlight');
@@ -740,8 +763,8 @@
                     // Ensure the correct tab is active so the card is visible
                     // after closing the modal.
                     const bucket = job.status === 'completed' ? 'completed'
-                                : job.status === 'scheduled' ? 'scheduled'
-                                : 'leads';
+                                : job.status === 'scheduled' ? 'booked'
+                                : 'estimate';
                     setTab(bucket);
                 }
             }
@@ -752,57 +775,52 @@
 
         function setTab(tab) {
             currentTab = tab;
-            document.querySelectorAll('.tab-btn').forEach(btn => {
+            document.querySelectorAll('.jobs-filter-pill').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.tab === tab);
             });
             renderJobs();
         }
 
         function updateStats() {
-            // Count by status
-            const leads = jobs.filter(j => j.status === 'new');
-            const scheduled = jobs.filter(j => j.status === 'scheduled');
-            const completed = jobs.filter(j => j.status === 'completed');
+            document.getElementById('count-all').textContent = jobs.length;
+            document.getElementById('count-booked').textContent = jobs.filter(j => j.status === 'scheduled').length;
+            document.getElementById('count-estimate').textContent = jobs.filter(j => j.status === 'new').length;
+            document.getElementById('count-completed').textContent = jobs.filter(j => j.status === 'completed').length;
+        }
 
-            document.getElementById('stat-leads').textContent = leads.length;
-            document.getElementById('stat-scheduled').textContent = scheduled.length;
-            document.getElementById('stat-completed').textContent = completed.length;
+        function effectiveJobDate(job) {
+            if (job.status === 'scheduled' && job.jobDate) return job.jobDate;
+            if (job.status === 'new' && job.followUpDate) return job.followUpDate;
+            if (job.jobDate) return job.jobDate;
+            if (job.followUpDate) return job.followUpDate;
+            return null;
+        }
+
+        function sectionDateLabel(iso) {
+            const d = new Date(iso + 'T12:00:00');
+            return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
         }
 
         function renderJobsList() {
             const today = new Date().toISOString().split('T')[0];
+            const tomorrowD = new Date();
+            tomorrowD.setDate(tomorrowD.getDate() + 1);
+            const tomorrow = tomorrowD.toISOString().split('T')[0];
+
             let filtered = [];
+            if (currentTab === 'all') filtered = jobs.slice();
+            else if (currentTab === 'booked') filtered = jobs.filter(j => j.status === 'scheduled');
+            else if (currentTab === 'estimate') filtered = jobs.filter(j => j.status === 'new');
+            else if (currentTab === 'completed') filtered = jobs.filter(j => j.status === 'completed');
 
-            // Filter by status (cleaner workflow)
-            if (currentTab === 'leads') {
-                // Leads: new status, no job date
-                filtered = jobs.filter(j => j.status === 'new');
-            } else if (currentTab === 'scheduled') {
-                // Scheduled: has job date, ready to work
-                filtered = jobs.filter(j => j.status === 'scheduled');
-            } else if (currentTab === 'completed') {
-                // Completed: done
-                filtered = jobs.filter(j => j.status === 'completed');
+            const q = jobsSearchQuery.trim().toLowerCase();
+            if (q) {
+                filtered = filtered.filter(j =>
+                    (j.customerName || '').toLowerCase().includes(q) ||
+                    (j.address || '').toLowerCase().includes(q) ||
+                    (j.customerPhone || '').includes(q)
+                );
             }
-
-            // Sort by date (scheduled jobs by upcoming date, others by date added)
-            filtered.sort((a, b) => {
-                if (currentTab === 'scheduled') {
-                    const dateA = new Date(a.jobDate || '9999-12-31');
-                    const dateB = new Date(b.jobDate || '9999-12-31');
-                    return dateA - dateB;
-                } else if (currentTab === 'completed') {
-                    // Most recent first
-                    const dateA = new Date(a.lastUpdated || a.dateAdded || 0);
-                    const dateB = new Date(b.lastUpdated || b.dateAdded || 0);
-                    return dateB - dateA;
-                } else {
-                    // Leads: most recent first
-                    const dateA = new Date(a.dateAdded || 0);
-                    const dateB = new Date(b.dateAdded || 0);
-                    return dateB - dateA;
-                }
-            });
 
             const container = document.getElementById('jobsList');
             const emptyState = document.getElementById('emptyState');
@@ -815,33 +833,72 @@
 
             emptyState.classList.add('hidden');
 
-            // Group by date
-            const grouped = {};
-            filtered.forEach(job => {
-                const date = job.jobDate || 'Unscheduled';
-                if (!grouped[date]) grouped[date] = [];
-                grouped[date].push(job);
+            if (currentTab === 'completed') {
+                filtered.sort((a, b) => new Date(b.lastUpdated || b.dateAdded || 0) - new Date(a.lastUpdated || a.dateAdded || 0));
+                container.innerHTML = `<div class="space-y-2">${filtered.map(renderJobCard).join('')}</div>`;
+                return;
+            }
+
+            let activePool = filtered.filter(j => j.status !== 'completed');
+            const donePool = currentTab === 'all' ? filtered.filter(j => j.status === 'completed') : [];
+
+            if (currentTab !== 'all') {
+                activePool = filtered;
+            }
+
+            activePool.sort((a, b) => {
+                const da = effectiveJobDate(a) || '9999-12-31';
+                const db = effectiveJobDate(b) || '9999-12-31';
+                if (da !== db) return da.localeCompare(db);
+                return (a.jobTime || '').localeCompare(b.jobTime || '');
+            });
+
+            const groupsToday = [];
+            const groupsTomorrow = [];
+            const laterBuckets = {};
+            const unscheduled = [];
+
+            activePool.forEach(job => {
+                const ed = effectiveJobDate(job);
+                if (!ed) {
+                    unscheduled.push(job);
+                    return;
+                }
+                if (ed === today) groupsToday.push(job);
+                else if (ed === tomorrow) groupsTomorrow.push(job);
+                else {
+                    if (!laterBuckets[ed]) laterBuckets[ed] = [];
+                    laterBuckets[ed].push(job);
+                }
             });
 
             let html = '';
-            Object.keys(grouped).forEach(date => {
-                const dateObj = date !== 'Unscheduled' ? new Date(date + 'T12:00:00') : null;
-                const dateLabel = dateObj ? dateObj.toLocaleDateString('en-US', { 
-                    weekday: 'long', month: 'short', day: 'numeric' 
-                }) : 'Unscheduled';
-                const isToday = date === today;
-
+            const pushSection = (title, arr) => {
+                if (!arr.length) return;
                 html += `
                     <div class="mb-4">
-                        <h3 class="text-sm font-bold ${isToday ? 'text-primary' : 'text-gray-400'} mb-2">
-                            ${isToday ? '📍 TODAY' : dateLabel}
-                        </h3>
-                        <div class="space-y-2">
-                            ${grouped[date].map(job => renderJobCard(job)).join('')}
-                        </div>
-                    </div>
-                `;
+                        <h3 class="text-sm font-bold text-gray-400 mb-2">${title}</h3>
+                        <div class="space-y-2">${arr.map(renderJobCard).join('')}</div>
+                    </div>`;
+            };
+
+            pushSection(`Today · ${sectionDateLabel(today)}`, groupsToday);
+            pushSection(`Tomorrow · ${sectionDateLabel(tomorrow)}`, groupsTomorrow);
+
+            Object.keys(laterBuckets).sort().forEach(dateStr => {
+                pushSection(sectionDateLabel(dateStr), laterBuckets[dateStr]);
             });
+
+            pushSection('Unscheduled', unscheduled);
+
+            if (donePool.length) {
+                donePool.sort((a, b) => new Date(b.lastUpdated || b.dateAdded || 0) - new Date(a.lastUpdated || a.dateAdded || 0));
+                html += `
+                    <div class="mb-4">
+                        <h3 class="text-sm font-bold text-gray-400 mb-2">Completed</h3>
+                        <div class="space-y-2">${donePool.map(renderJobCard).join('')}</div>
+                    </div>`;
+            }
 
             container.innerHTML = html;
         }
@@ -851,52 +908,40 @@
         }
 
         function renderJobCard(job) {
-            const statusColors = {
-                scheduled: 'bg-purple-500',
-                completed: 'bg-green-500',
-                new: 'bg-blue-500'
-            };
+            const isDone = job.status === 'completed';
+            const isEst = job.status === 'new';
+            const stripe = isDone ? 'job-card-v2__stripe--done' : isEst ? 'job-card-v2__stripe--estimate' : 'job-card-v2__stripe--booked';
+            const pill = isDone ? '<span class="tag-pill" style="background:rgba(34,197,94,0.15);color:#4ade80;">Completed</span>'
+                : isEst ? '<span class="tag-pill tag-pill--estimate">Estimate</span>'
+                : '<span class="tag-pill tag-pill--booked">Booked</span>';
+            const total = getJobDisplayTotal(job);
+            const money = total > 0 ? `<span style="color:#34d399;font-weight:700;font-size:14px;">$${total.toFixed(0)}</span>` : '';
+            const startHref = isEst ? `estimate.html?jobId=${encodeURIComponent(job.id)}` : `jobs.html?highlight=${encodeURIComponent(job.id)}`;
+            const maps = job.address ? `https://maps.google.com/?q=${encodeURIComponent(job.address)}` : '';
 
             return `
-                <div class="job-card glass-card rounded-lg p-3 relative overflow-hidden animate-in" onclick="openJobModal('${job.id}')">
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-1.5">
-                                <span class="w-2 h-2 rounded-full ${statusColors[job.status] || 'bg-gray-500'} flex-shrink-0"></span>
-                                <h4 class="font-semibold text-sm truncate">${job.customerName || 'No Name'}</h4>
-                                ${job.status === 'completed' ? '<i class="fas fa-check-circle text-green-400 text-xs"></i>' : ''}
+                <div class="job-card-v2 glass-card animate-in" onclick="openJobModal('${job.id}')">
+                    <div class="job-card-v2__inner">
+                        <div class="job-card-v2__stripe ${stripe}"></div>
+                        <div class="job-card-v2__content">
+                            <div class="flex justify-between items-start gap-2">
+                                <div class="min-w-0">
+                                    <p class="font-bold text-sm truncate" style="margin:0;">${(job.customerName || 'No name').replace(/</g, '&lt;')}</p>
+                                    <div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${pill}</div>
+                                    ${job.jobTime ? `<p style="font-size:12px;color:#94a3b8;margin:6px 0 0;"><i class="fas fa-clock"></i> ${job.jobTime}</p>` : ''}
+                                </div>
+                                ${money}
                             </div>
-                            <p class="text-xs text-gray-500">${job.serviceType || 'Service'}</p>
-                            ${job.jobTime ? `<p class="text-xs text-purple-400"><i class="fas fa-clock mr-1"></i>${job.jobTime}</p>` : ''}
-                        </div>
-                        <div class="text-right flex-shrink-0">
-                            ${(() => { const t = getJobDisplayTotal(job); return t > 0 ? `<p class="text-green-400 font-bold text-sm">$${t.toFixed(0)}</p>` : ''; })()}
+                            ${job.address ? `<p class="text-xs text-gray-500 mt-1 truncate"><i class="fas fa-map-marker-alt mr-1"></i>${job.address.replace(/</g, '&lt;')}</p>` : ''}
+                            <div class="job-card-v2__actions" onclick="event.stopPropagation()">
+                                <a class="jc-start" href="${startHref}"><i class="fas fa-play"></i> Start</a>
+                                <a class="jc-msg" href="job-chat.html?jobId=${encodeURIComponent(job.id)}"><i class="fas fa-comment"></i> Msg</a>
+                                ${job.customerPhone ? `<a class="jc-call" href="tel:${job.customerPhone}"><i class="fas fa-phone"></i> Call</a>` : '<span class="jc-call" style="opacity:0.35;"><i class="fas fa-phone"></i> Call</span>'}
+                                ${maps ? `<a class="jc-nav" target="_blank" rel="noopener" href="${maps}"><i class="fas fa-location-arrow"></i> Nav</a>` : '<span class="jc-nav" style="opacity:0.35;"><i class="fas fa-location-arrow"></i> Nav</span>'}
+                            </div>
                         </div>
                     </div>
-                    ${job.address ? `<p class="text-[10px] text-gray-500 mt-1 truncate"><i class="fas fa-map-marker-alt mr-1"></i>${job.address}</p>` : ''}
-                    <div class="flex gap-2 mt-3">
-                        ${job.customerPhone ? `
-                        <a href="tel:${job.customerPhone}" onclick="event.stopPropagation()" class="w-12 h-12 bg-green-600/20 text-green-400 rounded-lg flex items-center justify-center action-btn">
-                            <i class="fas fa-phone text-lg"></i>
-                        </a>
-                        <a href="sms:${job.customerPhone}" onclick="event.stopPropagation()" class="w-12 h-12 bg-blue-600/20 text-blue-400 rounded-lg flex items-center justify-center action-btn">
-                            <i class="fas fa-sms text-lg"></i>
-                        </a>
-                        ` : ''}
-                        ${job.address ? `
-                            <a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" onclick="event.stopPropagation()" class="w-12 h-12 bg-purple-600/20 text-purple-400 rounded-lg flex items-center justify-center action-btn">
-                                <i class="fas fa-directions text-lg"></i>
-                            </a>
-                        ` : ''}
-                        <button onclick="event.stopPropagation(); markComplete('${job.id}')" class="w-12 h-12 ${job.status === 'completed' ? 'bg-gray-600/30 text-gray-400' : 'bg-green-600/30 text-green-400'} rounded-lg flex items-center justify-center action-btn" title="${job.status === 'completed' ? 'Already completed' : 'Mark complete'}">
-                            <i class="fas fa-check text-lg"></i>
-                        </button>
-                        <button onclick="event.stopPropagation(); deleteJob('${job.id}')" class="w-12 h-12 bg-red-600/30 text-red-400 rounded-lg flex items-center justify-center action-btn" title="Delete job">
-                            <i class="fas fa-trash text-lg"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
+                </div>`;
         }
 
         function renderEditPhotos() {

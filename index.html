@@ -7,7 +7,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Clearline">
-    <meta name="theme-color" content="#020617">
+    <meta name="theme-color" content="#0b0e14">
     <link rel="apple-touch-icon" href="images/Logo.png">
     <link rel="icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
@@ -39,93 +39,112 @@
 </head>
 <body>
     <!-- Header -->
-    <header class="app-header">
-        <div class="app-header-inner">
-            <h1 id="businessTitle">Business Tools</h1>
-            <a href="settings.html" class="header-btn header-btn-right">
-                <i class="fas fa-cog"></i>
-            </a>
+    <header class="app-header app-header--home">
+        <div class="app-header-inner app-header-inner--home">
+            <button type="button" class="header-icon-btn" id="homeMenuBtn" aria-label="Open menu">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="home-greeting" id="homeGreeting">Good afternoon</div>
+            <div class="home-header-right">
+                <button type="button" class="header-icon-btn" id="homeNotifyBtn" aria-label="Notifications">
+                    <i class="fas fa-bell"></i>
+                    <span class="notify-dot" id="homeNotifyDot" hidden></span>
+                </button>
+                <a href="settings.html" class="header-icon-btn" aria-label="Settings"><i class="fas fa-cog"></i></a>
+            </div>
         </div>
     </header>
+
+    <div id="homeDrawer" class="home-drawer" hidden>
+        <div class="home-drawer-backdrop" id="homeDrawerBackdrop"></div>
+        <aside class="home-drawer-panel" aria-label="Menu">
+            <p style="font-size:18px;font-weight:700;margin-bottom:16px;color:#f8fafc;"><span id="drawerBusinessName">Clearline</span></p>
+            <p class="home-drawer-title">Forms</p>
+            <a href="estimate.html" class="home-drawer-link"><i class="fas fa-file-invoice-dollar"></i> Estimate</a>
+            <a href="invoice.html" class="home-drawer-link"><i class="fas fa-receipt"></i> Invoice</a>
+            <a href="waiver.html" class="home-drawer-link"><i class="fas fa-file-signature"></i> Waiver</a>
+            <p class="home-drawer-title">Tools</p>
+            <button type="button" class="home-drawer-link" style="width:100%;border:none;background:transparent;font:inherit;" onclick="openPricing(); closeHomeDrawer();">
+                <i class="fas fa-calculator"></i> Price calculator
+            </button>
+            <button type="button" class="home-drawer-link" style="width:100%;border:none;background:transparent;font:inherit;" onclick="openChecklist(); closeHomeDrawer();">
+                <i class="fas fa-clipboard-check"></i> Pre-job checklist
+            </button>
+            <p class="home-drawer-title">Team</p>
+            <a id="drawerManagerPanel" href="manager-panel.html" class="home-drawer-link hidden"><i class="fas fa-user-shield"></i> Manager panel</a>
+        </aside>
+    </div>
 
     <!-- Content -->
     <main class="app-content">
         <div class="content-wrapper">
-            <!-- Stats -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <p class="value" style="color: #60a5fa;" id="stat-leads">0</p>
-                    <p class="label">Leads</p>
-                </div>
-                <div class="stat-card">
-                    <p class="value" style="color: #a78bfa;" id="stat-booked">0</p>
-                    <p class="label">Booked</p>
-                </div>
-                <div class="stat-card">
-                    <p class="value" style="color: #34d399;" id="stat-done">0</p>
-                    <p class="label">Done</p>
-                </div>
+            <p id="businessTitle" class="sr-only">Business Tools</p>
+
+            <!-- Hero: next job / next visit -->
+            <div id="nextJobSection" class="hidden">
+                <div class="next-job-card" id="nextJobCard"></div>
             </div>
 
-            <!-- Pipeline value + cash snapshot -->
-            <div class="glass-card" style="padding: 16px; margin-bottom: 14px;">
-                <div style="text-align: center; padding-bottom: 14px; border-bottom: 1px solid rgba(148,163,184,0.15);">
-                    <p style="font-size: 11px; color: #64748b; letter-spacing: 0.04em; text-transform: uppercase;">Pipeline (all jobs)</p>
-                    <p style="font-size: 30px; font-weight: 700; color: #38bdf8; line-height: 1.2;">$<span id="estimatedTotal">0</span></p>
-                    <p style="font-size: 11px; color: #64748b; margin-top: 4px;"><span id="estimatedTotalCount">0</span> jobs · from estimates / invoices</p>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 14px;">
-                    <div>
-                        <p style="font-size: 11px; color: #64748b;">Collected (done)</p>
-                        <p style="font-size: 22px; font-weight: 700; color: #34d399;">$<span id="revenue">0</span></p>
-                    </div>
-                    <div style="text-align: right;">
-                        <p style="font-size: 11px; color: #64748b;">Open (leads + booked)</p>
-                        <p style="font-size: 22px; font-weight: 700; color: #fbbf24;">$<span id="pending">0</span></p>
-                    </div>
-                </div>
+            <!-- Quick actions -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+                <a href="estimate.html" class="action-btn" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: center; background: linear-gradient(145deg, rgba(6,182,212,0.95), rgba(14,165,233,0.88)); color: white; padding: 16px 12px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 14px; border: 1px solid rgba(255,255,255,0.12); min-height: 86px;">
+                    <i class="fas fa-file-circle-plus" style="font-size: 22px; margin-bottom: 8px;"></i>
+                    New estimate
+                    <span style="font-size: 10px; font-weight: 500; opacity: 0.9; margin-top: 4px;">Create a new estimate</span>
+                </a>
+                <a href="calendar.html" class="action-btn" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: center; background: linear-gradient(145deg, rgba(139,92,246,0.9), rgba(109,40,217,0.88)); color: white; padding: 16px 12px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 14px; border: 1px solid rgba(255,255,255,0.12); min-height: 86px;">
+                    <i class="fas fa-calendar-plus" style="font-size: 22px; margin-bottom: 8px;"></i>
+                    Schedule job
+                    <span style="font-size: 10px; font-weight: 500; opacity: 0.9; margin-top: 4px;">Add to calendar</span>
+                </a>
             </div>
 
-            <!-- Today: booked stops + estimate visits -->
+            <!-- Today's schedule -->
+            <div class="section-row">
+                <p class="section-title">Today's schedule</p>
+                <a href="calendar.html" class="section-link">View all</a>
+            </div>
             <div id="todaySection" class="hidden" style="margin-bottom: 14px;">
-                <p class="section-title">Today</p>
-                <div id="todayJobs" class="glass-card" style="overflow: hidden;"></div>
+                <div id="todayJobs"></div>
+            </div>
+            <div id="todayEmpty" style="display:none;padding:20px;text-align:center;color:#64748b;font-size:13px;margin-bottom:14px;" class="glass-card">
+                Nothing on the calendar today — add a <a href="jobs.html?addLead=1" style="color:#60a5fa;">lead visit</a> or <a href="calendar.html" style="color:#60a5fa;">scheduled job</a>.
             </div>
 
-            <!-- Next on your calendar -->
-            <div id="upcomingHomeSection" class="hidden" style="margin-bottom: 14px;">
+            <!-- Coming up -->
+            <div class="section-row">
                 <p class="section-title">Coming up</p>
-                <div id="upcomingHomeList" class="glass-card" style="overflow: hidden;"></div>
+                <a href="calendar.html" class="section-link">View all</a>
+            </div>
+            <div id="upcomingHomeSection" class="hidden" style="margin-bottom: 16px;">
+                <div id="upcomingHomeList" class="glass-card" style="overflow: hidden; padding: 4px 12px;"></div>
             </div>
 
-            <!-- Primary actions -->
-            <p class="section-title">Start here</p>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px;">
-                <a href="jobs.html?addLead=1" class="action-btn" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(145deg, rgba(245,158,11,0.95), rgba(217,119,6,0.95)); color: white; padding: 16px 10px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 13px; border: 1px solid rgba(255,255,255,0.12); min-height: 88px;">
-                    <i class="fas fa-user-clock" style="font-size: 22px; margin-bottom: 6px; opacity: 0.95;"></i>
-                    Estimate visit
-                    <span style="font-size: 10px; font-weight: 500; opacity: 0.85; margin-top: 4px;">New lead + date/time</span>
-                </a>
-                <a href="estimate.html" class="action-btn" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(145deg, rgba(14,165,233,0.95), rgba(6,182,212,0.9)); color: white; padding: 16px 10px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 13px; border: 1px solid rgba(255,255,255,0.12); min-height: 88px;">
-                    <i class="fas fa-file-invoice-dollar" style="font-size: 22px; margin-bottom: 6px; opacity: 0.95;"></i>
-                    Estimate
-                    <span style="font-size: 10px; font-weight: 500; opacity: 0.85; margin-top: 4px;">Quote anytime</span>
-                </a>
-                <a href="calendar.html" class="action-btn" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(51, 65, 85, 0.85); color: #e2e8f0; padding: 16px 10px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 13px; border: 1px solid rgba(148,163,184,0.2); min-height: 88px;">
-                    <i class="fas fa-calendar-alt" style="font-size: 22px; margin-bottom: 6px; color: #a78bfa;"></i>
-                    Calendar
-                    <span style="font-size: 10px; font-weight: 500; opacity: 0.75; margin-top: 4px;">Schedule work</span>
-                </a>
-                <a href="customer-tracker.html?action=add" class="action-btn" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(51, 65, 85, 0.85); color: #e2e8f0; padding: 16px 10px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 13px; border: 1px solid rgba(148,163,184,0.2); min-height: 88px;">
-                    <i class="fas fa-user-plus" style="font-size: 22px; margin-bottom: 6px; color: #60a5fa;"></i>
-                    Customer
-                    <span style="font-size: 10px; font-weight: 500; opacity: 0.75; margin-top: 4px;">Add to CRM</span>
-                </a>
+            <!-- Today's performance -->
+            <p class="section-title">Today's performance</p>
+            <div class="stats-grid stats-grid--4">
+                <div class="stat-card">
+                    <p class="value" style="color: #60a5fa;">$<span id="estimatedTotal">0</span></p>
+                    <p class="label">Pipeline</p>
+                </div>
+                <div class="stat-card">
+                    <p class="value" style="color: #34d399;">$<span id="revenue">0</span></p>
+                    <p class="label">Collected</p>
+                </div>
+                <div class="stat-card">
+                    <p class="value" style="color: #fbbf24;">$<span id="pending">0</span></p>
+                    <p class="label">Open</p>
+                </div>
+                <div class="stat-card">
+                    <p class="value" style="color: #a78bfa;" id="statTotalJobs">0</p>
+                    <p class="label">Jobs</p>
+                </div>
             </div>
+            <p style="font-size:10px;color:#64748b;text-align:center;margin:-8px 0 16px;"><span id="estimatedTotalCount">0</span> jobs in pipeline · all time</p>
 
             <!-- Shortcuts -->
             <p class="section-title">Shortcuts</p>
-            <div class="quick-grid" style="margin-bottom: 20px;">
+            <div class="quick-grid" style="margin-bottom: 16px;">
                 <a href="jobs.html" class="quick-btn">
                     <i class="fas fa-briefcase" style="color: #fb923c;"></i>
                     <span>Jobs</span>
@@ -138,57 +157,14 @@
                     <i class="fas fa-map-marked-alt" style="color: #f87171;"></i>
                     <span>Map</span>
                 </a>
-                <!-- Manager Panel tile — hidden by default; revealed for Owner via JS below. -->
                 <a id="managerPanelTile" href="manager-panel.html" class="quick-btn hidden">
                     <i class="fas fa-user-shield" style="color: #fbbf24;"></i>
-                    <span>Manager Panel</span>
+                    <span>Manager</span>
                 </a>
-            </div>
-
-            <!-- Forms & Documents -->
-            <p class="section-title">Forms & Documents</p>
-            <div class="glass-card" style="overflow: hidden; margin-bottom: 20px;">
-                <a href="estimate.html" class="list-item" style="text-decoration: none; color: inherit;">
-                    <i class="fas fa-file-invoice-dollar" style="color: #fbbf24; width: 24px; margin-right: 12px;"></i>
-                    <div style="flex: 1;">
-                        <p style="font-weight: 600; font-size: 15px;">Create Estimate</p>
-                        <p style="font-size: 12px; color: #64748b;">Generate a quote for customers</p>
-                    </div>
-                    <i class="fas fa-chevron-right" style="color: #475569;"></i>
-                </a>
-                <a href="invoice.html" class="list-item" style="text-decoration: none; color: inherit;">
-                    <i class="fas fa-receipt" style="color: #34d399; width: 24px; margin-right: 12px;"></i>
-                    <div style="flex: 1;">
-                        <p style="font-weight: 600; font-size: 15px;">Create Invoice</p>
-                        <p style="font-size: 12px; color: #64748b;">Bill for completed work</p>
-                    </div>
-                    <i class="fas fa-chevron-right" style="color: #475569;"></i>
-                </a>
-            </div>
-
-            <!-- Tools -->
-            <p class="section-title">Tools</p>
-            <div class="glass-card" style="overflow: hidden; margin-bottom: 20px;">
-                <button onclick="openPricing()" class="list-item" style="width: 100%; background: none; border: none; cursor: pointer; text-align: left; color: inherit;">
-                    <i class="fas fa-calculator" style="color: #22d3ee; width: 24px; margin-right: 12px;"></i>
-                    <div style="flex: 1;">
-                        <p style="font-weight: 600; font-size: 15px;">Price Calculator</p>
-                        <p style="font-size: 12px; color: #64748b;">Quick pricing estimates</p>
-                    </div>
-                    <i class="fas fa-chevron-right" style="color: #475569;"></i>
-                </button>
-                <button onclick="openChecklist()" class="list-item" style="width: 100%; background: none; border: none; cursor: pointer; text-align: left; color: inherit;">
-                    <i class="fas fa-clipboard-check" style="color: #fb923c; width: 24px; margin-right: 12px;"></i>
-                    <div style="flex: 1;">
-                        <p style="font-weight: 600; font-size: 15px;">Pre-Job Checklist</p>
-                        <p style="font-size: 12px; color: #64748b;">Equipment check</p>
-                    </div>
-                    <i class="fas fa-chevron-right" style="color: #475569;"></i>
-                </button>
             </div>
 
             <!-- Contact -->
-            <p class="section-title">Quick Contact</p>
+            <p class="section-title">Quick contact</p>
             <div style="display: flex; gap: 8px; margin-bottom: 20px;">
                 <a id="contactCall" href="tel:" class="action-btn" style="flex: 1; background: #16a34a; color: white; padding: 12px; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 600; font-size: 14px;">
                     <i class="fas fa-phone"></i> Call
@@ -214,17 +190,17 @@
                 <i class="fas fa-briefcase"></i>
                 <span>Jobs</span>
             </a>
-            <a href="estimate.html" class="tab-item tab-item--cta">
-                <i class="fas fa-file-invoice-dollar"></i>
-                <span>Estimate</span>
-            </a>
-            <a href="calendar.html" class="tab-item">
-                <i class="fas fa-calendar"></i>
+            <a href="calendar.html" class="tab-item tab-item--fab">
+                <span class="tab-fab-circle"><i class="fas fa-plus"></i></span>
                 <span>Calendar</span>
             </a>
             <a href="customer-tracker.html" class="tab-item">
                 <i class="fas fa-users"></i>
                 <span>Customers</span>
+            </a>
+            <a href="more.html" class="tab-item">
+                <i class="fas fa-ellipsis-h"></i>
+                <span>More</span>
             </a>
         </div>
     </nav>
@@ -286,18 +262,88 @@
     </div>
 
     <script>
+        function esc(s) {
+            if (s == null || s === undefined) return '';
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        }
+
+        function dashScheduleCard(j) {
+            const isEst = j.__kind === 'estimate';
+            const stripe = isEst ? 'dash-schedule-card__stripe--estimate' : 'dash-schedule-card__stripe--booked';
+            const tag = isEst
+                ? '<span class="tag-pill tag-pill--estimate">Estimate</span>'
+                : '<span class="tag-pill tag-pill--booked">Booked</span>';
+            const nav = j.address && j.__kind === 'work'
+                ? `https://maps.google.com/?q=${encodeURIComponent(j.address)}`
+                : null;
+            const startHref = isEst ? `estimate.html?jobId=${encodeURIComponent(j.id)}` : `jobs.html?highlight=${encodeURIComponent(j.id)}`;
+            const phone = j.customerPhone ? esc(j.customerPhone) : '';
+            return `
+                <div class="dash-schedule-card">
+                    <div class="dash-schedule-card__stripe ${stripe}"></div>
+                    <div class="dash-schedule-card__body">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                            <div style="min-width:0;">
+                                <p style="font-weight:700;font-size:15px;margin:0;">${esc(j.customerName || 'Lead')}</p>
+                                <div style="margin-top:6px;">${tag}</div>
+                            </div>
+                            ${j.jobTime ? `<span style="font-size:13px;color:#94a3b8;font-weight:600;">${esc(j.jobTime)}</span>` : ''}
+                        </div>
+                        ${j.address && j.__kind === 'work' ? `<p style="font-size:12px;color:#64748b;margin-top:8px;"><i class="fas fa-map-marker-alt" style="margin-right:4px;"></i>${esc(j.address)}</p>` : ''}
+                        <div class="dash-schedule-card__actions">
+                            <a class="dash-icon-btn" href="${startHref}"><i class="fas fa-play"></i>Start</a>
+                            <a class="dash-icon-btn" href="job-chat.html?jobId=${encodeURIComponent(j.id)}"><i class="fas fa-comment"></i>Msg</a>
+                            ${phone ? `<a class="dash-icon-btn" href="tel:${phone.replace(/\D/g, '')}"><i class="fas fa-phone"></i>Call</a>` : '<span class="dash-icon-btn" style="opacity:0.35;cursor:default;"><i class="fas fa-phone"></i>Call</span>'}
+                            ${nav ? `<a class="dash-icon-btn" target="_blank" rel="noopener" href="${nav}"><i class="fas fa-location-arrow"></i>Nav</a>` : '<span class="dash-icon-btn" style="opacity:0.35;cursor:default;"><i class="fas fa-location-arrow"></i>Nav</span>'}
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function buildHero(job, extra) {
+            const isEst = job.__kind === 'estimate' || (job.slotKind === 'Estimate');
+            const label = extra.label || 'NEXT JOB';
+            const total = getJobDisplayTotal(job);
+            const money = total > 0 ? `<span style="color:#34d399;font-weight:800;font-size:18px;">$${total.toFixed(0)}</span>` : '';
+            const tag = isEst
+                ? '<span class="tag-pill tag-pill--estimate">Estimate</span>'
+                : '<span class="tag-pill tag-pill--booked">Booked</span>';
+            const timeStr = job.jobTime ? esc(job.jobTime) : '';
+            const addr = job.address ? esc(job.address) : '';
+            const navUrl = job.address ? `https://maps.google.com/?q=${encodeURIComponent(job.address)}` : '';
+            const startHref = isEst
+                ? `estimate.html?jobId=${encodeURIComponent(job.id)}`
+                : `jobs.html?highlight=${encodeURIComponent(job.id)}`;
+            const moreToday = extra.moreToday || 0;
+            return `
+                <div class="next-job-card__head">
+                    <div class="next-job-card__label"><i class="fas fa-calendar-day"></i> ${label}</div>
+                    ${money}
+                </div>
+                <div class="next-job-row">
+                    <div style="flex:1;min-width:0;">
+                        <p style="font-size:20px;font-weight:800;margin:0;line-height:1.2;">${esc(job.customerName || 'Customer')}</p>
+                        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+                            ${tag}
+                            ${timeStr ? `<span style="color:#94a3b8;font-size:13px;font-weight:600;"><i class="fas fa-clock"></i> ${timeStr}</span>` : ''}
+                        </div>
+                        ${addr ? `<p style="font-size:13px;color:#94a3b8;margin-top:10px;"><i class="fas fa-map-marker-alt" style="color:#60a5fa;margin-right:6px;"></i>${addr}</p>` : ''}
+                        ${moreToday > 0 ? `<p style="margin-top:10px;font-size:12px;color:#64748b;"><a href="calendar.html" style="color:#60a5fa;text-decoration:none;font-weight:600;">${moreToday} more job${moreToday !== 1 ? 's' : ''} today <i class="fas fa-chevron-down" style="font-size:10px;"></i></a></p>` : ''}
+                    </div>
+                    <div class="next-job-map-wrap">
+                        <div class="next-job-card__map" aria-hidden="true"><i class="fas fa-location-arrow"></i></div>
+                    </div>
+                </div>
+                <div class="next-job-actions">
+                    <a class="btn-hero-primary" href="${startHref}"><i class="fas fa-play"></i> ${isEst ? 'Open estimate' : 'Start job'}</a>
+                    ${navUrl ? `<a class="btn-hero-secondary" target="_blank" rel="noopener" href="${navUrl}"><i class="fas fa-compass"></i> Navigate</a>` : '<span class="btn-hero-secondary" style="opacity:0.45;pointer-events:none;"><i class="fas fa-compass"></i> Navigate</span>'}
+                </div>`;
+        }
+
         // Load and display data
         function loadDashboard() {
             const jobs = CL_DATA.getJobs();
-            
-            // Stats
-            document.getElementById('stat-leads').textContent = jobs.filter(j => j.status === 'new').length;
-            document.getElementById('stat-booked').textContent = jobs.filter(j => j.status === 'scheduled').length;
-            document.getElementById('stat-done').textContent = jobs.filter(j => j.status === 'completed').length;
-            
-            // Revenue / Pending now use the derived total (invoice > estimate >
-            // quoteAmount) so adjustments and discounts on the linked docs flow
-            // through to the dashboard without editing the job directly.
+
             const completedRevenue = jobs
                 .filter(j => j.status === 'completed')
                 .reduce((sum, j) => sum + getJobDisplayTotal(j), 0);
@@ -308,14 +354,17 @@
             document.getElementById('revenue').textContent = completedRevenue.toFixed(0);
             document.getElementById('pending').textContent = pendingRevenue.toFixed(0);
 
-            // Estimated Total spans every job (completed + pending) and also
-            // reads from linked docs via getJobDisplayTotal.
             const estimatedTotal = jobs.reduce((sum, j) => sum + getJobDisplayTotal(j), 0);
             document.getElementById('estimatedTotal').textContent = estimatedTotal.toFixed(0);
             document.getElementById('estimatedTotalCount').textContent = jobs.length;
+            const tj = document.getElementById('statTotalJobs');
+            if (tj) tj.textContent = jobs.length;
 
             const today = new Date().toISOString().split('T')[0];
-            const fmtDay = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            const fmtShort = (iso) => {
+                const d = new Date(iso + 'T12:00:00');
+                return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+            };
 
             const todayScheduled = jobs.filter(j => j.jobDate === today && j.status === 'scheduled');
             const todayEstimates = jobs.filter(j => j.followUpDate === today && j.status === 'new');
@@ -328,46 +377,6 @@
                 if (c !== 0) return c;
                 return (a.customerName || '').localeCompare(b.customerName || '');
             });
-
-            const todaySection = document.getElementById('todaySection');
-            const todayEl = document.getElementById('todayJobs');
-            if (todayPieces.length > 0) {
-                todaySection.classList.remove('hidden');
-                todayEl.innerHTML = todayPieces.map(j => {
-                    const badge = j.__kind === 'estimate'
-                        ? '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#fbbf24;background:rgba(245,158,11,0.14);padding:3px 8px;border-radius:999px;">Estimate visit</span>'
-                        : '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#c4b5fd;background:rgba(167,139,250,0.12);padding:3px 8px;border-radius:999px;">Booked job</span>';
-                    const total = getJobDisplayTotal(j);
-                    const money = total > 0 ? `<span style="color:#34d399;font-weight:600;">$${total.toFixed(0)}</span>` : '';
-                    const timeRow = j.jobTime ? `<p style="font-size:13px;color:#94a3b8;margin:6px 0 0;"><i class="fas fa-clock" style="margin-right:6px;"></i>${j.jobTime}</p>` : '';
-                    const actions = j.__kind === 'estimate'
-                        ? `<div style="display:flex;gap:8px;margin-top:12px;width:100%;flex-wrap:wrap;">
-                            <a href="estimate.html?jobId=${encodeURIComponent(j.id)}" style="flex:1;min-width:120px;background:#c2410c;color:white;padding:10px;border-radius:10px;text-align:center;text-decoration:none;font-size:13px;font-weight:600;">Open estimate</a>
-                            ${j.customerPhone ? `<a href="tel:${j.customerPhone}" style="width:48px;background:#16a34a;color:white;padding:10px;border-radius:10px;text-align:center;text-decoration:none;"><i class="fas fa-phone"></i></a>` : ''}
-                           </div>`
-                        : `<div style="display:flex;gap:8px;margin-top:12px;width:100%;">
-                            ${j.customerPhone ? `<a href="tel:${j.customerPhone}" style="flex:1;background:#16a34a;color:white;padding:10px;border-radius:10px;text-align:center;text-decoration:none;font-size:13px;font-weight:600;"><i class="fas fa-phone"></i> Call</a>` : ''}
-                            ${j.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(j.address)}" target="_blank" rel="noopener" style="flex:1;background:#2563eb;color:white;padding:10px;border-radius:10px;text-align:center;text-decoration:none;font-size:13px;font-weight:600;"><i class="fas fa-directions"></i> Nav</a>` : ''}
-                           </div>`;
-                    return `
-                        <div class="list-item" style="flex-direction:column;align-items:flex-start;">
-                            <div style="display:flex;justify-content:space-between;width:100%;align-items:flex-start;gap:10px;">
-                                <div style="min-width:0;">
-                                    <p style="font-weight:600;font-size:15px;">${(j.customerName || 'Lead').replace(/</g, '&lt;')}</p>
-                                    <div style="margin-top:8px;">${badge}</div>
-                                </div>
-                                ${money ? `<div>${money}</div>` : ''}
-                            </div>
-                            ${timeRow}
-                            <p style="font-size:13px;color:#94a3b8;margin-top:6px;">${(j.serviceType || (j.__kind === 'estimate' ? 'Estimate visit' : 'Scheduled work')).replace(/</g, '&lt;')}</p>
-                            ${j.address && j.__kind === 'work' ? `<p style="font-size:12px;color:#64748b;margin-top:6px;"><i class="fas fa-map-marker-alt" style="margin-right:6px;"></i>${j.address.replace(/</g, '&lt;')}</p>` : ''}
-                            ${actions}
-                        </div>`;
-                }).join('');
-            } else {
-                todaySection.classList.add('hidden');
-                todayEl.innerHTML = '';
-            }
 
             const upcomingMerged = [];
             jobs.forEach(j => {
@@ -383,33 +392,83 @@
                 if (d !== 0) return d;
                 return (a.jobTime || '').localeCompare(b.jobTime || '');
             });
-            const upcomingPick = upcomingMerged.slice(0, 6);
+
+            const nextSection = document.getElementById('nextJobSection');
+            const nextCard = document.getElementById('nextJobCard');
+            if (todayPieces.length > 0) {
+                const hero = todayPieces[0];
+                nextSection.classList.remove('hidden');
+                nextCard.innerHTML = buildHero(hero, {
+                    label: 'NEXT JOB',
+                    moreToday: Math.max(0, todayPieces.length - 1)
+                });
+            } else if (upcomingMerged.length > 0) {
+                const hero = upcomingMerged[0];
+                nextSection.classList.remove('hidden');
+                hero.__kind = hero.slotKind === 'Estimate' ? 'estimate' : 'work';
+                nextCard.innerHTML = buildHero(hero, { label: 'NEXT UP' });
+            } else {
+                nextSection.classList.add('hidden');
+                nextCard.innerHTML = '';
+            }
+
+            const todaySection = document.getElementById('todaySection');
+            const todayEl = document.getElementById('todayJobs');
+            const todayEmpty = document.getElementById('todayEmpty');
+            const listPieces = todayPieces.length > 1 ? todayPieces.slice(1) : [];
+
+            if (todayPieces.length === 0) {
+                todaySection.classList.add('hidden');
+                if (todayEl) todayEl.innerHTML = '';
+                if (todayEmpty) todayEmpty.style.display = 'block';
+            } else {
+                if (todayEmpty) todayEmpty.style.display = 'none';
+                todaySection.classList.remove('hidden');
+                if (listPieces.length > 0) {
+                    todayEl.innerHTML = listPieces.map(dashScheduleCard).join('');
+                } else {
+                    todayEl.innerHTML = '<p style="text-align:center;color:#64748b;font-size:13px;padding:14px;margin:0;">No other stops today after your next job.</p>';
+                }
+            }
+
+            const upcomingPick = upcomingMerged.slice(0, 8);
             const upcomingSection = document.getElementById('upcomingHomeSection');
             const upcomingEl = document.getElementById('upcomingHomeList');
             if (upcomingPick.length > 0) {
                 upcomingSection.classList.remove('hidden');
                 upcomingEl.innerHTML = upcomingPick.map(j => {
-                    const href = j.slotKind === 'Estimate'
-                        ? `estimate.html?jobId=${encodeURIComponent(j.id)}`
-                        : `jobs.html?highlight=${encodeURIComponent(j.id)}`;
-                    const tag = j.slotKind === 'Estimate'
-                        ? '<span style="color:#fbbf24;font-size:11px;font-weight:600;">Estimate</span>'
-                        : '<span style="color:#a78bfa;font-size:11px;font-weight:600;">Booked</span>';
-                    const sub = [fmtDay(j.slotDate), j.jobTime].filter(Boolean).join(' · ');
-                    const name = (j.customerName || 'Lead').replace(/</g, '&lt;');
+                    const name = esc(j.customerName || 'Lead');
+                    const isEst = j.slotKind === 'Estimate';
+                    const sub = [fmtShort(j.slotDate), j.jobTime].filter(Boolean).join(' · ');
+                    const dayBits = new Date(j.slotDate + 'T12:00:00');
+                    const dayStr = dayBits.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+                    const btn = isEst
+                        ? `<a class="btn-outline-amber" href="jobs.html?highlight=${encodeURIComponent(j.id)}&edit=1">Convert to job</a>`
+                        : `<a class="btn-outline-blue" href="jobs.html?highlight=${encodeURIComponent(j.id)}">View</a>`;
                     return `
-                        <a href="${href}" class="list-item" style="text-decoration:none;color:inherit;">
-                            <div style="flex:1;min-width:0;">
-                                <p style="font-weight:600;">${name}</p>
-                                <p style="font-size:12px;color:#94a3b8;margin-top:4px;">${sub}</p>
+                        <div class="coming-row">
+                            <div class="coming-date">${dayStr.replace(',', '')}</div>
+                            <div class="coming-main">
+                                <p style="font-weight:700;margin:0;">${name}</p>
+                                <p style="font-size:12px;color:#94a3b8;margin:4px 0 0;">${esc(sub)}</p>
+                                <div style="margin-top:6px;">${isEst ? '<span class="tag-pill tag-pill--estimate">Estimate</span>' : '<span class="tag-pill tag-pill--booked">Booked</span>'}</div>
                             </div>
-                            <div style="text-align:right;">${tag}<i class="fas fa-chevron-right" style="color:#475569;margin-left:10px;"></i></div>
-                        </a>`;
+                            <div class="coming-actions">${btn}</div>
+                        </div>`;
                 }).join('');
             } else {
                 upcomingSection.classList.add('hidden');
                 upcomingEl.innerHTML = '';
             }
+        }
+
+        function openHomeDrawer() {
+            const d = document.getElementById('homeDrawer');
+            if (d) d.removeAttribute('hidden');
+        }
+        function closeHomeDrawer() {
+            const d = document.getElementById('homeDrawer');
+            if (d) d.setAttribute('hidden', '');
         }
 
         function applyContactSettings() {
@@ -419,9 +478,10 @@
             const email = settings.businessEmail || '';
             const phoneDigits = phone.replace(/\D/g, '');
 
-            // Update business name in header
             const titleEl = document.getElementById('businessTitle');
             if (titleEl) titleEl.textContent = businessName;
+            const drawerName = document.getElementById('drawerBusinessName');
+            if (drawerName) drawerName.textContent = businessName;
             document.title = businessName;
 
             const callLink = document.getElementById('contactCall');
@@ -522,20 +582,41 @@
         // the Firebase profile has loaded. Non-Owner roles get redirected
         // by signin.html, but defence-in-depth keeps the tile hidden in
         // case they deep-link here.
+        function updateHomeGreeting() {
+            const hour = new Date().getHours();
+            let g = 'Good evening';
+            if (hour < 12) g = 'Good morning';
+            else if (hour < 17) g = 'Good afternoon';
+            const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
+            const first = (p && p.displayName) ? p.displayName.trim().split(/\s+/)[0] : '';
+            const el = document.getElementById('homeGreeting');
+            if (el) el.textContent = first ? `${g}, ${first} 👋` : `${g} 👋`;
+        }
+
         function applyRoleUI(profile) {
             if (!profile) return;
             const tile = document.getElementById('managerPanelTile');
             if (tile && profile.role === 'owner') tile.classList.remove('hidden');
+            const drawer = document.getElementById('drawerManagerPanel');
+            if (drawer && profile.role === 'owner') drawer.classList.remove('hidden');
             if (profile.role === 'manager') location.replace('manager-home.html');
             else if (profile.role === 'worker') location.replace('worker-home.html');
         }
-        window.addEventListener('cl-profile-updated', (e) => applyRoleUI(e.detail && e.detail.profile));
+        window.addEventListener('cl-profile-updated', (e) => {
+            applyRoleUI(e.detail && e.detail.profile);
+            updateHomeGreeting();
+        });
 
         // Init
         document.addEventListener('DOMContentLoaded', () => {
             applyContactSettings();
+            updateHomeGreeting();
             loadDashboard();
             setActiveNav();
+
+            document.getElementById('homeMenuBtn')?.addEventListener('click', openHomeDrawer);
+            document.getElementById('homeDrawerBackdrop')?.addEventListener('click', closeHomeDrawer);
+            document.getElementById('homeNotifyBtn')?.addEventListener('click', () => showToast('You\'re all caught up.', 'info'));
 
             // If Firebase is configured but user isn't signed in after 5 seconds, redirect to sign-in
             if (CL_FIREBASE && CL_FIREBASE.isConfigured()) {

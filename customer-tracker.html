@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="theme-color" content="#020617">
+    <meta name="theme-color" content="#0b0e14">
     <title>Customers - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
@@ -179,10 +179,10 @@
 <body>
     <!-- Header -->
     <header class="app-header">
-        <div class="app-header-inner">
-            <h1>Customers</h1>
-            <!-- Hidden by default; revealed for roles with canCreateCustomers. -->
-            <button id="newCustomerBtn" onclick="openAddModal()" class="header-btn header-btn-right hidden" style="color: var(--primary);">
+        <div class="app-header-inner" style="display:flex;align-items:center;justify-content:space-between;max-width:500px;margin:0 auto;padding-left:8px;padding-right:8px;">
+            <button type="button" id="customerSearchToggle" class="header-icon-btn" aria-label="Search" aria-pressed="false"><i class="fas fa-search"></i></button>
+            <h1 style="flex:1;text-align:center;margin:0;font-size:17px;font-weight:600;">Customers</h1>
+            <button id="newCustomerBtn" onclick="openAddModal()" class="header-icon-btn hidden" style="color: var(--electric, #2e7bff);" aria-label="Add customer">
                 <i class="fas fa-plus"></i>
             </button>
         </div>
@@ -190,8 +190,7 @@
 
     <main class="app-content">
       <div class="content-wrapper">
-        <!-- Search -->
-        <div class="mb-4">
+        <div id="customerSearchWrap" class="hidden mb-3">
             <div class="relative">
                 <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
                 <input type="text" id="searchInput" placeholder="Search customers..." 
@@ -200,24 +199,47 @@
             </div>
         </div>
 
-        <!-- Customer Count -->
-        <div class="mb-4 flex items-center justify-between">
-            <span class="text-gray-400 text-sm">
-                <span id="count-all">0</span> customers
-            </span>
-            <div class="flex items-center gap-3">
-                <label class="text-primary text-sm cursor-pointer">
-                    <i class="fas fa-file-import mr-1"></i>Import VCF
-                    <input type="file" accept=".vcf,text/vcard" onchange="importData(event)" class="hidden">
-                </label>
-                <a href="jobs.html" class="text-primary text-sm">
-                    <i class="fas fa-briefcase mr-1"></i>Jobs
-                </a>
+        <div class="stats-grid stats-grid--4 mb-4">
+            <div class="stat-card">
+                <p class="value" style="color:#60a5fa;" id="ctStatCustomers">0</p>
+                <p class="label">Customers</p>
+            </div>
+            <div class="stat-card">
+                <p class="value" style="color:#a78bfa;" id="ctStatActive">0</p>
+                <p class="label">Active jobs</p>
+            </div>
+            <div class="stat-card">
+                <p class="value" style="color:#34d399;" id="ctStatRev">0</p>
+                <p class="label">Revenue</p>
+            </div>
+            <div class="stat-card">
+                <p class="value" style="color:#fbbf24;" id="ctStatMonth">0</p>
+                <p class="label">This mo.</p>
             </div>
         </div>
 
-        <!-- Customer List -->
-        <div id="customerList" class="space-y-3"></div>
+        <div class="ct-tab-row">
+            <button type="button" class="ct-tab active" id="ctTabAll" onclick="setCustomerListTab('all')">All customers</button>
+            <button type="button" class="ct-tab" id="ctTabRecent" onclick="setCustomerListTab('recent')">Recent</button>
+        </div>
+
+        <div class="mb-3 flex items-center justify-between text-sm">
+            <span class="text-gray-400"><span id="count-all">0</span> shown</span>
+            <div class="flex items-center gap-3">
+                <label class="text-primary cursor-pointer">
+                    <i class="fas fa-file-import mr-1"></i>Import
+                    <input type="file" accept=".vcf,text/vcard" onchange="importData(event)" class="hidden">
+                </label>
+                <a href="jobs.html" class="text-primary"><i class="fas fa-briefcase mr-1"></i>Jobs</a>
+            </div>
+        </div>
+
+        <div class="customer-layout">
+          <div class="customer-layout-main">
+            <div id="customerList" class="space-y-2"></div>
+          </div>
+          <nav id="customerAzRail" class="customer-az-rail" aria-label="Jump to letter"></nav>
+        </div>
 
         <!-- Empty State -->
         <div id="emptyState" class="hidden" style="text-align: center; padding: 48px 0;">
@@ -239,17 +261,17 @@
                 <i class="fas fa-briefcase"></i>
                 <span>Jobs</span>
             </a>
-            <a href="estimate.html" class="tab-item tab-item--cta">
-                <i class="fas fa-file-invoice-dollar"></i>
-                <span>Estimate</span>
-            </a>
-            <a href="calendar.html" class="tab-item">
-                <i class="fas fa-calendar"></i>
+            <a href="calendar.html" class="tab-item tab-item--fab">
+                <span class="tab-fab-circle"><i class="fas fa-plus"></i></span>
                 <span>Calendar</span>
             </a>
             <a href="customer-tracker.html" class="tab-item active">
                 <i class="fas fa-users"></i>
                 <span>Customers</span>
+            </a>
+            <a href="more.html" class="tab-item">
+                <i class="fas fa-ellipsis-h"></i>
+                <span>More</span>
             </a>
         </div>
     </nav>
@@ -339,11 +361,59 @@
         let customers = [];
         let jobs = [];
         let searchQuery = '';
-        
+        let customerListTab = 'all';
+
         function loadData() {
             customers = CL_DATA.getCustomers();
             jobs = CL_DATA.getJobs();
+            updateCustomerStats();
         }
+
+        function setCustomerListTab(tab) {
+            customerListTab = tab;
+            document.getElementById('ctTabAll')?.classList.toggle('active', tab === 'all');
+            document.getElementById('ctTabRecent')?.classList.toggle('active', tab === 'recent');
+            renderCustomers();
+        }
+
+        function updateCustomerStats() {
+            const elC = document.getElementById('ctStatCustomers');
+            const elA = document.getElementById('ctStatActive');
+            const elR = document.getElementById('ctStatRev');
+            const elM = document.getElementById('ctStatMonth');
+            if (elC) elC.textContent = customers.length;
+            if (elA) elA.textContent = jobs.filter(j => j.status === 'new' || j.status === 'scheduled').length;
+            if (elR) {
+                const rev = jobs.filter(j => j.status === 'completed').reduce((s, j) => s + getJobDisplayTotal(j), 0);
+                elR.textContent = '$' + rev.toFixed(0);
+            }
+            if (elM) {
+                const ym = new Date().toISOString().slice(0, 7);
+                elM.textContent = customers.filter(c => c.dateAdded && c.dateAdded.slice(0, 7) === ym).length;
+            }
+        }
+
+        function initialsFor(name) {
+            if (!name || !String(name).trim()) return '?';
+            const p = String(name).trim().split(/\s+/);
+            if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+            return (p[0][0] + p[p.length - 1][0]).toUpperCase();
+        }
+
+        function getCustomerRevenue(customerId) {
+            return getCustomerJobs(customerId).reduce((s, j) => s + getJobDisplayTotal(j), 0);
+        }
+
+        function letterBucket(name) {
+            const c = (name || ' ').trim().charAt(0).toUpperCase();
+            if (/[A-Z]/.test(c)) return c;
+            return 'hash';
+        }
+
+        window.scrollToCustLetter = function(L) {
+            const el = document.getElementById('letter-' + L);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
 
         function rebuildCustomerNameOptions() {
             const list = document.getElementById('customerNameOptions');
@@ -382,6 +452,12 @@
             rebuildCustomerNameOptions();
             renderCustomers();
             setActiveNav();
+            document.getElementById('customerSearchToggle')?.addEventListener('click', () => {
+                const w = document.getElementById('customerSearchWrap');
+                const hid = w.classList.toggle('hidden');
+                document.getElementById('customerSearchToggle').setAttribute('aria-pressed', hid ? 'false' : 'true');
+                if (!hid) document.getElementById('searchInput')?.focus();
+            });
             const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
             if (p) applyCustomerPermissions(p);
             window.addEventListener('cl-profile-updated', (e) => applyCustomerPermissions(e.detail && e.detail.profile));
@@ -467,17 +543,17 @@
             closeCustomerModal();
         }
 
-        // Render customers - now shows customer-only view with job counts
+        // Render customers — All (A–Z) or Recent
         function renderCustomers() {
             const container = document.getElementById('customerList');
             const emptyState = document.getElementById('emptyState');
-            
-            let filtered = customers;
-            
-            // Apply search
+            const rail = document.getElementById('customerAzRail');
+
+            let filtered = customers.slice();
+
             if (searchQuery) {
                 const query = searchQuery.toLowerCase();
-                filtered = filtered.filter(c => 
+                filtered = filtered.filter(c =>
                     c.name.toLowerCase().includes(query) ||
                     (c.phone && c.phone.includes(query)) ||
                     (c.address && c.address.toLowerCase().includes(query)) ||
@@ -485,48 +561,77 @@
                 );
             }
 
-            // Update customer count
-            document.getElementById('count-all').textContent = customers.length;
+            document.getElementById('count-all').textContent = filtered.length;
 
             if (filtered.length === 0) {
                 container.innerHTML = '';
                 emptyState.classList.remove('hidden');
+                if (rail) rail.innerHTML = '';
                 return;
             }
 
             emptyState.classList.add('hidden');
-            container.innerHTML = filtered.map(c => renderCustomerCard(c)).join('');
+
+            if (customerListTab === 'recent') {
+                if (rail) rail.innerHTML = '';
+                filtered.sort((a, b) => new Date(b.lastUpdated || b.dateAdded || 0) - new Date(a.lastUpdated || a.dateAdded || 0));
+                container.innerHTML = filtered.map(c => renderCustomerCard(c)).join('');
+                return;
+            }
+
+            filtered.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+
+            const groups = new Map();
+            filtered.forEach(c => {
+                const L = letterBucket(c.name);
+                if (!groups.has(L)) groups.set(L, []);
+                groups.get(L).push(c);
+            });
+
+            const letters = new Set(groups.keys());
+            const AZRAIL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').concat(['hash']);
+            if (rail) {
+                rail.innerHTML = AZRAIL.map(L => {
+                    const has = letters.has(L);
+                    const label = L === 'hash' ? '#' : L;
+                    return `<button type="button" ${has ? `onclick="scrollToCustLetter('${L}')"` : 'disabled'}>${label}</button>`;
+                }).join('');
+            }
+
+            const html = AZRAIL.filter(L => groups.has(L)).map(L => {
+                const list = groups.get(L).map(renderCustomerCard).join('');
+                const lab = L === 'hash' ? '#' : L;
+                return `<div id="letter-${L}" class="mb-4"><p class="text-xs uppercase tracking-wide text-gray-500 mb-2 px-1">${lab}</p><div class="space-y-2">${list}</div></div>`;
+            }).join('');
+            container.innerHTML = html;
         }
 
-        // Render single customer card - simplified for customer-only info
         function renderCustomerCard(c) {
             const jobCount = getJobCount(c.id);
             const customerJobs = getCustomerJobs(c.id);
             const scheduledJob = customerJobs.find(j => j.status === 'scheduled');
-            
+            const rev = getCustomerRevenue(c.id);
+            const revPart = rev > 0 ? ` · $${rev.toFixed(0)}` : '';
+            const ini = initialsFor(c.name);
+
             return `
                 <div class="customer-card glass-card rounded-xl p-4" onclick="openDetailModal('${c.id}')">
-                    <div class="flex justify-between items-start mb-2">
-                        <div>
-                            <h3 class="font-bold text-lg">${c.name}</h3>
-                            <p class="text-gray-400 text-sm">${c.address || 'No address'}</p>
+                    <div class="flex gap-3 items-start mb-2">
+                        <div class="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold" style="background:rgba(46,123,255,0.2);color:#93c5fd;">
+                            ${ini}
                         </div>
-                        <span class="bg-slate-700 text-gray-300 px-2 py-1 rounded-full text-xs">
-                            ${jobCount} job${jobCount !== 1 ? 's' : ''}
-                        </span>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-bold text-base m-0 truncate">${c.name}</h3>
+                            <p class="text-gray-500 text-xs mt-1 truncate">${c.phone || 'No phone'} · ${c.email || 'No email'}</p>
+                            <p class="text-gray-400 text-xs mt-1">${jobCount} job${jobCount !== 1 ? 's' : ''}${revPart}</p>
+                        </div>
                     </div>
-                    
-                    <div class="flex items-center gap-4 text-sm text-gray-400 mb-3">
-                        ${c.phone ? `<span><i class="fas fa-phone mr-1"></i>${c.phone}</span>` : ''}
-                        ${c.email ? `<span><i class="fas fa-envelope mr-1"></i>${c.email}</span>` : ''}
-                    </div>
-                    
                     ${scheduledJob ? `
-                        <div class="text-purple-400 text-sm mb-3">
-                            <i class="fas fa-calendar mr-1"></i>Next: ${new Date(scheduledJob.jobDate + 'T12:00:00').toLocaleDateString()} - ${scheduledJob.serviceType || 'Service'}
+                        <div class="text-purple-400 text-xs mb-3">
+                            <i class="fas fa-calendar mr-1"></i>Next: ${new Date(scheduledJob.jobDate + 'T12:00:00').toLocaleDateString()} · ${scheduledJob.serviceType || 'Service'}
                         </div>
                     ` : ''}
-                    
+
                     <div class="customer-card-actions" onclick="event.stopPropagation()">
                         <a href="#" onclick="event.stopPropagation(); prefillEstimate('${c.id}'); return false;" class="customer-est-btn">
                             <i class="fas fa-plus"></i> Estimate

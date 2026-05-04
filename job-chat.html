@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0b0e14">
+    <title>Messages - Clearline</title>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script src="data-migration.js"></script>
+    <script src="firebase-sync.js?v=4"></script>
+    <link rel="stylesheet" href="app.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .chat-wrap { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+        .chat-toolbar {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 0 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 10px;
+        }
+        .chat-toolbar a.back { color: var(--electric, #2e7bff); text-decoration: none; font-size: 20px; padding: 6px; }
+        .chat-title { flex: 1; min-width: 0; }
+        .chat-title h1 { font-size: 17px; font-weight: 700; margin: 0; line-height: 1.2; }
+        .chat-title p { font-size: 12px; color: #64748b; margin: 2px 0 0; }
+        .chat-view-job {
+            display: block; text-align: center; padding: 10px; border-radius: 10px;
+            background: rgba(46, 123, 255, 0.12); color: #93c5fd; font-weight: 600; font-size: 14px;
+            text-decoration: none; margin-bottom: 12px;
+        }
+        .chat-stream {
+            flex: 1; overflow-y: auto; padding-bottom: 12px;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .chat-bubble {
+            max-width: 88%; padding: 10px 12px; border-radius: 14px; font-size: 14px; line-height: 1.4;
+        }
+        .chat-bubble.me {
+            align-self: flex-end; background: linear-gradient(135deg, #2e7bff, #1d4ed8); color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-bubble.them {
+            align-self: flex-start; background: rgba(51, 65, 85, 0.65); color: #e2e8f0;
+            border-bottom-left-radius: 4px;
+        }
+        .chat-meta { font-size: 10px; opacity: 0.75; margin-top: 4px; }
+        .quick-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .quick-pill {
+            padding: 8px 12px; border-radius: 999px; border: 1px solid rgba(46, 123, 255, 0.35);
+            background: rgba(46, 123, 255, 0.1); color: #93c5fd; font-size: 12px; font-weight: 600;
+            cursor: pointer;
+        }
+        .chat-input-row {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 0 calc(10px + var(--safe-bottom));
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: auto;
+        }
+        .chat-input-row input {
+            flex: 1; margin: 0;
+        }
+        .chat-icon-btn {
+            width: 40px; height: 40px; border-radius: 10px; border: none;
+            background: rgba(255,255,255,0.08); color: #94a3b8; cursor: pointer;
+        }
+        .chat-hint {
+            font-size: 11px; color: #64748b; text-align: center; padding: 8px 12px 0;
+        }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <div class="app-header-inner" style="max-width:500px;margin:0 auto;">
+            <div class="chat-toolbar" style="width:100%;border:none;margin:0;padding:4px 0 8px;">
+                <a href="jobs.html" class="back" aria-label="Back"><i class="fas fa-arrow-left"></i></a>
+                <div class="chat-title">
+                    <h1 id="chatCustomerName">Customer</h1>
+                    <p id="chatSub">Job</p>
+                </div>
+                <a id="chatPhoneBtn" href="#" class="header-icon-btn" style="display:none;" aria-label="Call"><i class="fas fa-phone"></i></a>
+            </div>
+        </div>
+    </header>
+
+    <main class="app-content" style="display:flex;flex-direction:column;">
+        <div class="content-wrapper chat-wrap">
+            <a id="chatViewJob" href="#" class="chat-view-job"><i class="fas fa-briefcase mr-2"></i>View job details</a>
+            <p class="chat-hint">Quick SMS templates open your messenger. Notes below are saved on this device only.</p>
+            <div class="quick-row" id="quickReplies"></div>
+            <div class="chat-stream" id="chatStream"></div>
+            <div class="chat-input-row">
+                <button type="button" class="chat-icon-btn" id="btnSmsTemplate" title="Insert template" aria-label="Templates"><i class="fas fa-plus"></i></button>
+                <input type="text" id="chatInput" placeholder="Type a note (saved locally)…" autocomplete="off">
+                <button type="button" class="chat-icon-btn" id="btnSendLocal" style="color:#2e7bff;" aria-label="Save note"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </main>
+
+    <nav class="tab-bar">
+        <div class="tab-bar-inner">
+            <a href="index.html" class="tab-item"><i class="fas fa-home"></i><span>Home</span></a>
+            <a href="jobs.html" class="tab-item"><i class="fas fa-briefcase"></i><span>Jobs</span></a>
+            <a href="calendar.html" class="tab-item tab-item--fab">
+                <span class="tab-fab-circle"><i class="fas fa-plus"></i></span>
+                <span>Calendar</span>
+            </a>
+            <a href="customer-tracker.html" class="tab-item"><i class="fas fa-users"></i><span>Customers</span></a>
+            <a href="more.html" class="tab-item"><i class="fas fa-ellipsis-h"></i><span>More</span></a>
+        </div>
+    </nav>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const jobId = params.get('jobId');
+        let job = null;
+
+        function storageKey() { return 'cl-job-chat-' + (jobId || 'unknown'); }
+
+        function loadMessages() {
+            return safeGet(storageKey(), []);
+        }
+        function saveMessages(arr) {
+            safeSet(storageKey(), arr);
+        }
+
+        function fmtJobWhen(j) {
+            const d = j.jobDate || j.followUpDate;
+            if (!d) return 'Unscheduled';
+            const when = new Date(d + 'T12:00:00');
+            const t = j.jobTime ? ` · ${j.jobTime}` : '';
+            return when.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + t;
+        }
+
+        function render() {
+            const stream = document.getElementById('chatStream');
+            const msgs = loadMessages();
+            if (!msgs.length) {
+                stream.innerHTML = '<p style="text-align:center;color:#64748b;font-size:13px;padding:20px;">No saved notes yet. Use quick replies to text the customer, or save a private note below.</p>';
+                return;
+            }
+            stream.innerHTML = msgs.map(m => {
+                const side = m.from === 'me' ? 'me' : 'them';
+                const body = (m.text || '').replace(/</g, '&lt;');
+                const time = m.ts ? new Date(m.ts).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
+                return `<div class="chat-bubble ${side}">${body}<div class="chat-meta">${time}${m.from === 'me' ? ' · saved here' : ''}</div></div>`;
+            }).join('');
+            stream.scrollTop = stream.scrollHeight;
+        }
+
+        function pushLocalNote(text) {
+            const t = text.trim();
+            if (!t) return;
+            const msgs = loadMessages();
+            msgs.push({ from: 'me', text: t, ts: Date.now() });
+            saveMessages(msgs);
+            document.getElementById('chatInput').value = '';
+            render();
+        }
+
+        window.openJobChatSms = function(body) {
+            const phone = (job && job.customerPhone) ? String(job.customerPhone).replace(/\D/g, '') : '';
+            if (!phone) {
+                showToast('No phone on file for this job.', 'error');
+                return;
+            }
+            window.location.href = 'sms:' + phone + (body ? '?body=' + encodeURIComponent(body) : '');
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setActiveNav();
+            if (!jobId || !window.CL_DATA) {
+                document.getElementById('chatCustomerName').textContent = 'Missing job';
+                document.getElementById('chatSub').textContent = 'Open from Jobs → Message';
+                return;
+            }
+            job = CL_DATA.findJob(jobId);
+            if (!job) {
+                document.getElementById('chatCustomerName').textContent = 'Job not found';
+                return;
+            }
+            document.getElementById('chatCustomerName').textContent = job.customerName || 'Customer';
+            document.getElementById('chatSub').textContent = fmtJobWhen(job);
+            const vj = document.getElementById('chatViewJob');
+            vj.href = 'jobs.html?highlight=' + encodeURIComponent(jobId);
+            const phoneBtn = document.getElementById('chatPhoneBtn');
+            if (job.customerPhone) {
+                phoneBtn.href = 'tel:' + job.customerPhone.replace(/\D/g, '');
+                phoneBtn.style.display = 'inline-flex';
+            }
+
+            const quick = [
+                { label: 'On my way', body: 'On my way — see you soon.' },
+                { label: 'Running late', body: 'Running a few minutes late — thanks for your patience.' },
+                { label: 'See you soon', body: 'See you soon!' }
+            ];
+            document.getElementById('quickReplies').innerHTML = quick.map(q =>
+                `<button type="button" class="quick-pill" onclick="openJobChatSms(${JSON.stringify(q.body)})">${q.label}</button>`
+            ).join('');
+
+            document.getElementById('btnSendLocal').addEventListener('click', () => {
+                pushLocalNote(document.getElementById('chatInput').value);
+            });
+            document.getElementById('chatInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); pushLocalNote(document.getElementById('chatInput').value); }
+            });
+            document.getElementById('btnSmsTemplate').addEventListener('click', () => {
+                const body = window.prompt('Message to send (opens SMS):', 'Hi — quick update on your job.');
+                if (body) window.openJobChatSms(body);
+            });
+            render();
+        });
+    </script>
+</body>
+</html>
