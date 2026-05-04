@@ -177,7 +177,7 @@ button:hover .fa-cog {
     header.app-header,
     .tab-bar-inner,
     .tab-item,
-    .tab-add-btn {
+    .tab-item--cta {
         display: none !important;
         visibility: hidden !important;
         position: absolute !important;
@@ -192,12 +192,14 @@ button:hover .fa-cog {
 }
 
 .tab-bar-inner {
+    /* Flex + flex:1 keeps any tab count evenly spaced (5 main shell items). */
     display: flex;
-    justify-content: space-around;
     align-items: flex-end;
+    justify-content: stretch;
     max-width: 500px;
     margin: 0 auto;
-    padding: 8px 8px 6px;
+    padding: 6px 4px 8px;
+    gap: 0;
 }
 body.modal-open .tab-bar {
     display: none !important;
@@ -289,8 +291,8 @@ a.text-primary:hover {
 .fa-plus {
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-button:hover .fa-plus:not(.tab-add-btn .fa-plus),
-a:hover .fa-plus:not(.tab-add-btn .fa-plus) {
+button:hover .fa-plus,
+a:hover .fa-plus {
     transform: rotate(90deg);
 }
 
@@ -312,11 +314,13 @@ a:hover .fa-trash {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 6px 12px;
+    justify-content: flex-end;
+    flex: 1;
+    padding: 4px 2px 6px;
     color: #64748b;
     text-decoration: none;
     transition: all 0.2s ease;
-    min-width: 56px;
+    min-width: 0;
     border-radius: 8px;
     position: relative;
 }
@@ -339,8 +343,8 @@ a:hover .fa-trash {
 }
 
 .tab-item i {
-    font-size: 20px;
-    margin-bottom: 3px;
+    font-size: 18px;
+    margin-bottom: 2px;
     transition: transform 0.2s ease;
 }
 
@@ -349,9 +353,15 @@ a:hover .fa-trash {
 }
 
 .tab-item span {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 500;
     transition: font-weight 0.2s ease;
+    text-align: center;
+    line-height: 1.15;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .tab-item.active span {
@@ -368,43 +378,16 @@ a:hover .fa-trash {
     background: rgba(255,255,255,0.08);
 }
 
-/* Center Add Button */
-.tab-item-add {
-    margin-top: -20px;
+/* Primary middle tab — same footprint as siblings (no overlapping FAB) */
+.tab-item.tab-item--cta i {
+    font-size: 19px;
+    color: #38bdf8;
 }
 
-.tab-item-add::before {
-    display: none !important;
-}
-
-.tab-add-btn {
-    background: linear-gradient(135deg, var(--primary), var(--accent));
-    width: 54px;
-    height: 54px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 20px rgba(14, 165, 233, 0.5);
-    margin-bottom: 2px;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 2px solid rgba(255,255,255,0.1);
-}
-
-.tab-add-btn:hover {
-    transform: scale(1.08);
-    box-shadow: 0 6px 28px rgba(14, 165, 233, 0.6);
-}
-
-.tab-add-btn:active {
-    transform: scale(0.95);
-    box-shadow: 0 2px 10px rgba(14, 165, 233, 0.4);
-}
-
-.tab-add-btn i {
-    font-size: 22px;
-    color: white;
-    margin: 0;
+.tab-bar a.tab-item--cta.nav-active i,
+.tab-bar a.tab-item--cta.active i,
+.bottom-nav a.tab-item--cta.nav-active i {
+    color: var(--accent, #06b6d4);
 }
 
 /* Glass Card */
@@ -566,7 +549,7 @@ a.bg-purple-600:hover,
 /* Stats Grid */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 6px;
     margin-bottom: 16px;
 }

@@ -135,17 +135,98 @@
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        /* Balanced header: centered title + lead/map in the trailing wing */
+        .jobs-head-inner.app-header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 500px;
+        }
+        .jobs-head-wing {
+            width: 96px;
+            flex-shrink: 0;
+        }
+        .jobs-head-wing-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .jobs-head-center {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+            text-align: center;
+        }
+        .jobs-head-center h1 {
+            margin: 0;
+            line-height: 1.2;
+        }
+        .jobs-sync-pill {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #334155;
+            color: #cbd5e1;
+            margin-top: 4px;
+        }
+        .jobs-lead-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 36px;
+            padding: 0;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+        }
+        .jobs-lead-chip i {
+            font-size: 15px;
+        }
+        .jobs-map-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #0ea5e9;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            text-decoration: none;
+            transition: background 0.2s ease, transform 0.15s ease;
+        }
+        .jobs-map-btn:active {
+            transform: scale(0.94);
+        }
     </style>
 </head>
 <body>
     <!-- Header -->
     <header class="app-header">
-        <div class="app-header-inner">
-            <h1>Jobs</h1>
-            <span id="syncPill" title="Sync status" style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:999px;background:#334155;color:#cbd5e1;margin-left:8px;">• Local</span>
-            <a href="map.html" class="header-btn header-btn-right" title="Map View" style="margin-left:auto;">
-                <i class="fas fa-map-marker-alt"></i>
-            </a>
+        <div class="app-header-inner jobs-head-inner">
+            <div class="jobs-head-wing" aria-hidden="true"></div>
+            <div class="jobs-head-center">
+                <h1>Jobs</h1>
+                <span id="syncPill" class="jobs-sync-pill" title="Sync status">• Local</span>
+            </div>
+            <div class="jobs-head-wing jobs-head-wing-actions">
+                <button type="button" class="jobs-lead-chip" onclick="openAddLeadModal()" title="Add lead / estimate visit" aria-label="Add lead or estimate visit">
+                    <i class="fas fa-user-plus" aria-hidden="true"></i>
+                </button>
+                <a href="map.html" class="jobs-map-btn" title="Map view" aria-label="Map view">
+                    <i class="fas fa-map-marker-alt"></i>
+                </a>
+            </div>
         </div>
     </header>
 
@@ -153,16 +234,13 @@
       <div class="content-wrapper">
         <!-- Tab Navigation -->
         <div class="filter-tabs" style="display: flex; gap: 4px; margin-bottom: 12px; background: rgba(51,65,85,0.5); padding: 4px; border-radius: 12px;">
-            <button type="button" onclick="openAddLeadModal()" style="flex-shrink: 0; padding: 10px 14px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white;" title="Estimate visit or new pipeline lead">
-                <i class="fas fa-user-plus" style="margin-right: 4px;"></i>Lead
-            </button>
             <button onclick="setTab('leads')" data-tab="leads" class="tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Leads</button>
             <button onclick="setTab('scheduled')" data-tab="scheduled" class="tab-btn active" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Scheduled</button>
             <button onclick="setTab('completed')" data-tab="completed" class="tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Done</button>
         </div>
 
         <!-- Summary Stats — clickable shortcuts to matching tab (#11) -->
-        <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="stats-grid">
             <div class="stat-card" role="button" tabindex="0" style="cursor:pointer;" onclick="setTab('leads')">
                 <p class="value" style="color: #3b82f6;" id="stat-leads">0</p>
                 <p class="label">Leads</p>
@@ -203,10 +281,8 @@
                 <i class="fas fa-briefcase"></i>
                 <span>Jobs</span>
             </a>
-            <a href="estimate.html" class="tab-item tab-item-add">
-                <div class="tab-add-btn">
-                    <i class="fas fa-plus"></i>
-                </div>
+            <a href="estimate.html" class="tab-item tab-item--cta">
+                <i class="fas fa-file-invoice-dollar"></i>
                 <span>Estimate</span>
             </a>
             <a href="calendar.html" class="tab-item">
@@ -579,6 +655,9 @@
                                 : 'leads';
                     setTab(bucket);
                 }
+            }
+            if (params.get('addLead') === '1') {
+                setTimeout(() => openAddLeadModal(), 250);
             }
         });
 

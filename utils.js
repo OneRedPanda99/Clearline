@@ -236,42 +236,13 @@ window.clearCachedLocation = function() {
 };
 
 /**
- * Owner-only navigation: inject a "Panel" tab into every bottom nav on
- * the current page when the signed-in user is an Owner. Idempotent:
- * the link is added at most once per `.tab-bar-inner` (`data-owner-panel`
- * attribute gates duplicate inserts). Hidden automatically for non-Owner
- * roles so the tab bar collapses back to its default shape.
- *
- * Runs on both `cl-profile-updated` (fresh profile load) and
- * DOMContentLoaded (page render before profile event), so whichever
- * comes first wins.
+ * Legacy hook: we used to inject a 6th “Panel” tab for owners, which threw
+ * off balance with the oversized center (+) button. Panel is available from
+ * Home (owner tile), bookmarks, or manager-panel.html directly.
+ * Only removes stale `[data-owner-panel]` nodes if any remain cached.
  */
-window.__applyOwnerNav = function(profile) {
-  const bars = document.querySelectorAll('.tab-bar-inner');
-  if (!bars.length) return;
-  const isOwner = !!(profile && profile.role === 'owner');
-  bars.forEach(bar => {
-    // Skip pages that already ship their own Panel link (e.g. the
-    // manager-panel page itself has one baked into its template).
-    const preExisting = bar.querySelector('a[href$="manager-panel.html"]:not([data-owner-panel])');
-    let link = bar.querySelector('[data-owner-panel]');
-    if (isOwner) {
-      if (preExisting) return;
-      if (!link) {
-        link = document.createElement('a');
-        link.href = 'manager-panel.html';
-        link.className = 'tab-item';
-        link.setAttribute('data-owner-panel', '1');
-        link.innerHTML = '<i class="fas fa-user-shield"></i><span>Panel</span>';
-        bar.appendChild(link);
-      }
-      if (/manager-panel\.html$/i.test(window.location.pathname)) {
-        link.classList.add('active');
-      }
-    } else if (link) {
-      link.remove();
-    }
-  });
+window.__applyOwnerNav = function(_profile) {
+  document.querySelectorAll('a[data-owner-panel]').forEach(el => el.remove());
 };
 window.addEventListener('cl-profile-updated', (e) => {
   try { window.__applyOwnerNav(e.detail && e.detail.profile); } catch (_) {}

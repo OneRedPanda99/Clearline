@@ -72,6 +72,54 @@
             align-items: center;
             justify-content: center;
         }
+        .customer-card-actions {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .customer-est-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            min-height: 44px;
+            border-radius: 10px;
+            background: rgba(139, 92, 246, 0.18);
+            color: #e9d5ff;
+            font-weight: 600;
+            font-size: 14px;
+            text-decoration: none;
+            border: 1px solid rgba(139, 92, 246, 0.38);
+        }
+        .customer-est-btn:active { transform: scale(0.98); }
+        .customer-icon-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .customer-icon-btn {
+            min-height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .customer-icon-btn.phone { background: rgba(22, 163, 74, 0.22); color: #4ade80; }
+        .customer-icon-btn.sms { background: rgba(37, 99, 235, 0.22); color: #93c5fd; }
+        .customer-icon-btn.edit { background: rgba(71, 85, 105, 0.55); color: #e2e8f0; }
+        .customer-icon-btn.ghost {
+            opacity: 0.22;
+            cursor: default;
+            pointer-events: none;
+            background: rgba(51, 65, 85, 0.35);
+            color: #94a3b8;
+        }
         .reminder-urgent { animation: pulse 2s infinite; }
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -191,10 +239,8 @@
                 <i class="fas fa-briefcase"></i>
                 <span>Jobs</span>
             </a>
-            <a href="estimate.html" class="tab-item tab-item-add">
-                <div class="tab-add-btn">
-                    <i class="fas fa-plus"></i>
-                </div>
+            <a href="estimate.html" class="tab-item tab-item--cta">
+                <i class="fas fa-file-invoice-dollar"></i>
                 <span>Estimate</span>
             </a>
             <a href="calendar.html" class="tab-item">
@@ -420,22 +466,20 @@
                         </div>
                     ` : ''}
                     
-                    <!-- Quick Actions -->
-                    <div class="flex gap-2 mt-2" onclick="event.stopPropagation()">
-                        ${c.phone ? `
-                        <a href="tel:${c.phone}" class="action-btn flex-1 bg-green-600/20 text-green-400 rounded-lg py-2 text-center">
-                            <i class="fas fa-phone"></i>
-                        </a>
-                        <a href="sms:${c.phone}" class="action-btn flex-1 bg-blue-600/20 text-blue-400 rounded-lg py-2 text-center">
-                            <i class="fas fa-sms"></i>
-                        </a>
-                        ` : ''}
-                        <a href="#" onclick="event.stopPropagation(); prefillEstimate('${c.id}'); return false;" class="action-btn flex-1 bg-purple-600/20 text-purple-400 rounded-lg py-2 text-center">
+                    <div class="customer-card-actions" onclick="event.stopPropagation()">
+                        <a href="#" onclick="event.stopPropagation(); prefillEstimate('${c.id}'); return false;" class="customer-est-btn">
                             <i class="fas fa-plus"></i> Estimate
                         </a>
-                        <button onclick="editCustomer('${c.id}')" class="action-btn flex-1 bg-slate-600/50 text-gray-300 rounded-lg py-2">
-                            <i class="fas fa-edit"></i>
-                        </button>
+                        <div class="customer-icon-row">
+                            ${c.phone ? `
+                            <a href="tel:${c.phone}" class="customer-icon-btn phone" aria-label="Call"><i class="fas fa-phone"></i></a>
+                            <a href="sms:${c.phone}" class="customer-icon-btn sms" aria-label="Text"><i class="fas fa-sms"></i></a>
+                            ` : `
+                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-phone"></i></span>
+                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-sms"></i></span>
+                            `}
+                            <button type="button" onclick="event.stopPropagation(); editCustomer('${c.id}')" class="customer-icon-btn edit" aria-label="Edit customer"><i class="fas fa-edit"></i></button>
+                        </div>
                     </div>
                 </div>
             `;

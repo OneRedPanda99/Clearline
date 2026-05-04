@@ -67,58 +67,72 @@
                 </div>
             </div>
 
-            <!-- Estimated Total (sum of quoteAmount across every job — completed + pending) -->
-            <div class="glass-card" style="padding: 14px 16px; margin-bottom: 12px; text-align: center;">
-                <p style="font-size: 11px; color: #64748b;">Estimated Total (All Jobs)</p>
-                <p style="font-size: 28px; font-weight: 700; color: #38bdf8;">$<span id="estimatedTotal">0</span></p>
-                <p style="font-size: 11px; color: #64748b;"><span id="estimatedTotalCount">0</span> job(s)</p>
+            <!-- Pipeline value + cash snapshot -->
+            <div class="glass-card" style="padding: 16px; margin-bottom: 14px;">
+                <div style="text-align: center; padding-bottom: 14px; border-bottom: 1px solid rgba(148,163,184,0.15);">
+                    <p style="font-size: 11px; color: #64748b; letter-spacing: 0.04em; text-transform: uppercase;">Pipeline (all jobs)</p>
+                    <p style="font-size: 30px; font-weight: 700; color: #38bdf8; line-height: 1.2;">$<span id="estimatedTotal">0</span></p>
+                    <p style="font-size: 11px; color: #64748b; margin-top: 4px;"><span id="estimatedTotalCount">0</span> jobs · from estimates / invoices</p>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 14px;">
+                    <div>
+                        <p style="font-size: 11px; color: #64748b;">Collected (done)</p>
+                        <p style="font-size: 22px; font-weight: 700; color: #34d399;">$<span id="revenue">0</span></p>
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="font-size: 11px; color: #64748b;">Open (leads + booked)</p>
+                        <p style="font-size: 22px; font-weight: 700; color: #fbbf24;">$<span id="pending">0</span></p>
+                    </div>
+                </div>
             </div>
 
-            <!-- Revenue -->
-            <div class="glass-card" style="padding: 14px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <p style="font-size: 11px; color: #64748b;">Revenue</p>
-                    <p style="font-size: 24px; font-weight: 700; color: #34d399;">$<span id="revenue">0</span></p>
-                </div>
-                <div style="text-align: right;">
-                    <p style="font-size: 11px; color: #64748b;">Pending</p>
-                    <p style="font-size: 20px; font-weight: 700; color: #fbbf24;">$<span id="pending">0</span></p>
-                </div>
-            </div>
-
-            <!-- Today's Jobs -->
-            <div id="todaySection" class="hidden" style="margin-bottom: 16px;">
-                <p class="section-title">Today's Jobs</p>
+            <!-- Today: booked stops + estimate visits -->
+            <div id="todaySection" class="hidden" style="margin-bottom: 14px;">
+                <p class="section-title">Today</p>
                 <div id="todayJobs" class="glass-card" style="overflow: hidden;"></div>
             </div>
 
-            <!-- Quick Add -->
-            <p class="section-title">Quick Add</p>
-            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                <a href="customer-tracker.html?action=add" class="action-btn" style="flex: 1; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 14px 12px; border-radius: 14px; text-align: center; text-decoration: none; font-weight: 600; font-size: 13px;">
-                    <i class="fas fa-user-plus" style="display: block; font-size: 20px; margin-bottom: 4px;"></i>
+            <!-- Next on your calendar -->
+            <div id="upcomingHomeSection" class="hidden" style="margin-bottom: 14px;">
+                <p class="section-title">Coming up</p>
+                <div id="upcomingHomeList" class="glass-card" style="overflow: hidden;"></div>
+            </div>
+
+            <!-- Primary actions -->
+            <p class="section-title">Start here</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px;">
+                <a href="jobs.html?addLead=1" class="action-btn" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(145deg, rgba(245,158,11,0.95), rgba(217,119,6,0.95)); color: white; padding: 16px 10px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 13px; border: 1px solid rgba(255,255,255,0.12); min-height: 88px;">
+                    <i class="fas fa-user-clock" style="font-size: 22px; margin-bottom: 6px; opacity: 0.95;"></i>
+                    Estimate visit
+                    <span style="font-size: 10px; font-weight: 500; opacity: 0.85; margin-top: 4px;">New lead + date/time</span>
+                </a>
+                <a href="estimate.html" class="action-btn" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(145deg, rgba(14,165,233,0.95), rgba(6,182,212,0.9)); color: white; padding: 16px 10px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 13px; border: 1px solid rgba(255,255,255,0.12); min-height: 88px;">
+                    <i class="fas fa-file-invoice-dollar" style="font-size: 22px; margin-bottom: 6px; opacity: 0.95;"></i>
+                    Estimate
+                    <span style="font-size: 10px; font-weight: 500; opacity: 0.85; margin-top: 4px;">Quote anytime</span>
+                </a>
+                <a href="calendar.html" class="action-btn" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(51, 65, 85, 0.85); color: #e2e8f0; padding: 16px 10px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 13px; border: 1px solid rgba(148,163,184,0.2); min-height: 88px;">
+                    <i class="fas fa-calendar-alt" style="font-size: 22px; margin-bottom: 6px; color: #a78bfa;"></i>
+                    Calendar
+                    <span style="font-size: 10px; font-weight: 500; opacity: 0.75; margin-top: 4px;">Schedule work</span>
+                </a>
+                <a href="customer-tracker.html?action=add" class="action-btn" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(51, 65, 85, 0.85); color: #e2e8f0; padding: 16px 10px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 13px; border: 1px solid rgba(148,163,184,0.2); min-height: 88px;">
+                    <i class="fas fa-user-plus" style="font-size: 22px; margin-bottom: 6px; color: #60a5fa;"></i>
                     Customer
-                </a>
-                <a href="estimate.html" class="action-btn" style="flex: 1; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 14px 12px; border-radius: 14px; text-align: center; text-decoration: none; font-weight: 600; font-size: 13px;">
-                    <i class="fas fa-clipboard-list" style="display: block; font-size: 20px; margin-bottom: 4px;"></i>
-                    Lead
-                </a>
-                <a href="estimate.html" class="action-btn" style="flex: 1; background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 14px 12px; border-radius: 14px; text-align: center; text-decoration: none; font-weight: 600; font-size: 13px;">
-                    <i class="fas fa-calendar-plus" style="display: block; font-size: 20px; margin-bottom: 4px;"></i>
-                    Job
+                    <span style="font-size: 10px; font-weight: 500; opacity: 0.75; margin-top: 4px;">Add to CRM</span>
                 </a>
             </div>
 
-            <!-- Quick Actions -->
-            <p class="section-title">Navigation</p>
+            <!-- Shortcuts -->
+            <p class="section-title">Shortcuts</p>
             <div class="quick-grid" style="margin-bottom: 20px;">
                 <a href="jobs.html" class="quick-btn">
                     <i class="fas fa-briefcase" style="color: #fb923c;"></i>
                     <span>Jobs</span>
                 </a>
-                <a href="calendar.html" class="quick-btn">
-                    <i class="fas fa-calendar-alt" style="color: #a78bfa;"></i>
-                    <span>Calendar</span>
+                <a href="customer-tracker.html" class="quick-btn">
+                    <i class="fas fa-address-book" style="color: #38bdf8;"></i>
+                    <span>Customers</span>
                 </a>
                 <a href="map.html" class="quick-btn">
                     <i class="fas fa-map-marked-alt" style="color: #f87171;"></i>
@@ -200,10 +214,8 @@
                 <i class="fas fa-briefcase"></i>
                 <span>Jobs</span>
             </a>
-            <a href="estimate.html" class="tab-item tab-item-add">
-                <div class="tab-add-btn">
-                    <i class="fas fa-plus"></i>
-                </div>
+            <a href="estimate.html" class="tab-item tab-item--cta">
+                <i class="fas fa-file-invoice-dollar"></i>
                 <span>Estimate</span>
             </a>
             <a href="calendar.html" class="tab-item">
@@ -301,27 +313,102 @@
             const estimatedTotal = jobs.reduce((sum, j) => sum + getJobDisplayTotal(j), 0);
             document.getElementById('estimatedTotal').textContent = estimatedTotal.toFixed(0);
             document.getElementById('estimatedTotalCount').textContent = jobs.length;
-            
-            // Today's jobs
+
             const today = new Date().toISOString().split('T')[0];
-            const todayJobs = jobs.filter(j => j.jobDate === today && j.status === 'scheduled');
-            
-            if (todayJobs.length > 0) {
-                document.getElementById('todaySection').classList.remove('hidden');
-                document.getElementById('todayJobs').innerHTML = todayJobs.map(j => `
-                    <div class="list-item" style="flex-direction: column; align-items: flex-start;">
-                        <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 8px;">
-                            <span style="font-weight: 600;">${j.customerName}</span>
-                            ${j.quoteAmount ? `<span style="color: #34d399; font-weight: 600;">$${j.quoteAmount}</span>` : ''}
-                        </div>
-                        <p style="font-size: 13px; color: #94a3b8;">${j.serviceType || 'Pressure Wash'}</p>
-                        ${j.address ? `<p style="font-size: 12px; color: #64748b; margin-top: 4px;"><i class="fas fa-map-marker-alt" style="margin-right: 4px;"></i>${j.address}</p>` : ''}
-                        <div style="display: flex; gap: 8px; margin-top: 10px; width: 100%;">
-                            ${j.customerPhone ? `<a href="tel:${j.customerPhone}" style="flex: 1; background: #16a34a; color: white; padding: 8px; border-radius: 8px; text-align: center; text-decoration: none; font-size: 13px;"><i class="fas fa-phone"></i> Call</a>` : ''}
-                            ${j.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(j.address)}" target="_blank" style="flex: 1; background: #2563eb; color: white; padding: 8px; border-radius: 8px; text-align: center; text-decoration: none; font-size: 13px;"><i class="fas fa-directions"></i> Navigate</a>` : ''}
-                        </div>
-                    </div>
-                `).join('');
+            const fmtDay = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+            const todayScheduled = jobs.filter(j => j.jobDate === today && j.status === 'scheduled');
+            const todayEstimates = jobs.filter(j => j.followUpDate === today && j.status === 'new');
+            const todayPieces = [
+                ...todayScheduled.map(j => ({ ...j, __kind: 'work' })),
+                ...todayEstimates.map(j => ({ ...j, __kind: 'estimate' }))
+            ];
+            todayPieces.sort((a, b) => {
+                const c = (a.jobTime || '').localeCompare(b.jobTime || '');
+                if (c !== 0) return c;
+                return (a.customerName || '').localeCompare(b.customerName || '');
+            });
+
+            const todaySection = document.getElementById('todaySection');
+            const todayEl = document.getElementById('todayJobs');
+            if (todayPieces.length > 0) {
+                todaySection.classList.remove('hidden');
+                todayEl.innerHTML = todayPieces.map(j => {
+                    const badge = j.__kind === 'estimate'
+                        ? '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#fbbf24;background:rgba(245,158,11,0.14);padding:3px 8px;border-radius:999px;">Estimate visit</span>'
+                        : '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#c4b5fd;background:rgba(167,139,250,0.12);padding:3px 8px;border-radius:999px;">Booked job</span>';
+                    const total = getJobDisplayTotal(j);
+                    const money = total > 0 ? `<span style="color:#34d399;font-weight:600;">$${total.toFixed(0)}</span>` : '';
+                    const timeRow = j.jobTime ? `<p style="font-size:13px;color:#94a3b8;margin:6px 0 0;"><i class="fas fa-clock" style="margin-right:6px;"></i>${j.jobTime}</p>` : '';
+                    const actions = j.__kind === 'estimate'
+                        ? `<div style="display:flex;gap:8px;margin-top:12px;width:100%;flex-wrap:wrap;">
+                            <a href="estimate.html?jobId=${encodeURIComponent(j.id)}" style="flex:1;min-width:120px;background:#c2410c;color:white;padding:10px;border-radius:10px;text-align:center;text-decoration:none;font-size:13px;font-weight:600;">Open estimate</a>
+                            ${j.customerPhone ? `<a href="tel:${j.customerPhone}" style="width:48px;background:#16a34a;color:white;padding:10px;border-radius:10px;text-align:center;text-decoration:none;"><i class="fas fa-phone"></i></a>` : ''}
+                           </div>`
+                        : `<div style="display:flex;gap:8px;margin-top:12px;width:100%;">
+                            ${j.customerPhone ? `<a href="tel:${j.customerPhone}" style="flex:1;background:#16a34a;color:white;padding:10px;border-radius:10px;text-align:center;text-decoration:none;font-size:13px;font-weight:600;"><i class="fas fa-phone"></i> Call</a>` : ''}
+                            ${j.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(j.address)}" target="_blank" rel="noopener" style="flex:1;background:#2563eb;color:white;padding:10px;border-radius:10px;text-align:center;text-decoration:none;font-size:13px;font-weight:600;"><i class="fas fa-directions"></i> Nav</a>` : ''}
+                           </div>`;
+                    return `
+                        <div class="list-item" style="flex-direction:column;align-items:flex-start;">
+                            <div style="display:flex;justify-content:space-between;width:100%;align-items:flex-start;gap:10px;">
+                                <div style="min-width:0;">
+                                    <p style="font-weight:600;font-size:15px;">${(j.customerName || 'Lead').replace(/</g, '&lt;')}</p>
+                                    <div style="margin-top:8px;">${badge}</div>
+                                </div>
+                                ${money ? `<div>${money}</div>` : ''}
+                            </div>
+                            ${timeRow}
+                            <p style="font-size:13px;color:#94a3b8;margin-top:6px;">${(j.serviceType || (j.__kind === 'estimate' ? 'Estimate visit' : 'Scheduled work')).replace(/</g, '&lt;')}</p>
+                            ${j.address && j.__kind === 'work' ? `<p style="font-size:12px;color:#64748b;margin-top:6px;"><i class="fas fa-map-marker-alt" style="margin-right:6px;"></i>${j.address.replace(/</g, '&lt;')}</p>` : ''}
+                            ${actions}
+                        </div>`;
+                }).join('');
+            } else {
+                todaySection.classList.add('hidden');
+                todayEl.innerHTML = '';
+            }
+
+            const upcomingMerged = [];
+            jobs.forEach(j => {
+                if (j.status === 'scheduled' && j.jobDate && j.jobDate > today) {
+                    upcomingMerged.push({ ...j, slotDate: j.jobDate, slotKind: 'Booked' });
+                }
+                if (j.status === 'new' && j.followUpDate && j.followUpDate > today) {
+                    upcomingMerged.push({ ...j, slotDate: j.followUpDate, slotKind: 'Estimate' });
+                }
+            });
+            upcomingMerged.sort((a, b) => {
+                const d = a.slotDate.localeCompare(b.slotDate);
+                if (d !== 0) return d;
+                return (a.jobTime || '').localeCompare(b.jobTime || '');
+            });
+            const upcomingPick = upcomingMerged.slice(0, 6);
+            const upcomingSection = document.getElementById('upcomingHomeSection');
+            const upcomingEl = document.getElementById('upcomingHomeList');
+            if (upcomingPick.length > 0) {
+                upcomingSection.classList.remove('hidden');
+                upcomingEl.innerHTML = upcomingPick.map(j => {
+                    const href = j.slotKind === 'Estimate'
+                        ? `estimate.html?jobId=${encodeURIComponent(j.id)}`
+                        : `jobs.html?highlight=${encodeURIComponent(j.id)}`;
+                    const tag = j.slotKind === 'Estimate'
+                        ? '<span style="color:#fbbf24;font-size:11px;font-weight:600;">Estimate</span>'
+                        : '<span style="color:#a78bfa;font-size:11px;font-weight:600;">Booked</span>';
+                    const sub = [fmtDay(j.slotDate), j.jobTime].filter(Boolean).join(' · ');
+                    const name = (j.customerName || 'Lead').replace(/</g, '&lt;');
+                    return `
+                        <a href="${href}" class="list-item" style="text-decoration:none;color:inherit;">
+                            <div style="flex:1;min-width:0;">
+                                <p style="font-weight:600;">${name}</p>
+                                <p style="font-size:12px;color:#94a3b8;margin-top:4px;">${sub}</p>
+                            </div>
+                            <div style="text-align:right;">${tag}<i class="fas fa-chevron-right" style="color:#475569;margin-left:10px;"></i></div>
+                        </a>`;
+                }).join('');
+            } else {
+                upcomingSection.classList.add('hidden');
+                upcomingEl.innerHTML = '';
             }
         }
 
