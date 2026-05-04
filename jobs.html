@@ -153,6 +153,9 @@
       <div class="content-wrapper">
         <!-- Tab Navigation -->
         <div class="filter-tabs" style="display: flex; gap: 4px; margin-bottom: 12px; background: rgba(51,65,85,0.5); padding: 4px; border-radius: 12px;">
+            <button type="button" onclick="openAddLeadModal()" style="flex-shrink: 0; padding: 10px 14px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white;" title="Estimate visit or new pipeline lead">
+                <i class="fas fa-user-plus" style="margin-right: 4px;"></i>Lead
+            </button>
             <button onclick="setTab('leads')" data-tab="leads" class="tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Leads</button>
             <button onclick="setTab('scheduled')" data-tab="scheduled" class="tab-btn active" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Scheduled</button>
             <button onclick="setTab('completed')" data-tab="completed" class="tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Done</button>
@@ -181,9 +184,10 @@
         <div id="emptyState" class="hidden" style="text-align: center; padding: 48px 0;">
             <i class="fas fa-calendar-check" style="font-size: 40px; color: #475569; margin-bottom: 12px;"></i>
             <p style="color: #64748b; font-size: 14px;">No jobs in this view</p>
-            <a href="estimate.html" class="btn-primary" style="display: inline-block; margin-top: 16px; width: auto; padding: 12px 24px;">
-                <i class="fas fa-plus" style="margin-right: 6px;"></i>Add Job
-            </a>
+            <button type="button" onclick="openAddLeadModal()" class="btn-primary" style="display: inline-block; margin-top: 16px; width: auto; padding: 12px 24px; border: none; cursor: pointer;">
+                <i class="fas fa-user-plus" style="margin-right: 6px;"></i>Add lead (estimate visit)
+            </button>
+            <p style="margin-top: 12px; font-size: 12px; color: #94a3b8;">Booked work? Use <a href="calendar.html" style="color: #38bdf8;">Calendar</a> → Add scheduled job, or open <a href="estimate.html" style="color: #38bdf8;">Estimate</a>.</p>
         </div>
       </div>
     </main>
@@ -215,6 +219,39 @@
             </a>
         </div>
     </nav>
+
+    <!-- Add lead (estimate visit) -->
+    <div id="addLeadModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="addLeadModal-title" hidden style="z-index:210; position:fixed; inset:0; background:rgba(0,0,0,0.8); align-items:flex-end; justify-content:center;">
+        <div class="modal-content bg-slate-800 rounded-t-2xl w-full overflow-y-auto" role="document" style="max-width: 560px; max-height: calc(100dvh - 40px); padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));">
+            <div class="modal-header sticky top-0 bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
+                <h2 id="addLeadModal-title" class="text-lg font-bold">Add lead</h2>
+                <button type="button" class="modal-close-btn" onclick="closeAddLeadModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="p-4 space-y-3">
+                <p class="text-sm text-gray-400">Creates a <strong class="text-gray-200">lead</strong> with an estimate visit on your calendar (Jobs → Leads). When they book work, move them to Scheduled.</p>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Estimate visit date</label>
+                    <input type="date" id="addLeadJobDate" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Time</label>
+                    <input type="time" id="addLeadJobTime" value="11:30" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Customer name <span class="text-gray-500">(optional)</span></label>
+                    <input type="text" id="addLeadCustomerName" placeholder="e.g. Smith" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="name">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Phone <span class="text-gray-500">(optional)</span></label>
+                    <input type="tel" id="addLeadCustomerPhone" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="tel">
+                </div>
+                <button type="button" onclick="confirmAddLead()" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-semibold">
+                    <i class="fas fa-file-alt mr-2"></i>Create &amp; open estimate
+                </button>
+                <button type="button" onclick="closeAddLeadModal()" class="w-full bg-slate-600 text-white py-3 rounded-xl font-semibold">Cancel</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Job Detail Modal -->
     <div id="jobModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="jobModal-title" hidden style="z-index:200; position:fixed; inset:0; background:rgba(0,0,0,0.8); align-items:flex-end; justify-content:center;">
@@ -367,6 +404,61 @@
         function loadData() {
             normalizeLegacyStatuses();
             jobs = CL_DATA.getJobs();
+        }
+
+        function openAddLeadModal() {
+            const dateInput = document.getElementById('addLeadJobDate');
+            if (dateInput && !dateInput.value) {
+                dateInput.value = new Date().toISOString().split('T')[0];
+            }
+            openModal('addLeadModal');
+        }
+
+        function closeAddLeadModal() {
+            closeModal('addLeadModal');
+        }
+
+        function confirmAddLead() {
+            const dateStr = document.getElementById('addLeadJobDate').value;
+            if (!dateStr) {
+                showToast('Pick a date for the estimate visit', 'error');
+                return;
+            }
+            const jobTime = document.getElementById('addLeadJobTime').value || '';
+            const customerName = document.getElementById('addLeadCustomerName').value.trim();
+            const customerPhone = document.getElementById('addLeadCustomerPhone').value.trim();
+            const id = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+            const nowIso = new Date().toISOString();
+            CL_DATA.addJob({
+                id,
+                customerId: null,
+                customerName,
+                customerPhone,
+                customerEmail: '',
+                address: '',
+                serviceType: '',
+                jobCategory: '',
+                jobDate: '',
+                jobTime,
+                jobDuration: '',
+                quoteAmount: '',
+                squareFootage: '',
+                status: 'new',
+                notes: '',
+                paymentStatus: 'unpaid',
+                dateAdded: nowIso,
+                followUpDate: dateStr,
+                documents: { estimates: [], invoices: [], waivers: [] }
+            });
+            if (CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.syncToCloud();
+            } else {
+                setTimeout(() => {
+                    if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
+                }, 3000);
+            }
+            closeAddLeadModal();
+            window.location.href = `estimate.html?jobId=${encodeURIComponent(id)}`;
         }
 
         async function loadUsers() {
@@ -1135,10 +1227,12 @@
                 squareFootage: job.squareFootage || '',
                 serviceType: job.serviceType || '',
                 notes: job.notes || '',
-                jobCategory: job.jobCategory || ''
+                jobCategory: job.jobCategory || '',
+                jobDate: job.jobDate || '',
+                followUpDate: job.followUpDate || ''
             });
             closeJobModal();
-            window.location.href = 'estimate.html';
+            window.location.href = `estimate.html?jobId=${encodeURIComponent(id)}`;
         }
 
         function prefillInvoice(id) {
@@ -1348,7 +1442,9 @@
                         squareFootage: job.squareFootage || '',
                         serviceType: job.serviceType || '',
                         notes: job.notes || '',
-                        jobCategory: job.jobCategory || ''
+                        jobCategory: job.jobCategory || '',
+                        jobDate: job.jobDate || '',
+                        followUpDate: job.followUpDate || ''
                     });
                 }
                 window.location.href = `estimate.html?jobId=${jobId}`;

@@ -184,7 +184,7 @@
             </div>
             <div class="flex items-center gap-1">
                 <span class="job-dot followup"></span>
-                <span class="text-gray-500">Follow-up</span>
+                <span class="text-gray-500">Lead / estimate</span>
             </div>
         </div>
 
@@ -199,9 +199,39 @@
         <div class="modal-content" role="document">
             <div class="modal-header sticky top-0 bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
                 <h2 id="dayModal-title" class="text-lg font-bold"></h2>
-                <button class="modal-close-btn text-gray-400 text-2xl" onclick="closeDayModal()"></button>
+                <button type="button" class="modal-close-btn text-gray-400 text-2xl" onclick="closeDayModal()" aria-label="Close">&times;</button>
             </div>
             <div id="dayContent" class="p-4"></div>
+        </div>
+    </div>
+
+    <!-- Add lead (estimate visit) from a calendar day -->
+    <div id="addLeadVisitModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="addLeadVisitModal-title" hidden>
+        <div class="modal-content">
+            <div class="modal-header sticky top-0 bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
+                <h2 id="addLeadVisitModal-title" class="text-lg font-bold">Estimate visit (lead)</h2>
+                <button type="button" class="modal-close-btn text-gray-400 text-2xl" onclick="closeAddLeadVisitModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="p-4 space-y-3">
+                <p class="text-sm text-gray-400">Shows on this day as a <strong class="text-amber-400">lead</strong> and appears under Jobs → Leads. Default time is 11:30 — change if needed.</p>
+                <input type="hidden" id="addLeadVisitDateStr" value="">
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Time</label>
+                    <input type="time" id="addLeadVisitTime" value="11:30" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Customer name <span class="text-gray-500">(optional)</span></label>
+                    <input type="text" id="addLeadVisitName" placeholder="Name" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="name">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Phone <span class="text-gray-500">(optional)</span></label>
+                    <input type="tel" id="addLeadVisitPhone" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="tel">
+                </div>
+                <button type="button" onclick="confirmAddLeadVisit()" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-semibold">
+                    <i class="fas fa-file-alt mr-2"></i>Create &amp; open estimate
+                </button>
+                <button type="button" onclick="closeAddLeadVisitModal()" class="w-full bg-slate-600 text-white py-3 rounded-xl font-semibold">Cancel</button>
+            </div>
         </div>
     </div>
 
@@ -422,7 +452,7 @@ localStorage.setItem('cl-calendar-view', view);
                         <div class="flex justify-between items-center mb-1">
                             <span class="font-semibold ${isToday ? 'text-primary' : ''}">                                ${dayNames[i]} ${day.getDate()}
                             </span>
-                            <span class="text-xs text-gray-500">${dayJobs.length} job${dayJobs.length !== 1 ? 's' : ''}</span>
+                            <span class="text-xs text-gray-500">${dayJobs.length} item${dayJobs.length !== 1 ? 's' : ''}</span>
                         </div>
                         ${dayJobs.length > 0 ? `
                             <div class="space-y-1">
@@ -465,9 +495,14 @@ localStorage.setItem('cl-calendar-view', view);
                     <p class="text-3xl font-bold ${isToday ? 'text-primary' : ''}">${selectedDate.getDate()}</p>
                     <p class="text-gray-400">${dayNames[selectedDate.getDay()]}</p>
                 </div>
-                <button onclick="addJobForDate('${dateStr}')" class="w-full bg-primary/20 text-primary py-3 rounded-xl font-semibold mb-4 border border-primary/30">
-                    <i class="fas fa-plus mr-2"></i>Add Job
-                </button>
+                <div class="flex flex-col gap-2 mb-4">
+                    <button type="button" onclick="addJobForDate('${dateStr}')" class="w-full bg-primary/20 text-primary py-3 rounded-xl font-semibold border border-primary/30">
+                        <i class="fas fa-briefcase mr-2"></i>Scheduled job
+                    </button>
+                    <button type="button" onclick="openAddLeadVisitModal('${dateStr}')" class="w-full bg-amber-500/20 text-amber-400 py-3 rounded-xl font-semibold border border-amber-500/30">
+                        <i class="fas fa-user-plus mr-2"></i>Estimate visit (lead)
+                    </button>
+                </div>
             `;
             
             if (dayJobs.length === 0) {
@@ -512,9 +547,14 @@ localStorage.setItem('cl-calendar-view', view);
             
             // Add job button at top
             let html = `
-                <button onclick="addJobForDate('${dateStr}')" class="w-full bg-primary text-white py-3 rounded-xl font-semibold mb-4">
-                    <i class="fas fa-plus mr-2"></i>Add Job for This Day
-                </button>
+                <div class="flex flex-col gap-2 mb-4">
+                    <button type="button" onclick="addJobForDate('${dateStr}')" class="w-full bg-primary text-white py-3 rounded-xl font-semibold">
+                        <i class="fas fa-briefcase mr-2"></i>Scheduled job (booked work)
+                    </button>
+                    <button type="button" onclick="openAddLeadVisitModal('${dateStr}')" class="w-full bg-amber-500/90 text-white py-3 rounded-xl font-semibold border border-amber-400/40">
+                        <i class="fas fa-user-plus mr-2"></i>Estimate visit (lead)
+                    </button>
+                </div>
             `;
             
             if (dayJobs.length === 0) {
@@ -532,9 +572,10 @@ localStorage.setItem('cl-calendar-view', view);
                         </div>
                         
                         ${job.type === 'followup' ? `
-                            <p class="text-yellow-400 text-sm mb-2">
-                                <i class="fas fa-bell mr-1"></i>Follow-up reminder
+                            <p class="text-amber-400 text-sm mb-2">
+                                <i class="fas fa-user-clock mr-1"></i>Lead — estimate visit
                             </p>
+                            <a href="estimate.html?jobId=${encodeURIComponent(job.id)}" class="block w-full text-center bg-amber-600 text-white py-2 rounded-lg text-sm font-semibold mb-2">Open estimate</a>
                         ` : ''}
                         
                         ${job.quoteAmount ? `<p class="text-green-400 font-bold mb-2">$${job.quoteAmount}</p>` : ''}
@@ -592,6 +633,62 @@ localStorage.setItem('cl-calendar-view', view);
             window.location.href = `estimate.html?jobId=${encodeURIComponent(id)}`;
         }
 
+        function openAddLeadVisitModal(dateStr) {
+            document.getElementById('addLeadVisitDateStr').value = dateStr;
+            document.getElementById('addLeadVisitTime').value = '11:30';
+            document.getElementById('addLeadVisitName').value = '';
+            document.getElementById('addLeadVisitPhone').value = '';
+            closeDayModal();
+            openModal('addLeadVisitModal');
+        }
+
+        function closeAddLeadVisitModal() {
+            closeModal('addLeadVisitModal');
+        }
+
+        function confirmAddLeadVisit() {
+            const dateStr = document.getElementById('addLeadVisitDateStr').value;
+            if (!dateStr) {
+                showToast('Missing date', 'error');
+                return;
+            }
+            const jobTime = document.getElementById('addLeadVisitTime').value || '';
+            const customerName = document.getElementById('addLeadVisitName').value.trim();
+            const customerPhone = document.getElementById('addLeadVisitPhone').value.trim();
+            const id = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+            const nowIso = new Date().toISOString();
+            CL_DATA.addJob({
+                id,
+                customerId: null,
+                customerName,
+                customerPhone,
+                customerEmail: '',
+                address: '',
+                serviceType: '',
+                jobCategory: '',
+                jobDate: '',
+                jobTime,
+                jobDuration: '',
+                quoteAmount: '',
+                squareFootage: '',
+                status: 'new',
+                notes: '',
+                paymentStatus: 'unpaid',
+                dateAdded: nowIso,
+                followUpDate: dateStr,
+                documents: { estimates: [], invoices: [], waivers: [] }
+            });
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.syncToCloud();
+            } else if (window.CL_FIREBASE) {
+                setTimeout(() => {
+                    if (CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
+                }, 3000);
+            }
+            closeAddLeadVisitModal();
+            window.location.href = `estimate.html?jobId=${encodeURIComponent(id)}`;
+        }
+
         function exportJobToGCal(jobId) {
             const job = jobs.find(j => j.id === jobId);
             if (!job || !job.jobDate) return;
@@ -632,19 +729,23 @@ localStorage.setItem('cl-calendar-view', view);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // Get upcoming scheduled jobs
-            const upcoming = jobs
+            const scheduled = jobs
                 .filter(j => j.jobDate && j.status === 'scheduled')
-                .map(j => ({ ...j, dateObj: new Date(j.jobDate + 'T12:00:00') }))
+                .map(j => ({ ...j, dateObj: new Date(j.jobDate + 'T12:00:00'), kind: 'job' }));
+            const leadVisits = jobs
+                .filter(j => j.status === 'new' && j.followUpDate)
+                .map(j => ({ ...j, dateObj: new Date(j.followUpDate + 'T12:00:00'), kind: 'lead' }));
+
+            const upcoming = [...scheduled, ...leadVisits]
                 .filter(j => j.dateObj >= today)
                 .sort((a, b) => a.dateObj - b.dateObj)
-                .slice(0, 5);
+                .slice(0, 8);
 
             if (upcoming.length === 0) {
                 container.innerHTML = `
                     <div class="glass-card rounded-xl p-4 text-center text-gray-400">
                         <i class="fas fa-calendar-check text-3xl mb-2"></i>
-                        <p>No upcoming jobs scheduled</p>
+                        <p>No upcoming jobs or estimate visits</p>
                     </div>
                 `;
                 return;
@@ -654,11 +755,12 @@ localStorage.setItem('cl-calendar-view', view);
                 <div class="glass-card rounded-xl p-4">
                     <div class="flex justify-between items-start">
                         <div>
-                            <h4 class="font-bold">${job.customerName}</h4>
-                            <p class="text-sm text-gray-400">${job.serviceType || 'Service'}</p>
+                            <h4 class="font-bold">${job.customerName || 'Lead'}</h4>
+                            ${job.kind === 'lead' ? `<p class="text-xs text-amber-400 font-semibold mt-0.5">Estimate visit</p>` : `<p class="text-sm text-gray-400">${job.serviceType || 'Service'}</p>`}
                             <p class="text-purple-400 text-sm mt-1">
                                 <i class="fas fa-calendar mr-1"></i>
                                 ${job.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                ${job.jobTime ? `<span class="text-gray-400"> · ${job.jobTime}</span>` : ''}
                             </p>
                         </div>
                         <div class="text-right">

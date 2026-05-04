@@ -1548,6 +1548,7 @@
             if (prefillData.phone) document.getElementById('customerPhone').value = prefillData.phone;
             if (prefillData.email) document.getElementById('customerEmail').value = prefillData.email;
             if (prefillData.jobDate) document.getElementById('prefillJobDate').value = prefillData.jobDate;
+            else if (prefillData.followUpDate) document.getElementById('prefillJobDate').value = prefillData.followUpDate;
             if (prefillData.serviceType) {
                 const descInput = document.querySelector('[name="description"]');
                 if (descInput) descInput.value = prefillData.serviceType;
@@ -1561,6 +1562,26 @@
                 if (notesEl && !notesEl.value) notesEl.value = prefillData.notes;
             }
             safeRemove('cl-estimate-prefill');
+        }
+
+        // Attach customer + estimate visit date when opening from a job card or calendar.
+        if (jobId && !editDocId) {
+            const job = CL_DATA.findJob(jobId);
+            if (job) {
+                const nameEl = document.getElementById('customerName');
+                if (nameEl && !nameEl.value.trim() && job.customerName) nameEl.value = job.customerName;
+                const addrEl = document.getElementById('customerAddress');
+                if (addrEl && !addrEl.value.trim() && job.address) addrEl.value = job.address;
+                const phoneEl = document.getElementById('customerPhone');
+                if (phoneEl && !phoneEl.value.trim() && job.customerPhone) phoneEl.value = job.customerPhone;
+                const emailEl = document.getElementById('customerEmail');
+                if (emailEl && !emailEl.value.trim() && job.customerEmail) emailEl.value = job.customerEmail;
+                const pj = document.getElementById('prefillJobDate');
+                if (pj && !pj.value) {
+                    if (job.status === 'new' && job.followUpDate) pj.value = job.followUpDate;
+                    else if (job.jobDate) pj.value = job.jobDate;
+                }
+            }
         }
         
         // Save and Load Functions
@@ -2071,15 +2092,24 @@
                 total: lastEstimateData ? lastEstimateData.total : parseFloat(formState.totalAmount) || 0,
                 number: lastEstimateData ? lastEstimateData.estimateNum : ''
             };
-            CL_DATA.updateJob(job.id, {
+            const prefillDate = document.getElementById('prefillJobDate').value || '';
+            const isLead = job.status === 'new';
+            const jobFieldUpdates = {
                 customerName: formState.customerName || job.customerName || '',
                 customerPhone: formState.customerPhone || job.customerPhone || '',
                 customerEmail: formState.customerEmail || job.customerEmail || '',
                 address: formState.customerAddress || job.address || '',
-                quoteAmount: String(summary.total || 0),
-                jobDate: document.getElementById('prefillJobDate').value || job.jobDate || '',
-                status: (document.getElementById('prefillJobDate').value || job.jobDate) ? 'scheduled' : (job.status || 'new')
-            });
+                quoteAmount: String(summary.total || 0)
+            };
+            if (isLead) {
+                jobFieldUpdates.followUpDate = prefillDate || job.followUpDate || '';
+                jobFieldUpdates.status = 'new';
+                jobFieldUpdates.jobDate = job.jobDate || '';
+            } else {
+                jobFieldUpdates.jobDate = prefillDate || job.jobDate || '';
+                jobFieldUpdates.status = (jobFieldUpdates.jobDate || job.jobDate) ? 'scheduled' : (job.status || 'new');
+            }
+            CL_DATA.updateJob(job.id, jobFieldUpdates);
 
             if (!job.documents) job.documents = { estimates: [], invoices: [], waivers: [] };
             if (!Array.isArray(job.documents.estimates)) job.documents.estimates = [];
