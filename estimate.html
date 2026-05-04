@@ -513,6 +513,12 @@
             <h2>PRESSURE POINT POWERWASHING - ESTIMATE GENERATOR</h2>
             
             <form id="estimateForm">
+                <div id="estimateSyncBar" style="display:none;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:12px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569;line-height:1.4;"></div>
+                <div id="standaloneRestoreBanner" style="display:none;font-size:13px;padding:10px;border-radius:8px;margin-bottom:12px;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;">
+                    <span id="standaloneRestoreText"></span>
+                    <button type="button" onclick="restoreStandaloneEstimateBackup()" style="margin-left:8px;background:#f59e0b;color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:600;">Restore</button>
+                    <button type="button" onclick="dismissStandaloneEstimateBackup()" style="margin-left:6px;background:transparent;border:1px solid #b45309;color:#92400e;padding:4px 10px;border-radius:6px;cursor:pointer;">Dismiss</button>
+                </div>
                 <div class="section-header">CUSTOMER INFORMATION</div>
                 
                 <!-- Customer Quick Actions -->
@@ -527,6 +533,7 @@
                 </div>
                 
                 <input type="hidden" id="selectedCustomerId" value="">
+                <input type="hidden" id="prefillJobDate" value="">
                 <div class="form-group customer-name-wrapper">
                     <label for="customerName">Customer Name:</label>
                     <input type="text" id="customerName" placeholder="Enter customer name" required autocomplete="off">
@@ -536,6 +543,16 @@
                 <div class="form-group">
                     <label for="customerAddress">Customer Address (Optional):</label>
                     <textarea id="customerAddress" placeholder="Enter customer address"></textarea>
+                </div>
+                <div class="two-column">
+                    <div class="form-group">
+                        <label for="customerPhone">Customer Phone (Optional):</label>
+                        <input type="tel" id="customerPhone" placeholder="Enter phone number">
+                    </div>
+                    <div class="form-group">
+                        <label for="customerEmail">Customer Email (Optional):</label>
+                        <input type="email" id="customerEmail" placeholder="Enter email address">
+                    </div>
                 </div>
                 
                 <div class="section-header">PRICING & MATERIALS</div>
@@ -696,8 +713,10 @@
                 </div>
                 
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-                    <button type="button" class="add-service-btn" onclick="saveDraftToCloud()" style="flex:1;margin-bottom:0;background:#0ea5e9;">Save Draft</button>
-                    <button type="button" class="add-service-btn" onclick="markAsFinal()" style="flex:1;margin-bottom:0;background:#f59e0b;">Mark as Final</button>
+                    <button type="button" class="add-service-btn" onclick="saveDraftToCloud()" style="flex:1;margin-bottom:0;background:#0ea5e9;">Save</button>
+                    <button type="button" class="add-service-btn" id="finalizeBtn" onclick="markAsFinal()" style="flex:1;margin-bottom:0;background:#f59e0b;">Finalize</button>
+                    <button type="button" class="add-service-btn" id="shareFinalBtn" onclick="shareFinalEstimate()" style="flex:1;margin-bottom:0;background:#2563eb;display:none;">Share</button>
+                    <button type="button" class="add-service-btn" id="convertInvoiceBtn" onclick="convertToInvoice()" style="flex:1;margin-bottom:0;background:#7c3aed;display:none;">Convert to Invoice</button>
                 </div>
                 <div class="two-column">
                     <button type="button" class="add-service-btn" onclick="saveEstimate()" style="margin-bottom: 5px;">
@@ -711,7 +730,7 @@
                 <input type="file" id="loadFile" accept=".json" style="display: none;" onchange="loadEstimate(event)">
                 
                 <div id="cloudSignInMsg" style="display:none;background:#e0f2fe;padding:10px;border-radius:8px;text-align:center;margin-bottom:10px;">
-                    <p style="margin-bottom:8px;">Sign in to save to cloud</p>
+                    <p id="cloudSignInMsgText" style="margin-bottom:8px;">Sign in to save to cloud</p>
                     <button type="button" onclick="CL_FIREBASE.signInWithGoogle()" style="background:#0ea5e9;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600;">Sign in with Google</button>
                 </div>
                 
@@ -743,11 +762,11 @@
                 <i class="fas fa-briefcase"></i>
                 <span>Jobs</span>
             </a>
-            <a href="quick-add.html" class="tab-item tab-item-add">
+            <a href="estimate.html" class="tab-item tab-item-add active">
                 <div class="tab-add-btn">
                     <i class="fas fa-plus"></i>
                 </div>
-                <span>Add</span>
+                <span>Estimate</span>
             </a>
             <a href="calendar.html" class="tab-item">
                 <i class="fas fa-calendar"></i>
@@ -938,6 +957,8 @@
             // Get customer info
             const customerName = document.getElementById('customerName').value || 'Customer';
             const customerAddress = document.getElementById('customerAddress').value;
+            const customerPhone = document.getElementById('customerPhone').value.trim();
+            const customerEmail = document.getElementById('customerEmail').value.trim();
             const discountPercent = parseFloat(document.getElementById('discount').value) || 0;
             const discountReason = document.getElementById('discountReason').value || 'Discount';
             const additionalCost = parseFloat(document.getElementById('additionalCost').value) || 0;
@@ -1212,6 +1233,8 @@
                         <h3>ESTIMATE FOR:</h3>
                         <p><strong>${customerName}</strong></p>
                         ${customerAddress ? `<p>${customerAddress.replace(/\n/g, '<br>')}</p>` : ''}
+                        ${customerPhone ? `<p>Phone: ${customerPhone}</p>` : ''}
+                        ${customerEmail ? `<p>Email: ${customerEmail}</p>` : ''}
                     </div>
                     <div style="background:#0f172a;color:white;padding:14px 16px;border-radius:6px;">
                         <h3 style="color:#94a3b8;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;border-bottom:1px solid #1e293b;padding-bottom:6px;">Service Details</h3>
@@ -1257,8 +1280,6 @@
                 
                 <button class="download-btn" onclick="window.print()">PRINT ESTIMATE</button>
                 
-                ${jobId ? `<button class="download-btn" style="background:#10b981;margin-top:10px;" onclick="saveEstimateToJob()"><i class="fas fa-save" style="margin-right:8px;"></i>SAVE TO JOB</button>` : ''}
-                
                 <div class="share-buttons">
                     <button class="share-btn sms" onclick="shareViaSMS()">
                         Text to Customer
@@ -1278,6 +1299,8 @@
                 date: today,
                 customerName,
                 customerAddress,
+                customerPhone,
+                customerEmail,
                 services,
                 totalSquareFootage,
                 totalEstimatedTime,
@@ -1401,6 +1424,86 @@
                 alert('Estimate copied to clipboard!');
             });
         }
+
+        async function shareFinalEstimate() {
+            if (!lastEstimateData) {
+                generateEstimate();
+            }
+            const preview = document.getElementById('estimateContent');
+            if (!preview) return;
+            try {
+                const canvas = await html2canvas(preview, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff'
+                });
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                if (!blob) throw new Error('Could not create image');
+                const file = new File([blob], `estimate-${Date.now()}.png`, { type: 'image/png' });
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: `Estimate for ${lastEstimateData?.customerName || 'Customer'}`,
+                        files: [file]
+                    });
+                } else {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `estimate-${Date.now()}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(a.href);
+                    showToast('PNG downloaded');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Could not share estimate', 'error');
+            }
+        }
+
+        function convertToInvoice() {
+            if (!jobId) {
+                showToast('Open from a job to convert', 'error');
+                return;
+            }
+            if (!lastEstimateData) generateEstimate();
+            const total = lastEstimateData ? Number(lastEstimateData.total || 0) : 0;
+            const job = CL_DATA.findJob(jobId);
+            if (!job) {
+                showToast('Job not found', 'error');
+                return;
+            }
+            if (!job.documents) job.documents = { estimates: [], invoices: [], waivers: [] };
+            if (!Array.isArray(job.documents.invoices)) job.documents.invoices = [];
+            const formState = collectFormState();
+            const invoiceDocId = 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+            const nowIso = new Date().toISOString();
+            const invoiceFormState = {
+                ...formState,
+                type: 'invoice',
+                customerPhone: document.getElementById('customerPhone').value || ''
+            };
+            job.documents.invoices.push({
+                id: invoiceDocId,
+                createdAt: nowIso,
+                updatedAt: nowIso,
+                summary: {
+                    customerName: formState.customerName || '',
+                    total: total || 0,
+                    number: ''
+                },
+                formState: invoiceFormState
+            });
+            CL_DATA.updateJob(job.id, { documents: job.documents });
+            safeSet('cl-invoice-prefill', {
+                name: document.getElementById('customerName').value || '',
+                address: document.getElementById('customerAddress').value || '',
+                phone: document.getElementById('customerPhone').value || '',
+                quoteAmount: total ? String(total) : '',
+                notes: document.getElementById('notes').value || ''
+            });
+            window.location.href = `invoice.html?jobId=${encodeURIComponent(jobId)}&docId=${encodeURIComponent(invoiceDocId)}`;
+        }
         
         function generateShareText() {
             const d = lastEstimateData;
@@ -1442,6 +1545,9 @@
         if (prefillData) {
             if (prefillData.name) document.getElementById('customerName').value = prefillData.name;
             if (prefillData.address) document.getElementById('customerAddress').value = prefillData.address;
+            if (prefillData.phone) document.getElementById('customerPhone').value = prefillData.phone;
+            if (prefillData.email) document.getElementById('customerEmail').value = prefillData.email;
+            if (prefillData.jobDate) document.getElementById('prefillJobDate').value = prefillData.jobDate;
             if (prefillData.serviceType) {
                 const descInput = document.querySelector('[name="description"]');
                 if (descInput) descInput.value = prefillData.serviceType;
@@ -1838,6 +1944,8 @@
                 if (c) {
                     document.getElementById('customerName').value = c.name || '';
                     document.getElementById('customerAddress').value = c.address || '';
+                    document.getElementById('customerPhone').value = c.phone || '';
+                    document.getElementById('customerEmail').value = c.email || '';
                     document.getElementById('selectedCustomerId').value = c.id;
                 }
                 dropdown.classList.remove('open');
@@ -1906,6 +2014,8 @@
             if (c) {
                 document.getElementById('customerName').value = c.name || '';
                 document.getElementById('customerAddress').value = c.address || '';
+                document.getElementById('customerPhone').value = c.phone || '';
+                document.getElementById('customerEmail').value = c.email || '';
                 document.getElementById('selectedCustomerId').value = c.id;
             }
             closeCustomerSearch();
@@ -1948,7 +2058,8 @@
         // entries append; existing entries (identified by editDocId) are
         // replaced in place. The saved payload is compact JSON — no base64
         // PNG — so it stays well under Firestore's 1 MB per-doc limit.
-        function saveEstimateToJob() {
+        function saveEstimateToJob(opts = {}) {
+            const shouldRedirect = opts.redirect !== false;
             if (!jobId) { alert('No job associated with this estimate'); return; }
 
             const job = CL_DATA.findJob(jobId);
@@ -1960,6 +2071,15 @@
                 total: lastEstimateData ? lastEstimateData.total : parseFloat(formState.totalAmount) || 0,
                 number: lastEstimateData ? lastEstimateData.estimateNum : ''
             };
+            CL_DATA.updateJob(job.id, {
+                customerName: formState.customerName || job.customerName || '',
+                customerPhone: formState.customerPhone || job.customerPhone || '',
+                customerEmail: formState.customerEmail || job.customerEmail || '',
+                address: formState.customerAddress || job.address || '',
+                quoteAmount: String(summary.total || 0),
+                jobDate: document.getElementById('prefillJobDate').value || job.jobDate || '',
+                status: (document.getElementById('prefillJobDate').value || job.jobDate) ? 'scheduled' : (job.status || 'new')
+            });
 
             if (!job.documents) job.documents = { estimates: [], invoices: [], waivers: [] };
             if (!Array.isArray(job.documents.estimates)) job.documents.estimates = [];
@@ -1991,7 +2111,9 @@
 
             CL_DATA.updateJob(job.id, { documents: job.documents });
             showToast('Estimate saved to job');
-            setTimeout(() => { window.location.href = 'jobs.html'; }, 600);
+            if (shouldRedirect) {
+                setTimeout(() => { window.location.href = 'jobs.html'; }, 600);
+            }
         }
 
         // When reopening a saved estimate (jobId + docId), preload the form
@@ -2010,23 +2132,12 @@
                 const seed = {
                     customerName: (entry.summary && entry.summary.customerName) || job.customerName || '',
                     customerAddress: job.address || '',
+                    customerPhone: job.customerPhone || '',
+                    customerEmail: job.customerEmail || '',
                     notes: job.notes || ''
                 };
                 loadFormState(seed);
             }
-        }
-
-        // Sticky Save-to-Job button visible whenever jobId is in the URL, so
-        // Edit flows don't require clicking Generate first.
-        function installStickySaveToJob() {
-            if (!jobId) return;
-            const form = document.getElementById('estimateForm');
-            if (!form || document.getElementById('stickySaveToJobWrap')) return;
-            const wrap = document.createElement('div');
-            wrap.id = 'stickySaveToJobWrap';
-            wrap.style.cssText = 'position:sticky;bottom:0;background:#fff;padding:10px 0;border-top:1px solid #ccc;margin-top:10px;';
-            wrap.innerHTML = `<button type="button" class="add-service-btn" style="background:#10b981;margin-bottom:0;" onclick="saveEstimateToJob()"><i class="fas fa-save" style="margin-right:8px;"></i>${editDocId ? 'Save Changes to Job' : 'Save to Job'}</button>`;
-            form.appendChild(wrap);
         }
 
         // Phase 4 permission gating --------------------------------
@@ -2065,8 +2176,10 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            installStickySaveToJob();
             loadEstimateFromJobDoc();
+            updateEstimateSyncUI();
+            maybeShowStandaloneRestoreBanner();
+            setTimeout(() => { tryConsumePendingCloudEstimateLoad(); }, 450);
             // Apply immediately if profile is already loaded; otherwise wait.
             const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
             if (p) applyEstimatePermissions(p);
@@ -2091,6 +2204,8 @@
                 customerId: document.getElementById('selectedCustomerId').value || null,
                 customerName: document.getElementById('customerName').value,
                 customerAddress: document.getElementById('customerAddress').value,
+                customerPhone: document.getElementById('customerPhone').value,
+                customerEmail: document.getElementById('customerEmail').value,
                 services: services,
                 discount: document.getElementById('discount').value,
                 discountReason: document.getElementById('discountReason').value,
@@ -2109,6 +2224,8 @@
         function loadFormState(data) {
             if (data.customerName) document.getElementById('customerName').value = data.customerName;
             if (data.customerAddress) document.getElementById('customerAddress').value = data.customerAddress;
+            if (data.customerPhone) document.getElementById('customerPhone').value = data.customerPhone;
+            if (data.customerEmail) document.getElementById('customerEmail').value = data.customerEmail;
             if (data.customerId) document.getElementById('selectedCustomerId').value = data.customerId;
             if (data.gasCost) document.getElementById('gasCost').value = data.gasCost;
             if (data.chemicalName) document.getElementById('chemicalName').value = data.chemicalName;
@@ -2152,12 +2269,28 @@
         function applyFinalizedState(isFinal) {
             const banner = document.getElementById('finalizedBanner');
             const form = document.getElementById('estimateForm');
+            const finalizeBtn = document.getElementById('finalizeBtn');
+            const shareBtn = document.getElementById('shareFinalBtn');
+            const convertBtn = document.getElementById('convertInvoiceBtn');
+            const reopenBtn = banner ? banner.querySelector('button[onclick="reopenEstimate()"]') : null;
             if (isFinal) {
                 banner.style.display = 'block';
                 form.querySelectorAll('input:not([type=hidden]),select,textarea').forEach(el => el.disabled = true);
+                form.querySelectorAll('button').forEach(btn => {
+                    const canUse = btn.id === 'shareFinalBtn' || btn.id === 'convertInvoiceBtn' || btn === reopenBtn;
+                    if (!canUse) btn.disabled = true;
+                });
+                if (finalizeBtn) finalizeBtn.style.display = 'none';
+                if (shareBtn) { shareBtn.style.display = 'inline-block'; shareBtn.disabled = false; }
+                if (convertBtn) { convertBtn.style.display = 'inline-block'; convertBtn.disabled = false; }
+                if (reopenBtn) reopenBtn.disabled = false;
             } else {
                 banner.style.display = 'none';
                 form.querySelectorAll('input:not([type=hidden]),select,textarea').forEach(el => el.disabled = false);
+                form.querySelectorAll('button').forEach(btn => { btn.disabled = false; });
+                if (finalizeBtn) finalizeBtn.style.display = 'inline-block';
+                if (shareBtn) shareBtn.style.display = 'none';
+                if (convertBtn) convertBtn.style.display = 'none';
             }
         }
 
@@ -2192,9 +2325,20 @@
         }
 
         async function saveDraftToCloud() {
+            let savedToJob = false;
+            if (jobId) {
+                saveEstimateToJob({ redirect: false });
+                savedToJob = true;
+            }
+            if (!jobId && !editDocId) persistStandaloneEstimateBackup();
             if (!CL_FIREBASE.isSignedIn) {
                 document.getElementById('cloudSignInMsg').style.display = 'block';
-                showToast('Sign in to save to cloud', 'info');
+                const ct = document.getElementById('cloudSignInMsgText');
+                if (ct && !localStorage.getItem(CL_LOAD_ESTIMATE_KEY)) {
+                    ct.textContent = savedToJob ? 'Saved to job on this device. Sign in to sync your cloud estimate library.' : 'Sign in to save to cloud';
+                }
+                updateEstimateSyncUI();
+                showToast(savedToJob ? 'Saved to job locally. Sign in to sync cloud.' : 'Sign in to save to cloud', 'info');
                 return;
             }
             const db = CL_FIREBASE.getFirestore();
@@ -2216,45 +2360,157 @@
                     document.getElementById('firestoreDocId').value = ref.id;
                 }
                 showToast('Draft saved');
+                clearStandaloneEstimateBackup();
                 loadSavedEstimates();
             } catch (err) {
                 console.error('Save error:', err);
                 showToast('Save failed', 'error');
             }
+            updateEstimateSyncUI();
         }
 
         async function markAsFinal() {
-            if (!CL_FIREBASE.isSignedIn) {
-                document.getElementById('cloudSignInMsg').style.display = 'block';
+            if (!jobId && !document.getElementById('customerName').value.trim()) {
+                showToast('Customer name is required to finalize', 'error');
                 return;
             }
-            const db = CL_FIREBASE.getFirestore();
-            let docId = document.getElementById('firestoreDocId').value;
-            const data = _applyOwnership(collectFormState());
+            const data = collectFormState();
             data.status = 'final';
             document.getElementById('docStatus').value = 'final';
+            applyFinalizedState(true);
+            if (jobId) saveEstimateToJob({ redirect: false });
+            if (!jobId && !editDocId) persistStandaloneEstimateBackup();
+
+            if (!CL_FIREBASE.isSignedIn) {
+                document.getElementById('cloudSignInMsg').style.display = 'block';
+                updateEstimateSyncUI();
+                showToast('Estimate finalized locally. Sign in to sync cloud.', 'info');
+                return;
+            }
+
+            const db = CL_FIREBASE.getFirestore();
+            let docId = document.getElementById('firestoreDocId').value;
+            const ownedData = _applyOwnership(data);
             try {
-                await _syncGasPriceIfOwner(data);
+                await _syncGasPriceIfOwner(ownedData);
                 if (docId) {
-                    await db.collection('estimates').doc(docId).set(data, { merge: true });
+                    await db.collection('estimates').doc(docId).set(ownedData, { merge: true });
                 } else {
-                    data.createdAt = new Date().toISOString();
-                    const ref = await db.collection('estimates').add(data);
+                    ownedData.createdAt = new Date().toISOString();
+                    const ref = await db.collection('estimates').add(ownedData);
                     document.getElementById('firestoreDocId').value = ref.id;
                 }
-                applyFinalizedState(true);
                 showToast('Estimate finalized');
+                clearStandaloneEstimateBackup();
                 loadSavedEstimates();
             } catch (err) {
                 console.error(err);
-                showToast('Error finalizing', 'error');
+                showToast('Finalized locally. Cloud sync failed.', 'error');
             }
+            updateEstimateSyncUI();
         }
 
         function reopenEstimate() {
             document.getElementById('docStatus').value = 'draft';
             applyFinalizedState(false);
+            if (jobId) saveEstimateToJob({ redirect: false });
             saveDraftToCloud();
+        }
+
+        const CL_ESTIMATE_STANDBY_BACKUP_KEY = 'cl-estimate-standalone-backup';
+        const CL_LOAD_ESTIMATE_KEY = 'cl-load-estimate';
+
+        function clearStandaloneEstimateBackup() {
+            safeRemove(CL_ESTIMATE_STANDBY_BACKUP_KEY);
+        }
+
+        function persistStandaloneEstimateBackup() {
+            if (jobId || editDocId) return;
+            try {
+                const fsId = document.getElementById('firestoreDocId').value || '';
+                const payload = Object.assign({}, collectFormState(), {
+                    savedAt: new Date().toISOString(),
+                    firestoreDocId: fsId
+                });
+                safeSet(CL_ESTIMATE_STANDBY_BACKUP_KEY, payload);
+            } catch (e) { console.warn('estimate backup', e); }
+        }
+
+        function maybeShowStandaloneRestoreBanner() {
+            if (jobId || editDocId) return;
+            const b = safeGet(CL_ESTIMATE_STANDBY_BACKUP_KEY, null);
+            const wrap = document.getElementById('standaloneRestoreBanner');
+            const txt = document.getElementById('standaloneRestoreText');
+            if (!b || !wrap || !txt) return;
+            const when = b.savedAt ? new Date(b.savedAt).toLocaleString() : '';
+            txt.textContent = `You have unsaved estimate work on this device (${when}).`;
+            wrap.style.display = 'block';
+        }
+
+        function restoreStandaloneEstimateBackup() {
+            const b = safeGet(CL_ESTIMATE_STANDBY_BACKUP_KEY, null);
+            if (!b) return;
+            const clone = Object.assign({}, b);
+            delete clone.savedAt;
+            const fsId = clone.firestoreDocId;
+            delete clone.firestoreDocId;
+            if (fsId) document.getElementById('firestoreDocId').value = fsId;
+            loadFormState(clone);
+            const wrap = document.getElementById('standaloneRestoreBanner');
+            if (wrap) wrap.style.display = 'none';
+            showToast('Restored from this device');
+        }
+
+        function dismissStandaloneEstimateBackup() {
+            clearStandaloneEstimateBackup();
+            const wrap = document.getElementById('standaloneRestoreBanner');
+            if (wrap) wrap.style.display = 'none';
+        }
+
+        function updateEstimateSyncUI() {
+            const bar = document.getElementById('estimateSyncBar');
+            const cloudMsg = document.getElementById('cloudSignInMsg');
+            const cloudText = document.getElementById('cloudSignInMsgText');
+            if (!bar) return;
+            const online = navigator.onLine !== false;
+            const signedIn = !!(window.CL_FIREBASE && CL_FIREBASE.isSignedIn);
+            const pendingOpen = localStorage.getItem(CL_LOAD_ESTIMATE_KEY);
+            bar.style.display = 'block';
+            bar.style.border = '1px solid #e2e8f0';
+            if (!online) {
+                bar.style.background = '#fef2f2';
+                bar.style.borderColor = '#fecaca';
+                bar.textContent = 'Offline — your work saves on this device. Cloud sync resumes when you are online and signed in.';
+            } else if (!signedIn) {
+                bar.style.background = '#f8fafc';
+                bar.textContent = 'Signed out — drafts stay on this device. Sign in to sync your cloud estimate library.';
+            } else {
+                bar.style.background = '#ecfdf5';
+                bar.style.borderColor = '#a7f3d0';
+                bar.textContent = 'Signed in — use Save / Finalize to keep this estimate in your cloud library and devices.';
+            }
+            if (!signedIn && pendingOpen && cloudMsg && cloudText) {
+                cloudMsg.style.display = 'block';
+                cloudText.textContent = 'Sign in to open the estimate you picked from Customers.';
+            } else if (signedIn && cloudText && cloudMsg && cloudMsg.style.display !== 'block') {
+                /* leave loadSavedEstimates to toggle */
+            }
+        }
+
+        async function tryConsumePendingCloudEstimateLoad() {
+            if (jobId || editDocId) {
+                if (localStorage.getItem(CL_LOAD_ESTIMATE_KEY)) localStorage.removeItem(CL_LOAD_ESTIMATE_KEY);
+                return;
+            }
+            const pending = localStorage.getItem(CL_LOAD_ESTIMATE_KEY);
+            if (!pending) return;
+            if (!window.CL_FIREBASE || !CL_FIREBASE.isSignedIn) {
+                updateEstimateSyncUI();
+                return;
+            }
+            localStorage.removeItem(CL_LOAD_ESTIMATE_KEY);
+            await loadEstimateFromCloud(pending);
+            updateEstimateSyncUI();
         }
 
         async function loadSavedEstimates() {
@@ -2262,6 +2518,9 @@
             if (!CL_FIREBASE.isSignedIn) {
                 container.innerHTML = '';
                 document.getElementById('cloudSignInMsg').style.display = 'block';
+                const ct = document.getElementById('cloudSignInMsgText');
+                if (ct && !localStorage.getItem(CL_LOAD_ESTIMATE_KEY)) ct.textContent = 'Sign in to save to cloud';
+                updateEstimateSyncUI();
                 return;
             }
             document.getElementById('cloudSignInMsg').style.display = 'none';
@@ -2289,6 +2548,7 @@
                 console.error('Load error:', err);
                 container.innerHTML = '<p style="color:#dc3545;">Error loading saved estimates</p>';
             }
+            updateEstimateSyncUI();
         }
 
         async function loadEstimateFromCloud(docId) {
@@ -2299,6 +2559,9 @@
                 if (!doc.exists) { showToast('Not found', 'error'); return; }
                 document.getElementById('firestoreDocId').value = docId;
                 loadFormState(doc.data());
+                clearStandaloneEstimateBackup();
+                const wrap = document.getElementById('standaloneRestoreBanner');
+                if (wrap) wrap.style.display = 'none';
                 showToast('Estimate loaded');
             } catch (err) {
                 console.error(err);
@@ -2307,7 +2570,13 @@
         }
 
         // Load saved list on auth change
-        window.addEventListener('cl-auth-change', () => { loadSavedEstimates(); });
+        window.addEventListener('cl-auth-change', () => {
+            updateEstimateSyncUI();
+            tryConsumePendingCloudEstimateLoad();
+            loadSavedEstimates();
+        });
+        window.addEventListener('online', updateEstimateSyncUI);
+        window.addEventListener('offline', updateEstimateSyncUI);
         // Initial load
         setTimeout(() => { if (CL_FIREBASE.isSignedIn) loadSavedEstimates(); }, 2000);
 

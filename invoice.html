@@ -164,12 +164,18 @@
                 <button type="button" class="calc-button" onclick="generateInvoice()">GENERATE INVOICE</button>
 
                 <div class="section-header" style="margin-top: 20px;">SAVE &amp; LOAD</div>
+                <div id="invoiceSyncBar" style="display:none;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:12px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569;line-height:1.4;"></div>
+                <div id="invoiceStandaloneRestoreBanner" style="display:none;font-size:13px;padding:10px;border-radius:8px;margin-bottom:12px;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;">
+                    <span id="invoiceStandaloneRestoreText"></span>
+                    <button type="button" onclick="restoreStandaloneInvoiceBackup()" style="margin-left:8px;background:#f59e0b;color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:600;">Restore</button>
+                    <button type="button" onclick="dismissStandaloneInvoiceBackup()" style="margin-left:6px;background:transparent;border:1px solid #b45309;color:#92400e;padding:4px 10px;border-radius:6px;cursor:pointer;">Dismiss</button>
+                </div>
                 <input type="hidden" id="firestoreDocId" value="">
                 <input type="hidden" id="docStatus" value="draft">
                 <div class="form-group" style="margin-bottom: 5px;"><label for="estimateName">Invoice Name (for saving):</label><input type="text" id="estimateName" placeholder="Enter name for this invoice"></div>
                 <div id="finalizedBanner" style="display:none;background:#fef3c7;border:2px solid #f59e0b;padding:12px;margin-bottom:10px;text-align:center;font-weight:bold;">This invoice is finalized.<button type="button" onclick="reopenInvoice()" style="margin-left:10px;background:#f59e0b;color:white;border:none;padding:6px 12px;cursor:pointer;border-radius:4px;">Edit / Reopen</button></div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;"><button type="button" class="add-service-btn" onclick="saveDraftToCloud()" style="flex:1;margin-bottom:0;background:#0ea5e9;">☁️ Save Draft</button><button type="button" class="add-service-btn" onclick="markAsFinal()" style="flex:1;margin-bottom:0;background:#f59e0b;">✅ Mark as Final</button></div>
-                <div id="cloudSignInMsg" style="display:none;background:#e0f2fe;padding:10px;border-radius:8px;text-align:center;margin-bottom:10px;"><p style="margin-bottom:8px;">Sign in to save to cloud</p><button type="button" onclick="CL_FIREBASE.signInWithGoogle()" style="background:#0ea5e9;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600;">Sign in with Google</button></div>
+                <div id="cloudSignInMsg" style="display:none;background:#e0f2fe;padding:10px;border-radius:8px;text-align:center;margin-bottom:10px;"><p id="cloudSignInInvoiceText" style="margin-bottom:8px;">Sign in to save to cloud</p><button type="button" onclick="CL_FIREBASE.signInWithGoogle()" style="background:#0ea5e9;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600;">Sign in with Google</button></div>
                 <div id="savedInvoicesList" style="margin-top:10px;"></div>
             </form>
         </div>
@@ -187,7 +193,7 @@
     <nav class="tab-bar"><div class="tab-bar-inner">
         <a href="index.html" class="tab-item"><i class="fas fa-home"></i><span>Home</span></a>
         <a href="jobs.html" class="tab-item"><i class="fas fa-briefcase"></i><span>Jobs</span></a>
-        <a href="quick-add.html" class="tab-item tab-item-add"><div class="tab-add-btn"><i class="fas fa-plus"></i></div><span>Add</span></a>
+        <a href="estimate.html" class="tab-item tab-item-add"><div class="tab-add-btn"><i class="fas fa-plus"></i></div><span>Estimate</span></a>
         <a href="calendar.html" class="tab-item"><i class="fas fa-calendar"></i><span>Calendar</span></a>
         <a href="customer-tracker.html" class="tab-item"><i class="fas fa-users"></i><span>Customers</span></a>
     </div></nav>
@@ -342,11 +348,15 @@
         const urlParams = new URLSearchParams(window.location.search);
         const jobId = urlParams.get('jobId');
         const editDocId = urlParams.get('docId');
+        const CL_INVOICE_STANDBY_BACKUP_KEY = 'cl-invoice-standalone-backup';
+        const CL_LOAD_INVOICE_KEY = 'cl-load-invoice';
 
         // Save the current form state into the job's invoices array. New
         // entries append; existing entries (identified by editDocId) are
         // replaced in place. Stores compact JSON, no base64 PNG.
-        function saveInvoiceToJob() {
+        function saveInvoiceToJob(opts) {
+            opts = opts || {};
+            const shouldRedirect = opts.redirect !== false;
             if (!jobId) { alert('No job associated'); return; }
             const job = CL_DATA.findJob(jobId);
             if (!job) { alert('Job not found'); return; }
@@ -388,7 +398,9 @@
 
             CL_DATA.updateJob(job.id, { documents: job.documents });
             showToast('Invoice saved to job');
-            setTimeout(() => { window.location.href = 'jobs.html'; }, 600);
+            if (shouldRedirect) {
+                setTimeout(() => { window.location.href = 'jobs.html'; }, 600);
+            }
         }
 
         // Apply a saved invoice formState (or a legacy summary seed) into the form.
@@ -513,6 +525,9 @@
         document.addEventListener('DOMContentLoaded', () => {
             installStickySaveToJob();
             loadInvoiceFromJobDoc();
+            updateInvoiceSyncUI();
+            maybeShowStandaloneInvoiceRestoreBanner();
+            setTimeout(() => { tryConsumePendingCloudInvoiceLoad(); }, 450);
             const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
             if (p) applyInvoicePermissions(p);
             window.addEventListener('cl-profile-updated', (e) => applyInvoicePermissions(e.detail && e.detail.profile));
@@ -540,12 +555,128 @@
             });
             return { type:'invoice', status:document.getElementById('docStatus').value||'draft', customerId:document.getElementById('selectedCustomerId').value||null, customerName:document.getElementById('customerName').value, customerAddress:document.getElementById('customerAddress').value, customerPhone:document.getElementById('customerPhone').value, services, discount:document.getElementById('discount').value, discountReason:document.getElementById('discountReason').value, additionalCost:document.getElementById('additionalCost').value, additionalReason:document.getElementById('additionalReason').value, notes:document.getElementById('notes').value, gasCost:document.getElementById('gasCost').value, chemicalName:document.getElementById('chemicalName').value, chemicalCost:document.getElementById('chemicalCost').value, estimateName:document.getElementById('estimateName').value, invoiceNumber:document.getElementById('invoiceNumber').value, invoiceDate:document.getElementById('invoiceDate').value, jobDate:document.getElementById('jobDate').value, totalAmount:lastInvoiceData?lastInvoiceData.total:0, updatedAt:new Date().toISOString() };
         }
+
+        function clearStandaloneInvoiceBackup() {
+            safeRemove(CL_INVOICE_STANDBY_BACKUP_KEY);
+        }
+        function persistStandaloneInvoiceBackup() {
+            if (jobId || editDocId) return;
+            try {
+                const fsId = document.getElementById('firestoreDocId').value || '';
+                const payload = Object.assign({}, collectInvoiceState(), {
+                    savedAt: new Date().toISOString(),
+                    firestoreDocId: fsId
+                });
+                safeSet(CL_INVOICE_STANDBY_BACKUP_KEY, payload);
+            } catch (e) { console.warn('invoice backup', e); }
+        }
+        function maybeShowStandaloneInvoiceRestoreBanner() {
+            if (jobId || editDocId) return;
+            const b = safeGet(CL_INVOICE_STANDBY_BACKUP_KEY, null);
+            const wrap = document.getElementById('invoiceStandaloneRestoreBanner');
+            const txt = document.getElementById('invoiceStandaloneRestoreText');
+            if (!b || !wrap || !txt) return;
+            const when = b.savedAt ? new Date(b.savedAt).toLocaleString() : '';
+            txt.textContent = `You have unsaved invoice work on this device (${when}).`;
+            wrap.style.display = 'block';
+        }
+        function restoreStandaloneInvoiceBackup() {
+            const b = safeGet(CL_INVOICE_STANDBY_BACKUP_KEY, null);
+            if (!b) return;
+            const clone = Object.assign({}, b);
+            delete clone.savedAt;
+            const fsId = clone.firestoreDocId;
+            delete clone.firestoreDocId;
+            if (fsId) document.getElementById('firestoreDocId').value = fsId;
+            applyInvoiceFormState(clone);
+            const wrap = document.getElementById('invoiceStandaloneRestoreBanner');
+            if (wrap) wrap.style.display = 'none';
+            showToast('Restored from this device');
+            updateInvoiceSyncUI();
+        }
+        function dismissStandaloneInvoiceBackup() {
+            clearStandaloneInvoiceBackup();
+            const wrap = document.getElementById('invoiceStandaloneRestoreBanner');
+            if (wrap) wrap.style.display = 'none';
+        }
+
+        function updateInvoiceSyncUI() {
+            const bar = document.getElementById('invoiceSyncBar');
+            const cloudMsg = document.getElementById('cloudSignInMsg');
+            const cloudText = document.getElementById('cloudSignInInvoiceText');
+            if (!bar) return;
+            const online = navigator.onLine !== false;
+            const signedIn = !!(window.CL_FIREBASE && CL_FIREBASE.isSignedIn);
+            const pendingOpen = localStorage.getItem(CL_LOAD_INVOICE_KEY);
+            bar.style.display = 'block';
+            bar.style.border = '1px solid #e2e8f0';
+            if (!online) {
+                bar.style.background = '#fef2f2';
+                bar.style.borderColor = '#fecaca';
+                bar.textContent = 'Offline — your work saves on this device. Cloud sync resumes when you are online and signed in.';
+            } else if (!signedIn) {
+                bar.style.background = '#f8fafc';
+                bar.textContent = 'Signed out — drafts stay on this device. Sign in to sync your cloud invoice library.';
+            } else {
+                bar.style.background = '#ecfdf5';
+                bar.style.borderColor = '#a7f3d0';
+                bar.textContent = 'Signed in — use Save Draft / Mark as Final to keep this invoice in your cloud library and devices.';
+            }
+            if (!signedIn && pendingOpen && cloudMsg && cloudText) {
+                cloudMsg.style.display = 'block';
+                cloudText.textContent = 'Sign in to open the invoice you picked from Customers.';
+            }
+        }
+
+        async function tryConsumePendingCloudInvoiceLoad() {
+            if (jobId || editDocId) {
+                if (localStorage.getItem(CL_LOAD_INVOICE_KEY)) localStorage.removeItem(CL_LOAD_INVOICE_KEY);
+                return;
+            }
+            const pending = localStorage.getItem(CL_LOAD_INVOICE_KEY);
+            if (!pending) return;
+            if (!window.CL_FIREBASE || !CL_FIREBASE.isSignedIn) {
+                updateInvoiceSyncUI();
+                return;
+            }
+            localStorage.removeItem(CL_LOAD_INVOICE_KEY);
+            await loadInvoiceFromCloud(pending);
+            updateInvoiceSyncUI();
+        }
+
         function applyFinalizedState(isFinal) {
-            document.getElementById('finalizedBanner').style.display = isFinal ? 'block' : 'none';
-            document.getElementById('invoiceForm').querySelectorAll('input:not([type=hidden]),select,textarea').forEach(el => el.disabled = isFinal);
+            const banner = document.getElementById('finalizedBanner');
+            const form = document.getElementById('invoiceForm');
+            const reopenBtn = banner ? banner.querySelector('button[onclick="reopenInvoice()"]') : null;
+            banner.style.display = isFinal ? 'block' : 'none';
+            form.querySelectorAll('input:not([type=hidden]),select,textarea').forEach(el => { el.disabled = isFinal; });
+            if (isFinal) {
+                form.querySelectorAll('button').forEach(btn => {
+                    if (btn !== reopenBtn) btn.disabled = true;
+                });
+                if (reopenBtn) reopenBtn.disabled = false;
+            } else {
+                form.querySelectorAll('button').forEach(btn => { btn.disabled = false; });
+            }
         }
         async function saveDraftToCloud() {
-            if (!CL_FIREBASE.isSignedIn) { document.getElementById('cloudSignInMsg').style.display='block'; showToast('Sign in to save to cloud','info'); return; }
+            let savedToJob = false;
+            if (jobId) {
+                saveInvoiceToJob({ redirect: false });
+                savedToJob = true;
+            }
+            if (!jobId && !editDocId) persistStandaloneInvoiceBackup();
+
+            if (!CL_FIREBASE.isSignedIn) {
+                document.getElementById('cloudSignInMsg').style.display = 'block';
+                const ct = document.getElementById('cloudSignInInvoiceText');
+                if (ct && !localStorage.getItem(CL_LOAD_INVOICE_KEY)) {
+                    ct.textContent = savedToJob ? 'Saved to job on this device. Sign in to sync your cloud invoice library.' : 'Sign in to save to cloud';
+                }
+                updateInvoiceSyncUI();
+                showToast(savedToJob ? 'Saved to job locally. Sign in to sync cloud.' : 'Sign in to save to cloud', 'info');
+                return;
+            }
             const db=CL_FIREBASE.getFirestore(), user=CL_FIREBASE.getCurrentUser(); if(!db||!user)return;
             const data = _applyInvoiceOwnership(collectInvoiceState());
             data.status='draft'; document.getElementById('docStatus').value='draft';
@@ -554,59 +685,101 @@
                 await _syncInvoiceGasIfOwner(data);
                 if(docId){await db.collection('invoices').doc(docId).set(data,{merge:true});}
                 else{data.createdAt=new Date().toISOString();const ref=await db.collection('invoices').add(data);document.getElementById('firestoreDocId').value=ref.id;}
-                showToast('Draft saved'); loadSavedInvoices();
+                showToast('Draft saved');
+                clearStandaloneInvoiceBackup();
+                const wrap = document.getElementById('invoiceStandaloneRestoreBanner');
+                if (wrap) wrap.style.display = 'none';
+                loadSavedInvoices();
             } catch(e){console.error(e);showToast('Save failed','error');}
+            updateInvoiceSyncUI();
         }
         async function markAsFinal() {
-            if (!CL_FIREBASE.isSignedIn) { document.getElementById('cloudSignInMsg').style.display='block'; return; }
-            const db=CL_FIREBASE.getFirestore();
-            const data = _applyInvoiceOwnership(collectInvoiceState());
-            data.status='final'; document.getElementById('docStatus').value='final';
-            let docId=document.getElementById('firestoreDocId').value;
+            if (!jobId && !document.getElementById('customerName').value.trim()) {
+                showToast('Customer name is required to finalize', 'error');
+                return;
+            }
+            const data = collectInvoiceState();
+            data.status = 'final';
+            document.getElementById('docStatus').value = 'final';
+            applyFinalizedState(true);
+            if (jobId) saveInvoiceToJob({ redirect: false });
+            if (!jobId && !editDocId) persistStandaloneInvoiceBackup();
+
+            if (!CL_FIREBASE.isSignedIn) {
+                document.getElementById('cloudSignInMsg').style.display = 'block';
+                updateInvoiceSyncUI();
+                showToast('Invoice finalized locally. Sign in to sync cloud.', 'info');
+                return;
+            }
+
+            const db = CL_FIREBASE.getFirestore();
+            let docId = document.getElementById('firestoreDocId').value;
+            const ownedData = _applyInvoiceOwnership(data);
             try {
-                await _syncInvoiceGasIfOwner(data);
-                if(docId){await db.collection('invoices').doc(docId).set(data,{merge:true});}
-                else{data.createdAt=new Date().toISOString();const ref=await db.collection('invoices').add(data);document.getElementById('firestoreDocId').value=ref.id;}
-                applyFinalizedState(true); showToast('Invoice finalized'); loadSavedInvoices();
-            } catch(e){console.error(e);showToast('Error','error');}
+                await _syncInvoiceGasIfOwner(ownedData);
+                if (docId) {
+                    await db.collection('invoices').doc(docId).set(ownedData, { merge: true });
+                } else {
+                    ownedData.createdAt = new Date().toISOString();
+                    const ref = await db.collection('invoices').add(ownedData);
+                    document.getElementById('firestoreDocId').value = ref.id;
+                }
+                showToast('Invoice finalized');
+                clearStandaloneInvoiceBackup();
+                const wrap = document.getElementById('invoiceStandaloneRestoreBanner');
+                if (wrap) wrap.style.display = 'none';
+                loadSavedInvoices();
+            } catch (e) {
+                console.error(e);
+                showToast('Finalized locally. Cloud sync failed.', 'error');
+            }
+            updateInvoiceSyncUI();
         }
-        function reopenInvoice() { document.getElementById('docStatus').value='draft'; applyFinalizedState(false); saveDraftToCloud(); }
+        function reopenInvoice() {
+            document.getElementById('docStatus').value = 'draft';
+            applyFinalizedState(false);
+            if (jobId) saveInvoiceToJob({ redirect: false });
+            saveDraftToCloud();
+        }
         async function loadSavedInvoices() {
             const ct=document.getElementById('savedInvoicesList');
-            if(!CL_FIREBASE.isSignedIn){ct.innerHTML='';document.getElementById('cloudSignInMsg').style.display='block';return;}
+            if(!CL_FIREBASE.isSignedIn){
+                ct.innerHTML='';
+                document.getElementById('cloudSignInMsg').style.display='block';
+                const msg = document.getElementById('cloudSignInInvoiceText');
+                if (msg && !localStorage.getItem(CL_LOAD_INVOICE_KEY)) msg.textContent = 'Sign in to save to cloud';
+                updateInvoiceSyncUI();
+                return;
+            }
             document.getElementById('cloudSignInMsg').style.display='none';
             const db=CL_FIREBASE.getFirestore(),user=CL_FIREBASE.getCurrentUser(); if(!db||!user)return;
             try { const snap=await db.collection('invoices').where('userId','==',user.uid).orderBy('updatedAt','desc').limit(20).get();
                 if(snap.empty){ct.innerHTML='<p style="color:#888;text-align:center;padding:10px">No saved invoices</p>';return;}
                 ct.innerHTML='<p style="font-weight:bold;margin-bottom:8px">Saved Invoices:</p>'+snap.docs.map(doc=>{const d=doc.data();const date=d.updatedAt?new Date(d.updatedAt).toLocaleDateString():'';const badge=d.status==='final'?'<span style="background:#f59e0b;color:white;padding:2px 6px;border-radius:4px;font-size:11px">Final</span>':'<span style="background:#0ea5e9;color:white;padding:2px 6px;border-radius:4px;font-size:11px">Draft</span>';return `<button onclick="loadInvoiceFromCloud('${doc.id}')" style="width:100%;text-align:left;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#f9f9f9;cursor:pointer;min-height:44px"><strong>${d.estimateName||'Untitled'}</strong> \u2014 ${d.customerName||''} \u2014 ${date} ${badge}</button>`;}).join('');
             } catch(e){console.error(e);ct.innerHTML='<p style="color:#dc3545">Error loading</p>';}
+            updateInvoiceSyncUI();
         }
         async function loadInvoiceFromCloud(docId) {
             const db=CL_FIREBASE.getFirestore(); if(!db)return;
-            try { const doc=await db.collection('invoices').doc(docId).get(); if(!doc.exists){showToast('Not found','error');return;}
-                document.getElementById('firestoreDocId').value=docId; const d=doc.data();
-                if(d.customerName)document.getElementById('customerName').value=d.customerName;
-                if(d.customerAddress)document.getElementById('customerAddress').value=d.customerAddress;
-                if(d.customerPhone)document.getElementById('customerPhone').value=d.customerPhone;
-                if(d.customerId)document.getElementById('selectedCustomerId').value=d.customerId;
-                if(d.gasCost)document.getElementById('gasCost').value=d.gasCost;
-                if(d.chemicalName)document.getElementById('chemicalName').value=d.chemicalName;
-                if(d.chemicalCost)document.getElementById('chemicalCost').value=d.chemicalCost;
-                if(d.discount)document.getElementById('discount').value=d.discount;
-                if(d.discountReason)document.getElementById('discountReason').value=d.discountReason;
-                if(d.additionalCost)document.getElementById('additionalCost').value=d.additionalCost;
-                if(d.additionalReason)document.getElementById('additionalReason').value=d.additionalReason;
-                if(d.notes)document.getElementById('notes').value=d.notes;
-                if(d.estimateName)document.getElementById('estimateName').value=d.estimateName;
-                if(d.invoiceNumber)document.getElementById('invoiceNumber').value=d.invoiceNumber;
-                if(d.invoiceDate)document.getElementById('invoiceDate').value=d.invoiceDate;
-                if(d.jobDate)document.getElementById('jobDate').value=d.jobDate;
-                if(d.status)document.getElementById('docStatus').value=d.status;
-                if(d.services&&d.services.length){const ct=document.getElementById('servicesContainer');ct.innerHTML='';serviceCounter=0;d.services.forEach(sd=>{serviceCounter++;const div=document.createElement('div');div.className='service-item';div.setAttribute('data-service-id',serviceCounter);div.innerHTML=`<div class="service-header"><h4>Service ${serviceCounter}</h4><button type="button" class="remove-service" onclick="removeService(${serviceCounter})">Remove</button></div><div class="form-group"><label>Property/Area Description:</label><input type="text" name="description" value="${sd.description||''}" required></div><div class="two-column"><div class="form-group"><label>Square Footage:</label><input type="number" name="squareFootage" value="${sd.squareFootage||''}" required></div><div class="form-group"><label>Price per Sq Ft ($):</label><input type="number" name="pricePerSqFt" step="0.01" value="${sd.pricePerSqFt||'0.30'}" required></div></div><div class="two-column"><div class="form-group"><label>Number of Workers:</label><select name="numWorkers" required><option value="1" ${sd.numWorkers==='1'?'selected':''}>1 Worker</option><option value="2" ${sd.numWorkers==='2'?'selected':''}>2 Workers</option></select></div><div class="form-group"><label>Actual Hours Worked:</label><input type="number" name="hoursWorked" step="0.25" min="0" value="${sd.hoursWorked||''}"></div></div><div class="form-group"><label>Dirt Level:</label><div style="margin:10px 0"><input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="${sd.dirtLevel||'3.5'}" style="width:100%" oninput="updateDirtDisplay(this)"><div style="text-align:center;margin-top:5px"><span name="dirtDisplay" style="font-weight:bold">Level ${sd.dirtLevel||'3.5'}</span></div></div></div>`;ct.appendChild(div);});updateRemoveButtons();}
-                applyFinalizedState(d.status==='final'); showToast('Invoice loaded');
+            try {
+                const docRef=await db.collection('invoices').doc(docId).get();
+                if(!docRef.exists){showToast('Not found','error');return;}
+                document.getElementById('firestoreDocId').value=docId;
+                applyInvoiceFormState(docRef.data());
+                clearStandaloneInvoiceBackup();
+                const wrap = document.getElementById('invoiceStandaloneRestoreBanner');
+                if (wrap) wrap.style.display = 'none';
+                showToast('Invoice loaded');
+                updateInvoiceSyncUI();
             } catch(e){console.error(e);showToast('Load error','error');}
         }
-        window.addEventListener('cl-auth-change',()=>{loadSavedInvoices();});
+        window.addEventListener('cl-auth-change', () => {
+            updateInvoiceSyncUI();
+            tryConsumePendingCloudInvoiceLoad();
+            loadSavedInvoices();
+        });
+        window.addEventListener('online', updateInvoiceSyncUI);
+        window.addEventListener('offline', updateInvoiceSyncUI);
         setTimeout(()=>{if(CL_FIREBASE.isSignedIn)loadSavedInvoices();},2000);
         setActiveNav();
     </script>

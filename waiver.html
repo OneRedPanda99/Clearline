@@ -424,11 +424,11 @@
                 <i class="fas fa-briefcase"></i>
                 <span>Jobs</span>
             </a>
-            <a href="quick-add.html" class="tab-item tab-item-add">
+            <a href="estimate.html" class="tab-item tab-item-add">
                 <div class="tab-add-btn">
                     <i class="fas fa-plus"></i>
                 </div>
-                <span>Add</span>
+                <span>Estimate</span>
             </a>
             <a href="calendar.html" class="tab-item">
                 <i class="fas fa-calendar"></i>
@@ -538,11 +538,6 @@
                 return;
             }
             
-            if (!signatureImg) {
-                alert('Please provide a signature');
-                return;
-            }
-            
             const formattedDate = waiverDate ? new Date(waiverDate + 'T12:00:00').toLocaleDateString('en-US', {
                 year: 'numeric', month: 'long', day: 'numeric'
             }) : new Date().toLocaleDateString('en-US', {
@@ -593,12 +588,15 @@
                     <h3>ACKNOWLEDGMENT</h3>
                     <p>I, <strong>${customerName}</strong>, have read and understand this liability waiver. I agree to its terms and acknowledge that I am signing this document voluntarily.</p>
                 </div>
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;padding:10px;border-radius:6px;margin-top:12px;">
+                    <strong>Next step:</strong> Review this waiver, then collect the signature and tap <em>Save to Job</em>.
+                </div>
                 
                 <div class="signature-display">
                     <div class="signature-row">
                         <div>
                             <div class="signature-line">
-                                <img src="${signatureImg}" alt="Customer Signature">
+                                ${signatureImg ? `<img src="${signatureImg}" alt="Customer Signature">` : ''}
                             </div>
                             <span>Customer Signature</span>
                         </div>
@@ -630,6 +628,11 @@
                 alert('No job associated with this waiver');
                 return;
             }
+            const signatureImg = getSignatureImage();
+            if (!signatureImg) {
+                alert('Please review the waiver, then collect a signature before saving.');
+                return;
+            }
             
             const preview = document.getElementById('waiverPreview');
             
@@ -651,7 +654,7 @@
                     customerAddress: document.getElementById('customerAddress').value,
                     serviceDescription: document.getElementById('serviceDescription').value,
                     waiverDate: document.getElementById('waiverDate').value,
-                    signature: getSignatureImage(),
+                    signature: signatureImg,
                     pdfDataUrl: pdfDataUrl
                 };
                 

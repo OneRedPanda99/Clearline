@@ -38,7 +38,6 @@
 
             <div class="stats-grid">
                 <div class="stat-card"><p class="value" style="color:#60a5fa;" id="s-leads">0</p><p class="label">Leads</p></div>
-                <div class="stat-card"><p class="value" style="color:#fbbf24;" id="s-quoted">0</p><p class="label">Quoted</p></div>
                 <div class="stat-card"><p class="value" style="color:#a78bfa;" id="s-scheduled">0</p><p class="label">Scheduled</p></div>
                 <div class="stat-card"><p class="value" style="color:#34d399;" id="s-done">0</p><p class="label">Done</p></div>
             </div>
@@ -84,7 +83,6 @@
                 .sort((a,b) => (a.jobDate + (a.jobTime||'')).localeCompare(b.jobDate + (b.jobTime||'')));
 
             document.getElementById('s-leads').textContent = jobs.filter(j => j.status === 'new').length;
-            document.getElementById('s-quoted').textContent = jobs.filter(j => j.status === 'quoted').length;
             document.getElementById('s-scheduled').textContent = jobs.filter(j => j.status === 'scheduled').length;
             document.getElementById('s-done').textContent = jobs.filter(j => j.status === 'completed').length;
 

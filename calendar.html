@@ -63,9 +63,8 @@
         }
         .job-dot.scheduled { background: #8b5cf6; }
         .job-dot.completed { background: #10b981; }
-        .job-dot.quoted { background: #f59e0b; }
-        .job-dot.new { background: #3b82f6; }
         .job-dot.followup { background: #f59e0b; }
+        .job-dot.new { background: #3b82f6; }
         .modal {
             display: none;
             position: fixed;
@@ -106,6 +105,7 @@
             text-transform: uppercase;
         }
         .status-new { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .status-followup,
         .status-quoted { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
         .status-scheduled { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
         .status-completed { background: rgba(16, 185, 129, 0.2); color: #34d399; }
@@ -183,7 +183,7 @@
                 <span class="text-gray-500">Completed</span>
             </div>
             <div class="flex items-center gap-1">
-                <span class="job-dot quoted"></span>
+                <span class="job-dot followup"></span>
                 <span class="text-gray-500">Follow-up</span>
             </div>
         </div>
@@ -344,8 +344,8 @@ localStorage.setItem('cl-calendar-view', view);
             const result = {};
             
             jobs.forEach(j => {
-                // Only show SCHEDULED or COMPLETED jobs on calendar (not leads/quoted)
-                // Leads and quoted jobs should use follow-up dates instead
+                // Only show SCHEDULED or COMPLETED jobs on calendar (not leads)
+                // Leads use follow-up dates instead
                 if (j.jobDate && (j.status === 'scheduled' || j.status === 'completed')) {
                     const jobDate = new Date(j.jobDate + 'T12:00:00');
                     if (jobDate.getFullYear() === year && jobDate.getMonth() === month) {
@@ -359,8 +359,8 @@ localStorage.setItem('cl-calendar-view', view);
                     }
                 }
                 
-                // Check follow-up dates (for quoted + new leads) - show as reminders
-                if (j.followUpDate && (j.status === 'quoted' || j.status === 'new')) {
+                // Check follow-up dates (for leads) - show as reminders
+                if (j.followUpDate && j.status === 'new') {
                     const followDate = new Date(j.followUpDate + 'T12:00:00');
                     if (followDate.getFullYear() === year && followDate.getMonth() === month) {
                         if (!result[j.followUpDate]) result[j.followUpDate] = [];
@@ -383,9 +383,9 @@ localStorage.setItem('cl-calendar-view', view);
             const dayJobs = jobs
                 .filter(j => j.jobDate === dateStr && (j.status === 'scheduled' || j.status === 'completed'))
                 .map(j => ({ ...j, name: j.customerName, phone: j.customerPhone, type: 'job' }));
-            // Follow-ups for quoted/new leads
+            // Follow-ups for leads
             const followups = jobs
-                .filter(j => j.followUpDate === dateStr && (j.status === 'quoted' || j.status === 'new'))
+                .filter(j => j.followUpDate === dateStr && j.status === 'new')
                 .map(j => ({ ...j, name: j.customerName, phone: j.customerPhone, type: 'followup' }));
             return [...dayJobs, ...followups];
         }
@@ -567,7 +567,29 @@ localStorage.setItem('cl-calendar-view', view);
         }
 
         function addJobForDate(dateStr) {
-            window.location.href = `quick-add.html?date=${dateStr}`;
+            const id = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+            const nowIso = new Date().toISOString();
+            CL_DATA.addJob({
+                id,
+                customerId: null,
+                customerName: '',
+                customerPhone: '',
+                customerEmail: '',
+                address: '',
+                serviceType: '',
+                jobCategory: '',
+                jobDate: dateStr,
+                jobTime: '',
+                jobDuration: '',
+                quoteAmount: '',
+                squareFootage: '',
+                status: 'scheduled',
+                notes: '',
+                paymentStatus: 'unpaid',
+                dateAdded: nowIso,
+                documents: { estimates: [], invoices: [], waivers: [] }
+            });
+            window.location.href = `estimate.html?jobId=${encodeURIComponent(id)}`;
         }
 
         function exportJobToGCal(jobId) {
@@ -673,11 +695,11 @@ localStorage.setItem('cl-calendar-view', view);
                 <i class="fas fa-briefcase"></i>
                 <span>Jobs</span>
             </a>
-            <a href="quick-add.html" class="tab-item tab-item-add">
+            <a href="estimate.html" class="tab-item tab-item-add">
                 <div class="tab-add-btn">
                     <i class="fas fa-plus"></i>
                 </div>
-                <span>Add</span>
+                <span>Estimate</span>
             </a>
             <a href="calendar.html" class="tab-item active">
                 <i class="fas fa-calendar"></i>

@@ -18,10 +18,10 @@
   ],
   "shortcuts": [
     {
-      "name": "Quick Add Job",
-      "short_name": "Add Job",
-      "description": "Quickly add a new job",
-      "url": "/Clearline/quick-add.html",
+      "name": "Create Estimate",
+      "short_name": "Estimate",
+      "description": "Create a new estimate",
+      "url": "/Clearline/estimate.html",
       "icons": [{ "src": "images/Logo.png", "sizes": "96x96" }]
     },
     {

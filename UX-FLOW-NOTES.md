@@ -7,7 +7,7 @@
 |------|---------|----------|
 | index.html | Dashboard/Home | ✓ |
 | jobs.html | Job list (Today/Upcoming/Past) | ✓ |
-| quick-add.html | Create job or lead | ✓ |
+| estimate.html | Create estimates and convert to invoices | ✓ |
 | calendar.html | Calendar view | ✓ |
 | customer-tracker.html | Customer list | ✓ |
 | estimate.html | Generate estimates | ✗ |

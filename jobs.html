@@ -154,7 +154,6 @@
         <!-- Tab Navigation -->
         <div class="filter-tabs" style="display: flex; gap: 4px; margin-bottom: 12px; background: rgba(51,65,85,0.5); padding: 4px; border-radius: 12px;">
             <button onclick="setTab('leads')" data-tab="leads" class="tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Leads</button>
-            <button onclick="setTab('quoted')" data-tab="quoted" class="tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Quoted</button>
             <button onclick="setTab('scheduled')" data-tab="scheduled" class="tab-btn active" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Scheduled</button>
             <button onclick="setTab('completed')" data-tab="completed" class="tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;">Done</button>
         </div>
@@ -164,10 +163,6 @@
             <div class="stat-card" role="button" tabindex="0" style="cursor:pointer;" onclick="setTab('leads')">
                 <p class="value" style="color: #3b82f6;" id="stat-leads">0</p>
                 <p class="label">Leads</p>
-            </div>
-            <div class="stat-card" role="button" tabindex="0" style="cursor:pointer;" onclick="setTab('quoted')">
-                <p class="value" style="color: #fbbf24;" id="stat-quoted">0</p>
-                <p class="label">Quoted</p>
             </div>
             <div class="stat-card" role="button" tabindex="0" style="cursor:pointer;" onclick="setTab('scheduled')">
                 <p class="value" style="color: #a78bfa;" id="stat-scheduled">0</p>
@@ -186,7 +181,7 @@
         <div id="emptyState" class="hidden" style="text-align: center; padding: 48px 0;">
             <i class="fas fa-calendar-check" style="font-size: 40px; color: #475569; margin-bottom: 12px;"></i>
             <p style="color: #64748b; font-size: 14px;">No jobs in this view</p>
-            <a href="quick-add.html" class="btn-primary" style="display: inline-block; margin-top: 16px; width: auto; padding: 12px 24px;">
+            <a href="estimate.html" class="btn-primary" style="display: inline-block; margin-top: 16px; width: auto; padding: 12px 24px;">
                 <i class="fas fa-plus" style="margin-right: 6px;"></i>Add Job
             </a>
         </div>
@@ -204,11 +199,11 @@
                 <i class="fas fa-briefcase"></i>
                 <span>Jobs</span>
             </a>
-            <a href="quick-add.html" class="tab-item tab-item-add">
+            <a href="estimate.html" class="tab-item tab-item-add">
                 <div class="tab-add-btn">
                     <i class="fas fa-plus"></i>
                 </div>
-                <span>Add</span>
+                <span>Estimate</span>
             </a>
             <a href="calendar.html" class="tab-item">
                 <i class="fas fa-calendar"></i>
@@ -361,7 +356,7 @@
             const raw = CL_DATA.getJobs();
             let changed = 0;
             raw.forEach(j => {
-                if (j.status === 'lead') {
+                if (j.status === 'lead' || j.status === 'quoted') {
                     CL_DATA.updateJob(j.id, { status: 'new' });
                     changed++;
                 }
@@ -489,7 +484,6 @@
                     // after closing the modal.
                     const bucket = job.status === 'completed' ? 'completed'
                                 : job.status === 'scheduled' ? 'scheduled'
-                                : job.status === 'quoted'    ? 'quoted'
                                 : 'leads';
                     setTab(bucket);
                 }
@@ -507,12 +501,10 @@
         function updateStats() {
             // Count by status
             const leads = jobs.filter(j => j.status === 'new');
-            const quoted = jobs.filter(j => j.status === 'quoted');
             const scheduled = jobs.filter(j => j.status === 'scheduled');
             const completed = jobs.filter(j => j.status === 'completed');
 
             document.getElementById('stat-leads').textContent = leads.length;
-            document.getElementById('stat-quoted').textContent = quoted.length;
             document.getElementById('stat-scheduled').textContent = scheduled.length;
             document.getElementById('stat-completed').textContent = completed.length;
         }
@@ -525,9 +517,6 @@
             if (currentTab === 'leads') {
                 // Leads: new status, no job date
                 filtered = jobs.filter(j => j.status === 'new');
-            } else if (currentTab === 'quoted') {
-                // Quoted: has quote, awaiting scheduling
-                filtered = jobs.filter(j => j.status === 'quoted');
             } else if (currentTab === 'scheduled') {
                 // Scheduled: has job date, ready to work
                 filtered = jobs.filter(j => j.status === 'scheduled');
@@ -548,7 +537,7 @@
                     const dateB = new Date(b.lastUpdated || b.dateAdded || 0);
                     return dateB - dateA;
                 } else {
-                    // Leads and quoted: most recent first
+                    // Leads: most recent first
                     const dateA = new Date(a.dateAdded || 0);
                     const dateB = new Date(b.dateAdded || 0);
                     return dateB - dateA;
@@ -605,7 +594,6 @@
             const statusColors = {
                 scheduled: 'bg-purple-500',
                 completed: 'bg-green-500',
-                quoted: 'bg-yellow-500',
                 new: 'bg-blue-500'
             };
 
@@ -985,7 +973,6 @@
                                 <label class="text-xs text-gray-400 block mb-1">Status</label>
                                 <select id="editStatus" class="w-full p-3 rounded-lg edit-field">
                                     <option value="new" ${job.status === 'new' ? 'selected' : ''}>New / Lead</option>
-                                    <option value="quoted" ${job.status === 'quoted' ? 'selected' : ''}>Quoted</option>
                                     <option value="scheduled" ${job.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
                                     <option value="completed" ${job.status === 'completed' ? 'selected' : ''}>Completed</option>
                                 </select>
@@ -1172,7 +1159,6 @@
 
         function markComplete(id) {
             CL_DATA.updateJob(id, { status: 'completed' });
-            alert('isSignedIn: ' + CL_FIREBASE.isSignedIn);
             if (CL_FIREBASE && CL_FIREBASE.isSignedIn) {
                 CL_FIREBASE.syncToCloud();
             } else {

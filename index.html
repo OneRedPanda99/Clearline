@@ -58,10 +58,6 @@
                     <p class="label">Leads</p>
                 </div>
                 <div class="stat-card">
-                    <p class="value" style="color: #fbbf24;" id="stat-quoted">0</p>
-                    <p class="label">Quoted</p>
-                </div>
-                <div class="stat-card">
                     <p class="value" style="color: #a78bfa;" id="stat-booked">0</p>
                     <p class="label">Booked</p>
                 </div>
@@ -103,11 +99,11 @@
                     <i class="fas fa-user-plus" style="display: block; font-size: 20px; margin-bottom: 4px;"></i>
                     Customer
                 </a>
-                <a href="quick-add.html?type=lead" class="action-btn" style="flex: 1; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 14px 12px; border-radius: 14px; text-align: center; text-decoration: none; font-weight: 600; font-size: 13px;">
+                <a href="estimate.html" class="action-btn" style="flex: 1; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 14px 12px; border-radius: 14px; text-align: center; text-decoration: none; font-weight: 600; font-size: 13px;">
                     <i class="fas fa-clipboard-list" style="display: block; font-size: 20px; margin-bottom: 4px;"></i>
                     Lead
                 </a>
-                <a href="quick-add.html" class="action-btn" style="flex: 1; background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 14px 12px; border-radius: 14px; text-align: center; text-decoration: none; font-weight: 600; font-size: 13px;">
+                <a href="estimate.html" class="action-btn" style="flex: 1; background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 14px 12px; border-radius: 14px; text-align: center; text-decoration: none; font-weight: 600; font-size: 13px;">
                     <i class="fas fa-calendar-plus" style="display: block; font-size: 20px; margin-bottom: 4px;"></i>
                     Job
                 </a>
@@ -204,11 +200,11 @@
                 <i class="fas fa-briefcase"></i>
                 <span>Jobs</span>
             </a>
-            <a href="quick-add.html" class="tab-item tab-item-add">
+            <a href="estimate.html" class="tab-item tab-item-add">
                 <div class="tab-add-btn">
                     <i class="fas fa-plus"></i>
                 </div>
-                <span>Add</span>
+                <span>Estimate</span>
             </a>
             <a href="calendar.html" class="tab-item">
                 <i class="fas fa-calendar"></i>
@@ -284,7 +280,6 @@
             
             // Stats
             document.getElementById('stat-leads').textContent = jobs.filter(j => j.status === 'new').length;
-            document.getElementById('stat-quoted').textContent = jobs.filter(j => j.status === 'quoted').length;
             document.getElementById('stat-booked').textContent = jobs.filter(j => j.status === 'scheduled').length;
             document.getElementById('stat-done').textContent = jobs.filter(j => j.status === 'completed').length;
             
@@ -295,7 +290,7 @@
                 .filter(j => j.status === 'completed')
                 .reduce((sum, j) => sum + getJobDisplayTotal(j), 0);
             const pendingRevenue = jobs
-                .filter(j => j.status === 'quoted' || j.status === 'scheduled')
+                .filter(j => j.status === 'new' || j.status === 'scheduled')
                 .reduce((sum, j) => sum + getJobDisplayTotal(j), 0);
 
             document.getElementById('revenue').textContent = completedRevenue.toFixed(0);
