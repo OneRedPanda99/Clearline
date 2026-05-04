@@ -284,12 +284,11 @@
                 <div class="print-footer" style="margin-top:18px;border-top:1px solid #ccc;padding-top:10px;font-size:11px;color:#555;display:flex;justify-content:space-between"><span>Pressure Point Pressure Washing — Columbia, SC</span><span>Thank you for your business!</span></div>
                 <button class="no-print" onclick="window.print()" style="background:black;color:white;border:none;padding:14px 24px;cursor:pointer;margin-top:20px;font-size:16px;font-weight:bold;width:100%;min-height:44px">🖨️ Print / Save PDF</button>
                 ${jobId?`<button class="download-btn no-print" style="background:#10b981;margin-top:10px" onclick="saveInvoiceToJob()"><i class="fas fa-save" style="margin-right:8px"></i>SAVE TO JOB</button>`:''}
-                <div class="share-buttons no-print"><button class="share-btn sms" onclick="shareViaSMS()">📱 Text to Customer</button><button class="share-btn email" onclick="shareViaEmail()">✉️ Email to Customer</button><button class="share-btn copy" onclick="copyInvoiceText()">📋 Copy Text</button></div>
+                <div class="share-buttons no-print"><button class="share-btn email" onclick="shareViaEmail()">✉️ Email to Customer</button><button class="share-btn copy" onclick="copyInvoiceText()">📋 Copy Text</button></div>
             `;
             lastInvoiceData = {invoiceNum:fmtNum,date:invoiceDate,customerName,customerAddress,customerPhone,services,totalSquareFootage:totalSqft,totalHoursWorked:totalHrs,totalEstimatedTime:totalTime,total,notes};
         }
         let lastInvoiceData = null;
-        function shareViaSMS() { if(!lastInvoiceData){alert('Generate invoice first');return;} const p=lastInvoiceData.customerPhone?lastInvoiceData.customerPhone.replace(/\D/g,''):''; window.location.href=(p?`sms:${p}?body=`:`sms:?body=`)+encodeURIComponent(generateShareText()); }
         function shareViaEmail() { if(!lastInvoiceData){alert('Generate invoice first');return;} window.location.href=`mailto:?subject=${encodeURIComponent('Invoice '+lastInvoiceData.invoiceNum+' from Clearline')}&body=${encodeURIComponent(generateShareText())}`; }
         function copyInvoiceText() { if(!lastInvoiceData){alert('Generate invoice first');return;} navigator.clipboard.writeText(generateShareText()).then(()=>alert('Copied!')).catch(()=>{const t=document.createElement('textarea');t.value=generateShareText();document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);alert('Copied!');}); }
         function generateShareText() {

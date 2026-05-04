@@ -586,6 +586,23 @@
                 <div id="measureTotalDisplay" style="display:none;">Total Measured: 0 sq ft</div>
 
                 <div class="section-header">SERVICES</div>
+                <div id="jobTimerPanel" style="display:none;background:rgba(2,6,23,0.8);border:1px solid rgba(56,189,248,0.35);border-radius:12px;padding:12px;margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                        <div>
+                            <p style="font-size:11px;color:#94a3b8;letter-spacing:0.04em;text-transform:uppercase;">Job Timer</p>
+                            <p id="jobTimerElapsed" style="font-size:28px;font-weight:800;color:#38bdf8;line-height:1.1;">00:00:00</p>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button type="button" id="jobTimerStartBtn" class="add-service-btn" style="margin:0;background:#2563eb;" onclick="toggleJobTimer()">
+                                <i class="fas fa-play mr-1"></i>Start
+                            </button>
+                            <button type="button" id="jobTimerResetBtn" class="add-service-btn" style="margin:0;background:#475569;" onclick="resetJobTimer()">
+                                <i class="fas fa-rotate-left mr-1"></i>Reset
+                            </button>
+                        </div>
+                    </div>
+                    <div id="jobTimerChecklist" style="margin-top:10px;display:grid;gap:8px;"></div>
+                </div>
                 
                 <div id="servicesContainer">
                     <div class="service-item" data-service-id="1">
@@ -785,6 +802,163 @@
         const urlParams = new URLSearchParams(window.location.search);
         const jobId = urlParams.get('jobId');
         const editDocId = urlParams.get('docId');
+        const startJobNow = urlParams.get('startJob') === '1';
+        const JOB_TIMER_PREFIX = 'cl-job-timer-';
+        let jobTimerInterval = null;
+        let jobRunState = {
+            isRunning: false,
+            startedAt: null,
+            elapsedMs: 0,
+            checkpoints: {}
+        };
+
+        function getJobTimerKey() {
+            return jobId ? `${JOB_TIMER_PREFIX}${jobId}` : null;
+        }
+
+        function formatElapsed(ms) {
+            const total = Math.max(0, Math.floor(ms / 1000));
+            const h = Math.floor(total / 3600);
+            const m = Math.floor((total % 3600) / 60);
+            const s = total % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function currentElapsedMs() {
+            if (!jobRunState.isRunning || !jobRunState.startedAt) return jobRunState.elapsedMs || 0;
+            return (jobRunState.elapsedMs || 0) + Math.max(0, Date.now() - jobRunState.startedAt);
+        }
+
+        function persistJobTimerState() {
+            const key = getJobTimerKey();
+            if (!key) return;
+            safeSet(key, {
+                isRunning: jobRunState.isRunning,
+                startedAt: jobRunState.startedAt,
+                elapsedMs: jobRunState.elapsedMs,
+                checkpoints: jobRunState.checkpoints || {}
+            });
+        }
+
+        function loadJobTimerState() {
+            if (!jobId) return;
+            const key = getJobTimerKey();
+            const saved = safeGet(key, null);
+            if (saved && typeof saved === 'object') {
+                jobRunState = Object.assign({}, jobRunState, saved);
+            }
+        }
+
+        function updateJobTimerDisplay() {
+            const el = document.getElementById('jobTimerElapsed');
+            if (el) el.textContent = formatElapsed(currentElapsedMs());
+            const btn = document.getElementById('jobTimerStartBtn');
+            if (btn) {
+                btn.innerHTML = jobRunState.isRunning
+                    ? '<i class="fas fa-pause mr-1"></i>Pause'
+                    : '<i class="fas fa-play mr-1"></i>Start';
+                btn.style.background = jobRunState.isRunning ? '#f59e0b' : '#2563eb';
+            }
+            renderJobTimerChecklist();
+        }
+
+        function startTimerTick() {
+            if (jobTimerInterval) clearInterval(jobTimerInterval);
+            jobTimerInterval = setInterval(() => {
+                updateJobTimerDisplay();
+            }, 1000);
+        }
+
+        function stopTimerTick() {
+            if (jobTimerInterval) {
+                clearInterval(jobTimerInterval);
+                jobTimerInterval = null;
+            }
+        }
+
+        function toggleJobTimer() {
+            if (!jobRunState.isRunning) {
+                jobRunState.isRunning = true;
+                jobRunState.startedAt = Date.now();
+                startTimerTick();
+            } else {
+                jobRunState.elapsedMs = currentElapsedMs();
+                jobRunState.isRunning = false;
+                jobRunState.startedAt = null;
+                stopTimerTick();
+            }
+            persistJobTimerState();
+            updateJobTimerDisplay();
+        }
+
+        function resetJobTimer() {
+            if (!confirm('Reset timer and all service checkpoints?')) return;
+            jobRunState = { isRunning: false, startedAt: null, elapsedMs: 0, checkpoints: {} };
+            persistJobTimerState();
+            stopTimerTick();
+            updateJobTimerDisplay();
+        }
+
+        function markServiceCheckpoint(serviceId) {
+            const elapsed = currentElapsedMs();
+            const done = !!jobRunState.checkpoints[serviceId];
+            if (done) delete jobRunState.checkpoints[serviceId];
+            else {
+                jobRunState.checkpoints[serviceId] = {
+                    atMs: elapsed,
+                    atIso: new Date().toISOString()
+                };
+            }
+            persistJobTimerState();
+            updateJobTimerDisplay();
+        }
+
+        function serviceCheckpointLabel(serviceId) {
+            const cp = jobRunState.checkpoints[serviceId];
+            if (!cp) return '';
+            const t = cp.atIso ? new Date(cp.atIso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+            return `${formatElapsed(cp.atMs || 0)}${t ? ` · ${t}` : ''}`;
+        }
+
+        function renderJobTimerChecklist() {
+            const wrap = document.getElementById('jobTimerChecklist');
+            if (!wrap) return;
+            const services = Array.from(document.querySelectorAll('.service-item'));
+            if (!services.length) {
+                wrap.innerHTML = '<p style="font-size:12px;color:#94a3b8;">Add services to track completion checkpoints.</p>';
+                return;
+            }
+            wrap.innerHTML = services.map((item, idx) => {
+                const sid = item.getAttribute('data-service-id') || String(idx + 1);
+                const descEl = item.querySelector('[name="description"]');
+                const desc = (descEl && descEl.value.trim()) ? descEl.value.trim() : `Service ${idx + 1}`;
+                const checked = !!jobRunState.checkpoints[sid];
+                const sub = serviceCheckpointLabel(sid);
+                return `
+                    <button type="button" onclick="markServiceCheckpoint('${sid}')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid ${checked ? 'rgba(34,197,94,0.5)' : 'rgba(148,163,184,0.25)'};background:${checked ? 'rgba(34,197,94,0.14)' : 'rgba(30,41,59,0.55)'};color:#e2e8f0;text-align:left;">
+                        <span style="font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fas ${checked ? 'fa-check-circle' : 'fa-circle'}" style="margin-right:6px;color:${checked ? '#22c55e' : '#64748b'};"></i>${desc.replace(/</g, '&lt;')}</span>
+                        <span style="font-size:11px;color:${checked ? '#86efac' : '#64748b'};white-space:nowrap;">${sub || 'Pending'}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function initJobTimerPanel() {
+            const panel = document.getElementById('jobTimerPanel');
+            if (!panel) return;
+            panel.style.display = jobId ? 'block' : 'none';
+            if (!jobId) return;
+            loadJobTimerState();
+            if (jobRunState.isRunning) startTimerTick();
+            if (startJobNow && !jobRunState.isRunning) {
+                jobRunState.isRunning = true;
+                jobRunState.startedAt = Date.now();
+                persistJobTimerState();
+                startTimerTick();
+                showToast('Job timer started');
+            }
+            updateJobTimerDisplay();
+        }
 
         function addService() {
             serviceCounter++;
@@ -865,12 +1039,18 @@
             
             container.appendChild(serviceDiv);
             updateRemoveButtons();
+            renderJobTimerChecklist();
         }
         
         function removeService(serviceId) {
             const serviceItem = document.querySelector(`[data-service-id="${serviceId}"]`);
             serviceItem.remove();
             updateRemoveButtons();
+            if (jobRunState.checkpoints && jobRunState.checkpoints[serviceId]) {
+                delete jobRunState.checkpoints[serviceId];
+                persistJobTimerState();
+            }
+            renderJobTimerChecklist();
         }
         
         function updateRemoveButtons() {
@@ -1279,9 +1459,6 @@
                 <button class="download-btn" onclick="window.print()">PRINT ESTIMATE</button>
                 
                 <div class="share-buttons">
-                    <button class="share-btn sms" onclick="shareViaSMS()">
-                        Text to Customer
-                    </button>
                     <button class="share-btn email" onclick="shareViaEmail()">
                         Email to Customer
                     </button>
@@ -1381,16 +1558,6 @@
         
         // Share functions
         let lastEstimateData = null;
-        
-        function shareViaSMS() {
-            if (!lastEstimateData) {
-                alert('Please generate an estimate first');
-                return;
-            }
-            const text = generateShareText();
-            const smsUrl = `sms:?body=${encodeURIComponent(text)}`;
-            window.location.href = smsUrl;
-        }
         
         function shareViaEmail() {
             if (!lastEstimateData) {
@@ -2208,6 +2375,15 @@
             updateEstimateSyncUI();
             maybeShowStandaloneRestoreBanner();
             setTimeout(() => { tryConsumePendingCloudEstimateLoad(); }, 450);
+            initJobTimerPanel();
+            const sc = document.getElementById('servicesContainer');
+            if (sc) {
+                sc.addEventListener('input', (e) => {
+                    if (e.target && e.target.getAttribute && e.target.getAttribute('name') === 'description') {
+                        renderJobTimerChecklist();
+                    }
+                });
+            }
             // Apply immediately if profile is already loaded; otherwise wait.
             const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
             if (p) applyEstimatePermissions(p);
@@ -2245,6 +2421,11 @@
                 chemicalCost: document.getElementById('chemicalCost').value,
                 estimateName: document.getElementById('estimateName').value,
                 totalAmount: lastEstimateData ? lastEstimateData.total : 0,
+                jobRun: {
+                    isRunning: jobRunState.isRunning,
+                    elapsedMs: currentElapsedMs(),
+                    checkpoints: jobRunState.checkpoints || {}
+                },
                 updatedAt: new Date().toISOString()
             };
         }
@@ -2265,6 +2446,13 @@
             if (data.notes) document.getElementById('notes').value = data.notes;
             if (data.estimateName) document.getElementById('estimateName').value = data.estimateName;
             if (data.status) document.getElementById('docStatus').value = data.status;
+            if (data.jobRun && typeof data.jobRun === 'object') {
+                jobRunState.isRunning = false;
+                jobRunState.startedAt = null;
+                jobRunState.elapsedMs = parseInt(data.jobRun.elapsedMs || 0, 10) || 0;
+                jobRunState.checkpoints = data.jobRun.checkpoints || {};
+                persistJobTimerState();
+            }
 
             // Load services
             if (data.services && data.services.length) {
@@ -2288,6 +2476,7 @@
                     container.appendChild(div);
                 });
                 updateRemoveButtons();
+                renderJobTimerChecklist();
             }
 
             // Apply finalized state

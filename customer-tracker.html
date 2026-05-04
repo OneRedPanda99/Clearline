@@ -639,10 +639,10 @@
                         <div class="customer-icon-row">
                             ${c.phone ? `
                             <a href="tel:${c.phone}" class="customer-icon-btn phone" aria-label="Call"><i class="fas fa-phone"></i></a>
-                            <a href="sms:${c.phone}" class="customer-icon-btn sms" aria-label="Text"><i class="fas fa-sms"></i></a>
+                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-ban"></i></span>
                             ` : `
                             <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-phone"></i></span>
-                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-sms"></i></span>
+                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-ban"></i></span>
                             `}
                             <button type="button" onclick="event.stopPropagation(); editCustomer('${c.id}')" class="customer-icon-btn edit" aria-label="Edit customer"><i class="fas fa-edit"></i></button>
                         </div>
@@ -802,9 +802,6 @@
                     <div class="flex gap-3 pt-4 border-t border-slate-700">
                         <a href="tel:${c.phone}" class="flex-1 bg-green-600 text-white py-3 rounded-xl text-center font-semibold">
                             <i class="fas fa-phone mr-2"></i>Call
-                        </a>
-                        <a href="sms:${c.phone}" class="flex-1 bg-blue-600 text-white py-3 rounded-xl text-center font-semibold">
-                            <i class="fas fa-sms mr-2"></i>Text
                         </a>
                     </div>
                     ` : ''}

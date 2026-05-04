@@ -169,9 +169,6 @@
                 <a id="contactCall" href="tel:" class="action-btn" style="flex: 1; background: #16a34a; color: white; padding: 12px; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 600; font-size: 14px;">
                     <i class="fas fa-phone"></i> Call
                 </a>
-                <a id="contactText" href="sms:" class="action-btn" style="flex: 1; background: #2563eb; color: white; padding: 12px; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 600; font-size: 14px;">
-                    <i class="fas fa-comment"></i> Text
-                </a>
                 <a id="contactEmail" href="mailto:" class="action-btn" style="flex: 1; background: #7c3aed; color: white; padding: 12px; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 600; font-size: 14px;">
                     <i class="fas fa-envelope"></i> Email
                 </a>
@@ -292,7 +289,6 @@
                         ${j.address && j.__kind === 'work' ? `<p style="font-size:12px;color:#64748b;margin-top:8px;"><i class="fas fa-map-marker-alt" style="margin-right:4px;"></i>${esc(j.address)}</p>` : ''}
                         <div class="dash-schedule-card__actions">
                             <a class="dash-icon-btn" href="${startHref}"><i class="fas fa-play"></i>Start</a>
-                            <a class="dash-icon-btn" href="job-chat.html?jobId=${encodeURIComponent(j.id)}"><i class="fas fa-comment"></i>Msg</a>
                             ${phone ? `<a class="dash-icon-btn" href="tel:${phone.replace(/\D/g, '')}"><i class="fas fa-phone"></i>Call</a>` : '<span class="dash-icon-btn" style="opacity:0.35;cursor:default;"><i class="fas fa-phone"></i>Call</span>'}
                             ${nav ? `<a class="dash-icon-btn" target="_blank" rel="noopener" href="${nav}"><i class="fas fa-location-arrow"></i>Nav</a>` : '<span class="dash-icon-btn" style="opacity:0.35;cursor:default;"><i class="fas fa-location-arrow"></i>Nav</span>'}
                         </div>
@@ -485,15 +481,10 @@
             document.title = businessName;
 
             const callLink = document.getElementById('contactCall');
-            const textLink = document.getElementById('contactText');
             const emailLink = document.getElementById('contactEmail');
 
             if (callLink) callLink.href = phoneDigits ? `tel:${phoneDigits}` : 'tel:';
-            if (textLink) textLink.href = phoneDigits ? `sms:${phoneDigits}` : 'sms:';
             if (emailLink) emailLink.href = email ? `mailto:${email}` : 'mailto:';
-
-            const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-            if (!isMobile && textLink) textLink.style.display = 'none';
         }
 
         // Price Calculator

@@ -916,7 +916,9 @@
                 : '<span class="tag-pill tag-pill--booked">Booked</span>';
             const total = getJobDisplayTotal(job);
             const money = total > 0 ? `<span style="color:#34d399;font-weight:700;font-size:14px;">$${total.toFixed(0)}</span>` : '';
-            const startHref = isEst ? `estimate.html?jobId=${encodeURIComponent(job.id)}` : `jobs.html?highlight=${encodeURIComponent(job.id)}`;
+            const startHref = isEst
+                ? `estimate.html?jobId=${encodeURIComponent(job.id)}`
+                : `estimate.html?jobId=${encodeURIComponent(job.id)}&startJob=1`;
             const maps = job.address ? `https://maps.google.com/?q=${encodeURIComponent(job.address)}` : '';
 
             return `
@@ -935,7 +937,6 @@
                             ${job.address ? `<p class="text-xs text-gray-500 mt-1 truncate"><i class="fas fa-map-marker-alt mr-1"></i>${job.address.replace(/</g, '&lt;')}</p>` : ''}
                             <div class="job-card-v2__actions" onclick="event.stopPropagation()">
                                 <a class="jc-start" href="${startHref}"><i class="fas fa-play"></i> Start</a>
-                                <a class="jc-msg" href="job-chat.html?jobId=${encodeURIComponent(job.id)}"><i class="fas fa-comment"></i> Msg</a>
                                 ${job.customerPhone ? `<a class="jc-call" href="tel:${job.customerPhone}"><i class="fas fa-phone"></i> Call</a>` : '<span class="jc-call" style="opacity:0.35;"><i class="fas fa-phone"></i> Call</span>'}
                                 ${maps ? `<a class="jc-nav" target="_blank" rel="noopener" href="${maps}"><i class="fas fa-location-arrow"></i> Nav</a>` : '<span class="jc-nav" style="opacity:0.35;"><i class="fas fa-location-arrow"></i> Nav</span>'}
                             </div>
@@ -1040,171 +1041,127 @@
         function openJobModal(id) {
             const job = jobs.find(j => j.id === id);
             if (!job) return;
-            // Backfill ids before rendering chips so Edit actions can match.
             if (migrateDocumentIds(job)) loadData();
             document.body.classList.add('modal-open');
-            document.getElementById('jobModal-title').textContent = job.customerName || 'Job Details';
+            document.getElementById('jobModal-title').textContent = 'Job Details';
+            const amount = getJobDisplayTotal(job);
+            const statusPill = job.status === 'completed'
+                ? 'bg-green-900/30 text-green-400'
+                : job.status === 'scheduled'
+                    ? 'bg-purple-900/30 text-purple-300'
+                    : 'bg-amber-900/30 text-amber-300';
+            const statusLabel = job.status === 'scheduled' ? 'SCHEDULED' : (job.status || 'new').toUpperCase();
+            const firstLetter = (job.customerName || 'J').trim().charAt(0).toUpperCase();
+            const formattedDate = job.jobDate
+                ? new Date(job.jobDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
+                : '-';
+            const jobIdShort = (job.id || '').replace('job_', '#JOB-').slice(0, 18) || '-';
+            const assignedManagerName = job.assignedManager ? (allManagers.find(m => m.uid === job.assignedManager)?.displayName || 'Manager') : '';
+            const assignedWorkerName = job.assignedTo ? (allWorkers.find(w => w.uid === job.assignedTo)?.displayName || 'Worker') : '';
+
             document.getElementById('modalContent').innerHTML = `
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center">
-                        <span class="px-3 py-1 rounded-full text-sm font-semibold ${
-                            job.status === 'completed' ? 'bg-green-900/30 text-green-400' :
-                            job.status === 'scheduled' ? 'bg-purple-900/30 text-purple-400' :
-                            'bg-yellow-900/30 text-yellow-400'
-                        }">${(job.status || 'new').toUpperCase()}</span>
-                        ${(() => { const t = getJobDisplayTotal(job); return t > 0 ? `<span class="text-2xl font-bold text-green-400">$${t.toFixed(2)}</span>` : ''; })()}
+                <div class="space-y-3">
+                    <div class="glass-card rounded-2xl p-4 border border-white/10">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-start gap-3 min-w-0">
+                                <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl text-white flex-shrink-0" style="background:linear-gradient(135deg,#7c3aed,#4338ca);">${firstLetter || 'J'}</div>
+                                <div class="min-w-0">
+                                    <p class="text-2xl font-bold truncate">${job.customerName || 'Customer'}</p>
+                                    <span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${statusPill}">${statusLabel}</span>
+                                </div>
+                            </div>
+                            ${amount > 0 ? `<div class="text-right"><p class="text-3xl font-bold text-green-400">$${amount.toFixed(2)}</p><p class="text-xs text-gray-400 -mt-1">Job total</p></div>` : ''}
+                        </div>
+                        <div class="mt-3 text-sm text-gray-300 flex flex-wrap gap-x-3 gap-y-1">
+                            ${job.customerPhone ? `<a href="tel:${job.customerPhone}" class="text-gray-300 hover:text-white"><i class="fas fa-phone mr-1"></i>${job.customerPhone}</a>` : ''}
+                            ${job.address ? `<span><i class="fas fa-map-marker-alt mr-1 text-blue-400"></i>${job.address}</span>` : ''}
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-slate-700 grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <p class="text-xs text-gray-400 mb-1">Scheduled</p>
+                                <p class="font-semibold">${formattedDate}</p>
+                                ${job.jobTime ? `<p class="text-gray-300 mt-1"><i class="far fa-clock mr-1 text-purple-300"></i>${job.jobTime}</p>` : ''}
+                            </div>
+                            <div class="border-l border-slate-700 pl-3">
+                                <p class="text-xs text-gray-400 mb-1">Job ID</p>
+                                <p class="font-semibold">${jobIdShort}</p>
+                                ${(assignedManagerName || assignedWorkerName) ? `<p class="text-xs text-gray-300 mt-1">${assignedManagerName ? `Mgr: ${assignedManagerName}` : ''}${assignedManagerName && assignedWorkerName ? ' · ' : ''}${assignedWorkerName ? `Wrk: ${assignedWorkerName}` : ''}</p>` : ''}
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
-                        ${job.customerPhone ? `
-                        <div>
-                            <p class="text-xs text-gray-400">Phone</p>
-                            <a href="tel:${job.customerPhone}" class="text-primary">${job.customerPhone}</a>
+                    ${(job.address || job.customerPhone) ? `
+                    <div class="grid grid-cols-2 gap-2">
+                        ${job.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="bg-blue-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-location-arrow mr-2"></i>Navigate</a>` : `<span class="bg-slate-700/40 text-slate-500 py-3 rounded-xl text-center font-semibold">Navigate</span>`}
+                        ${job.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="bg-slate-800 border border-blue-500/40 text-blue-300 py-3 rounded-xl text-center font-semibold"><i class="fas fa-directions mr-2"></i>Directions</a>` : (job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-green-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-phone mr-2"></i>Call customer</a>` : `<span class="bg-slate-700/40 text-slate-500 py-3 rounded-xl text-center font-semibold">No action</span>`)}
+                    </div>
+                    ` : ''}
+
+                    <div class="glass-card rounded-xl overflow-hidden">
+                        <div class="list-item">
+                            <i class="fas fa-screwdriver-wrench text-blue-400 mr-3"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs text-gray-400">Service</p>
+                                <p class="font-semibold">${job.serviceType || '-'}</p>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-500"></i>
                         </div>
-                        ` : ''}
-                        <div>
-                            <p class="text-xs text-gray-400">Service</p>
-                            <p>${job.serviceType || '-'}</p>
+                        <div class="list-item">
+                            <i class="fas fa-map-marker-alt text-green-400 mr-3"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs text-gray-400">Address</p>
+                                <p class="font-semibold">${job.address || '-'}</p>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-500"></i>
+                        </div>
+                        <div class="list-item">
+                            <i class="fas fa-calendar-alt text-purple-400 mr-3"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs text-gray-400">Scheduled</p>
+                                <p class="font-semibold">${formattedDate}${job.jobTime ? ` at ${job.jobTime}` : ''}</p>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-500"></i>
                         </div>
                     </div>
 
-                    ${job.address ? `
-                        <div>
-                            <p class="text-xs text-gray-400">Address</p>
-                            <a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="text-primary">
-                                <i class="fas fa-map-marker-alt mr-1"></i>${job.address}
-                            </a>
-                            <p id="distanceEstimate" class="text-xs text-blue-400 mt-1"><i class="fas fa-spinner fa-spin mr-1"></i>Calculating distance...</p>
+                    <div>
+                        <p class="section-title mb-2">Quick Actions</p>
+                        <div class="grid grid-cols-3 gap-2">
+                            ${job.status === 'scheduled' ? `<a href="estimate.html?jobId=${encodeURIComponent(job.id)}&startJob=1" class="bg-blue-600 text-white py-3 rounded-xl text-sm font-semibold text-center"><i class="fas fa-play mr-1"></i>Start Job</a>` : `<span class="bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-xl text-sm font-semibold text-center">Start Job</span>`}
+                            <button onclick="openDocumentForm('estimate', '${job.id}')" class="bg-slate-800 border border-slate-700 text-cyan-300 py-3 rounded-xl text-sm font-semibold"><i class="fas fa-file-invoice mr-1"></i>Add Estimate</button>
+                            <button onclick="openDocumentForm('invoice', '${job.id}')" class="bg-slate-800 border border-slate-700 text-amber-300 py-3 rounded-xl text-sm font-semibold"><i class="fas fa-file-invoice-dollar mr-1"></i>Add Invoice</button>
+                            <button onclick="openDocumentForm('waiver', '${job.id}')" class="bg-slate-800 border border-slate-700 text-emerald-300 py-3 rounded-xl text-sm font-semibold"><i class="fas fa-file-signature mr-1"></i>Add Waiver</button>
+                            <button onclick="createCustomerFromJob('${job.id}')" class="bg-slate-800 border border-slate-700 text-blue-300 py-3 rounded-xl text-sm font-semibold">${job.customerId ? '<i class="fas fa-user-check mr-1"></i>Customer Linked' : '<i class="fas fa-user-plus mr-1"></i>Link Customer'}</button>
+                            ${job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-slate-800 border border-slate-700 text-green-300 py-3 rounded-xl text-sm font-semibold text-center"><i class="fas fa-phone mr-1"></i>Call Customer</a>` : '<span class="bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-xl text-sm font-semibold text-center">No phone</span>'}
+                            <a href="${job.address ? `https://maps.google.com/?q=${encodeURIComponent(job.address)}` : '#'}" ${job.address ? 'target="_blank"' : ''} class="bg-slate-800 border border-slate-700 text-purple-300 py-3 rounded-xl text-sm font-semibold text-center ${job.address ? '' : 'pointer-events-none opacity-40'}"><i class="fas fa-location-arrow mr-1"></i>Open Map</a>
                         </div>
-                    ` : ''}
-
-                    ${job.jobDate ? `
-                        <div class="bg-purple-900/20 p-3 rounded-xl">
-                            <p class="text-xs text-gray-400">Scheduled</p>
-                            <p class="text-purple-400 font-semibold">
-                                ${new Date(job.jobDate + 'T12:00:00').toLocaleDateString('en-US', {weekday: 'long', month: 'short', day: 'numeric'})}
-                                ${job.jobTime ? ` at ${job.jobTime}` : ''}
-                            </p>
-                        </div>
-                    ` : ''}
+                    </div>
 
                     ${job.notes ? `
                         <div>
-                            <p class="text-xs text-gray-400">Notes</p>
-                            <p class="bg-slate-700 p-3 rounded-lg text-sm">${job.notes}</p>
-                        </div>
-                    ` : ''}
-                    
-                    ${(job.assignedManager || job.assignedTo) ? `
-                        <div class="bg-slate-700/50 p-3 rounded-xl">
-                            <p class="text-xs text-gray-400 mb-1">Assigned To</p>
-                            ${job.assignedManager ? `<p class="text-sm"><i class="fas fa-user-tie mr-1 text-sky-400"></i>${allManagers.find(m => m.uid === job.assignedManager)?.displayName || 'Manager'}</p>` : ''}
-                            ${job.assignedTo ? `<p class="text-sm"><i class="fas fa-hard-hat mr-1 text-yellow-400"></i>${allWorkers.find(w => w.uid === job.assignedTo)?.displayName || 'Worker'}</p>` : ''}
-                        </div>
-                    ` : ''}
-
-                    ${job.beforePhotos && job.beforePhotos.length ? `
-                        <div>
-                            <p class="text-xs text-gray-400 mb-2">Before Photos</p>
-                            <div class="photo-grid">
-                                ${job.beforePhotos.map(src => `<img src="${src}" class="photo-thumb" alt="Before photo">`).join('')}
+                            <p class="section-title mb-2">Notes</p>
+                            <div class="glass-card rounded-xl p-3 text-sm">
+                                <p>${job.notes}</p>
+                                <p class="text-xs text-gray-400 mt-2">Added by you</p>
                             </div>
                         </div>
                     ` : ''}
 
-                    ${job.afterPhotos && job.afterPhotos.length ? `
-                        <div>
-                            <p class="text-xs text-gray-400 mb-2">After Photos</p>
-                            <div class="photo-grid">
-                                ${job.afterPhotos.map(src => `<img src="${src}" class="photo-thumb" alt="After photo">`).join('')}
-                            </div>
-                        </div>
-                    ` : ''}
-
-                    ${job.customerPhone ? `
-                    <div class="flex gap-2">
-                        <a href="tel:${job.customerPhone}" class="flex-1 bg-green-600 text-white py-3 rounded-xl text-center font-semibold">
-                            <i class="fas fa-phone mr-2"></i>Call
-                        </a>
-                        ${job.address ? `
-                            <a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="flex-1 bg-blue-600 text-white py-3 rounded-xl text-center font-semibold">
-                                <i class="fas fa-directions mr-2"></i>Navigate
-                            </a>
-                        ` : ''}
-                    </div>
-                    ` : (job.address ? `
-                    <div class="flex gap-2">
-                        <a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="flex-1 bg-blue-600 text-white py-3 rounded-xl text-center font-semibold">
-                            <i class="fas fa-directions mr-2"></i>Navigate
-                        </a>
-                    </div>
-                    ` : '')}
-
-                    ${job.jobDate ? `
-                        <button onclick="addToGoogleCalendar('${job.id}')" class="w-full bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
-                            <i class="fab fa-google mr-2"></i>Add to Google Calendar
-                        </button>
-                    ` : ''}
-
-                    <!-- Saved Documents -->
-                    ${job.documents && (job.documents.estimates?.length || job.documents.invoices?.length || job.documents.waivers?.length) ? `
-                    <div class="bg-slate-700/50 p-3 rounded-xl">
-                        <p class="text-xs text-gray-400 mb-2">Saved Documents</p>
-                        <div class="flex flex-wrap gap-2">
-                            ${(job.documents.estimates || []).map((doc, i) => `
-                                <button onclick="viewDocument('${job.id}', 'estimates', ${i})" class="px-3 py-1.5 bg-cyan-600/20 text-cyan-400 rounded-lg text-xs font-medium">
-                                    <i class="fas fa-file-invoice mr-1"></i>${(doc.summary && doc.summary.number) || 'Estimate'} ${i + 1}
-                                </button>
-                            `).join('')}
-                            ${(job.documents.invoices || []).map((doc, i) => `
-                                <button onclick="viewDocument('${job.id}', 'invoices', ${i})" class="px-3 py-1.5 bg-amber-600/20 text-amber-400 rounded-lg text-xs font-medium">
-                                    <i class="fas fa-file-invoice-dollar mr-1"></i>${(doc.summary && doc.summary.number) || 'Invoice'} ${i + 1}
-                                </button>
-                            `).join('')}
-                            ${(job.documents.waivers || []).map((doc, i) => `
-                                <button onclick="viewDocument('${job.id}', 'waivers', ${i})" class="px-3 py-1.5 bg-emerald-600/20 text-emerald-400 rounded-lg text-xs font-medium">
-                                    <i class="fas fa-file-signature mr-1"></i>Waiver ${i + 1}
-                                </button>
-                            `).join('')}
-                        </div>
-                    </div>
-                    ` : ''}
-
-                    <!-- Create Customer Link -->
-                    <div class="flex gap-2">
-                        <button onclick="createCustomerFromJob('${job.id}')" class="flex-1 bg-blue-600/20 text-blue-400 py-3 rounded-xl font-semibold border border-blue-600/30">
-                            <i class="fas fa-user-plus mr-2"></i>${job.customerId ? 'Customer Linked' : 'Create Customer'}
-                        </button>
-                    </div>
-
-                    <!-- Document Generators -->
-                    <div class="flex gap-2">
-                        <button onclick="openDocumentForm('estimate', '${job.id}')" class="flex-1 bg-cyan-600/20 text-cyan-400 py-3 rounded-xl font-semibold border border-cyan-600/30">
-                            <i class="fas fa-file-invoice mr-1"></i>Add Estimate
-                        </button>
-                        <button onclick="openDocumentForm('invoice', '${job.id}')" class="flex-1 bg-amber-600/20 text-amber-400 py-3 rounded-xl font-semibold border border-amber-600/30">
-                            <i class="fas fa-file-invoice-dollar mr-1"></i>Add Invoice
-                        </button>
-                    </div>
-                    <button onclick="openDocumentForm('waiver', '${job.id}')" class="w-full bg-emerald-600/20 text-emerald-400 py-3 rounded-xl font-semibold border border-emerald-600/30">
-                        <i class="fas fa-file-signature mr-2"></i>Add Waiver
-                    </button>
-
-                    <div class="flex gap-2 pt-4 border-t border-slate-700">
-                        <button onclick="editJob('${job.id}')" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold">
-                            <i class="fas fa-edit mr-2"></i>Edit
+                    <div class="grid grid-cols-3 gap-2 pt-1">
+                        <button onclick="editJob('${job.id}')" class="bg-slate-600 text-white py-3 rounded-xl font-semibold">
+                            <i class="fas fa-pen mr-1"></i>Edit Job
                         </button>
                         ${job.status !== 'completed' ? `
-                            <button onclick="markComplete('${job.id}'); closeJobModal();" class="flex-1 bg-green-600 text-white py-3 rounded-xl font-semibold">
-                                <i class="fas fa-check mr-2"></i>Complete
+                            <button onclick="markComplete('${job.id}'); closeJobModal();" class="bg-green-600 text-white py-3 rounded-xl font-semibold">
+                                <i class="fas fa-check-circle mr-1"></i>Mark as Complete
                             </button>
                         ` : `
-                            <button onclick="markScheduled('${job.id}'); closeJobModal();" class="flex-1 bg-purple-600 text-white py-3 rounded-xl font-semibold">
-                                <i class="fas fa-undo mr-2"></i>Reopen
+                            <button onclick="markScheduled('${job.id}'); closeJobModal();" class="bg-purple-600 text-white py-3 rounded-xl font-semibold">
+                                <i class="fas fa-undo mr-1"></i>Reopen
                             </button>
                         `}
-                        <button onclick="deleteJob('${job.id}'); closeJobModal();" class="flex-1 bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
-                            <i class="fas fa-trash mr-2"></i>Delete
+                        <button onclick="deleteJob('${job.id}'); closeJobModal();" class="bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
+                            <i class="fas fa-ban mr-1"></i>Cancel Job
                         </button>
                     </div>
                 </div>
