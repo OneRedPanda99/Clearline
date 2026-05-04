@@ -313,13 +313,23 @@
                     <label class="text-xs text-gray-400 block mb-1">Time</label>
                     <input type="time" id="addLeadJobTime" value="11:30" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white">
                 </div>
+                <input type="hidden" id="addLeadCustomerId" value="">
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Customer name <span class="text-gray-500">(optional)</span></label>
-                    <input type="text" id="addLeadCustomerName" placeholder="e.g. Smith" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="name">
+                    <input type="text" id="addLeadCustomerName" list="addLeadCustomerOptions" oninput="syncLeadCustomerSelection()" placeholder="e.g. Smith" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="name">
+                    <datalist id="addLeadCustomerOptions"></datalist>
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Phone <span class="text-gray-500">(optional)</span></label>
                     <input type="tel" id="addLeadCustomerPhone" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="tel">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Email <span class="text-gray-500">(optional)</span></label>
+                    <input type="email" id="addLeadCustomerEmail" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="email">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Address <span class="text-gray-500">(optional)</span></label>
+                    <input type="text" id="addLeadCustomerAddress" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="street-address">
                 </div>
                 <button type="button" onclick="confirmAddLead()" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-semibold">
                     <i class="fas fa-file-alt mr-2"></i>Create &amp; open estimate
@@ -328,6 +338,7 @@
             </div>
         </div>
     </div>
+    <datalist id="jobCustomerNameOptions"></datalist>
 
     <!-- Job Detail Modal -->
     <div id="jobModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="jobModal-title" hidden style="z-index:200; position:fixed; inset:0; background:rgba(0,0,0,0.8); align-items:flex-end; justify-content:center;">
@@ -446,6 +457,7 @@
         let allManagers = [];
         let allWorkers = [];
         let jobs = [];
+        let customers = [];
         let currentTab = 'scheduled';
         let editPhotoState = { before: [], after: [] };
         
@@ -480,6 +492,74 @@
         function loadData() {
             normalizeLegacyStatuses();
             jobs = CL_DATA.getJobs();
+            customers = CL_DATA.getCustomers();
+        }
+
+        function buildLeadCustomerAutocomplete() {
+            const list = document.getElementById('addLeadCustomerOptions');
+            if (!list) return;
+            list.innerHTML = customers
+                .filter(c => c && c.name)
+                .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                .map(c => `<option value="${String(c.name || '').replace(/"/g, '&quot;')}" label="${String(c.phone || c.email || '').replace(/"/g, '&quot;')}"></option>`)
+                .join('');
+        }
+
+        function rebuildJobCustomerNameOptions() {
+            const list = document.getElementById('jobCustomerNameOptions');
+            if (!list) return;
+            list.innerHTML = customers
+                .filter(c => c && c.name)
+                .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                .map(c => `<option value="${String(c.name || '').replace(/"/g, '&quot;')}" label="${String(c.phone || c.email || '').replace(/"/g, '&quot;')}"></option>`)
+                .join('');
+        }
+
+        function syncLeadCustomerSelection() {
+            const nameEl = document.getElementById('addLeadCustomerName');
+            const idEl = document.getElementById('addLeadCustomerId');
+            if (!nameEl || !idEl) return;
+            const name = nameEl.value.trim().toLowerCase();
+            const exact = customers.find(c => (c.name || '').trim().toLowerCase() === name);
+            if (!exact) {
+                idEl.value = '';
+                return;
+            }
+            idEl.value = exact.id;
+            const p = document.getElementById('addLeadCustomerPhone');
+            const e = document.getElementById('addLeadCustomerEmail');
+            const a = document.getElementById('addLeadCustomerAddress');
+            if (p && !p.value.trim() && exact.phone) p.value = exact.phone;
+            if (e && !e.value.trim() && exact.email) e.value = exact.email;
+            if (a && !a.value.trim() && exact.address) a.value = exact.address;
+        }
+
+        function applyKnownCustomerToEditForm() {
+            const nameEl = document.getElementById('editName');
+            if (!nameEl) return;
+            const name = nameEl.value.trim().toLowerCase();
+            const exact = customers.find(c => (c.name || '').trim().toLowerCase() === name);
+            if (!exact) return;
+            const p = document.getElementById('editPhone');
+            const e = document.getElementById('editEmail');
+            const a = document.getElementById('editAddress');
+            if (p && !p.value.trim() && exact.phone) p.value = exact.phone;
+            if (e && !e.value.trim() && exact.email) e.value = exact.email;
+            if (a && !a.value.trim() && exact.address) a.value = exact.address;
+        }
+
+        function applyKnownCustomerToCreatePrompt() {
+            const nameEl = document.getElementById('ccName');
+            if (!nameEl) return;
+            const name = nameEl.value.trim().toLowerCase();
+            const exact = customers.find(c => (c.name || '').trim().toLowerCase() === name);
+            if (!exact) return;
+            const p = document.getElementById('ccPhone');
+            const e = document.getElementById('ccEmail');
+            const a = document.getElementById('ccAddress');
+            if (p && !p.value.trim() && exact.phone) p.value = exact.phone;
+            if (e && !e.value.trim() && exact.email) e.value = exact.email;
+            if (a && !a.value.trim() && exact.address) a.value = exact.address;
         }
 
         function openAddLeadModal() {
@@ -487,6 +567,7 @@
             if (dateInput && !dateInput.value) {
                 dateInput.value = new Date().toISOString().split('T')[0];
             }
+            buildLeadCustomerAutocomplete();
             openModal('addLeadModal');
         }
 
@@ -503,15 +584,22 @@
             const jobTime = document.getElementById('addLeadJobTime').value || '';
             const customerName = document.getElementById('addLeadCustomerName').value.trim();
             const customerPhone = document.getElementById('addLeadCustomerPhone').value.trim();
+            const customerEmail = document.getElementById('addLeadCustomerEmail').value.trim();
+            const customerAddress = document.getElementById('addLeadCustomerAddress').value.trim();
+            let customerId = document.getElementById('addLeadCustomerId').value || '';
+            if (!customerId && customerName) {
+                const cust = CL_DATA.findOrCreateCustomer(customerName, customerPhone, customerEmail, customerAddress);
+                if (cust) customerId = cust.id;
+            }
             const id = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
             const nowIso = new Date().toISOString();
             CL_DATA.addJob({
                 id,
-                customerId: null,
+                customerId: customerId || null,
                 customerName,
                 customerPhone,
-                customerEmail: '',
-                address: '',
+                customerEmail,
+                address: customerAddress,
                 serviceType: '',
                 jobCategory: '',
                 jobDate: '',
@@ -628,6 +716,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             loadData();
+            rebuildJobCustomerNameOptions();
             loadUsers();
             updateStats();
             renderJobs();
@@ -1111,7 +1200,7 @@
                     <div class="edit-scroll space-y-3">
                         <div>
                             <label class="text-xs text-gray-400 block mb-1">Name</label>
-                            <input type="text" id="editName" value="${(job.customerName || '').replace(/"/g, '&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                            <input type="text" id="editName" list="jobCustomerNameOptions" oninput="applyKnownCustomerToEditForm()" value="${(job.customerName || '').replace(/"/g, '&quot;')}" class="w-full p-3 rounded-lg edit-field">
                         </div>
                         <div class="grid grid-cols-2 gap-2">
                             <div>
@@ -1667,7 +1756,7 @@
                     <p class="text-xs text-gray-400">This job has no customer name. Fill in the details to create a record.</p>
                     <div>
                         <label class="text-xs text-gray-400 block mb-1">Name <span class="text-red-400">*</span></label>
-                        <input type="text" id="ccName" value="${(job.customerName || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                        <input type="text" id="ccName" list="jobCustomerNameOptions" oninput="applyKnownCustomerToCreatePrompt()" value="${(job.customerName || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
@@ -1736,6 +1825,7 @@
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
                 loadData();
+                rebuildJobCustomerNameOptions();
                 updateStats();
                 renderJobs();
             }

@@ -267,7 +267,8 @@
                 
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">Name *</label>
-                    <input type="text" id="customerName" required class="w-full p-3 rounded-lg">
+                    <input type="text" id="customerName" list="customerNameOptions" required class="w-full p-3 rounded-lg">
+                    <datalist id="customerNameOptions"></datalist>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-3">
@@ -294,6 +295,21 @@
                 <p class="text-xs text-gray-500 text-center">
                     <i class="fas fa-info-circle mr-1"></i>Job details (service, date, quote, photos) are added via the Jobs page
                 </p>
+
+                <div id="newCustomerLeadWrap" class="bg-slate-800/70 border border-slate-700 rounded-xl p-3 space-y-3">
+                    <p class="text-xs uppercase tracking-wide text-gray-400">Schedule estimate visit now (optional)</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Date</label>
+                            <input type="date" id="newCustomerLeadDate" class="w-full p-3 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Time</label>
+                            <input type="time" id="newCustomerLeadTime" value="11:30" class="w-full p-3 rounded-lg">
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500">If date is set, we create a linked lead and open the estimate right away.</p>
+                </div>
                 
                 <div class="flex gap-3 pt-2">
                     <button type="button" onclick="closeCustomerModal()" class="flex-1 bg-slate-700 text-white py-3 rounded-xl font-semibold">
@@ -328,6 +344,16 @@
             customers = CL_DATA.getCustomers();
             jobs = CL_DATA.getJobs();
         }
+
+        function rebuildCustomerNameOptions() {
+            const list = document.getElementById('customerNameOptions');
+            if (!list) return;
+            list.innerHTML = customers
+                .filter(c => c && c.name)
+                .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                .map(c => `<option value="${String(c.name || '').replace(/"/g, '&quot;')}" label="${String(c.phone || c.email || '').replace(/"/g, '&quot;')}"></option>`)
+                .join('');
+        }
         
         // Get job count for a customer
         function getJobCount(customerId) {
@@ -353,6 +379,7 @@
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             loadData();
+            rebuildCustomerNameOptions();
             renderCustomers();
             setActiveNav();
             const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
@@ -370,6 +397,7 @@
 
         window.addEventListener('cl-sync-updated', () => {
             loadData();
+            rebuildCustomerNameOptions();
             renderCustomers();
         });
 
@@ -401,7 +429,40 @@
                 CL_DATA.addCustomer(customer);
             }
 
+            if (!id) {
+                const leadDate = document.getElementById('newCustomerLeadDate').value;
+                if (leadDate) {
+                    const leadId = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+                    const nowIso = new Date().toISOString();
+                    CL_DATA.addJob({
+                        id: leadId,
+                        customerId: customer.id,
+                        customerName: customer.name || '',
+                        customerPhone: customer.phone || '',
+                        customerEmail: customer.email || '',
+                        address: customer.address || '',
+                        serviceType: '',
+                        jobCategory: '',
+                        jobDate: '',
+                        jobTime: document.getElementById('newCustomerLeadTime').value || '',
+                        jobDuration: '',
+                        quoteAmount: '',
+                        squareFootage: '',
+                        status: 'new',
+                        notes: '',
+                        paymentStatus: 'unpaid',
+                        dateAdded: nowIso,
+                        followUpDate: leadDate,
+                        documents: { estimates: [], invoices: [], waivers: [] }
+                    });
+                    closeCustomerModal();
+                    window.location.href = `estimate.html?jobId=${encodeURIComponent(leadId)}`;
+                    return;
+                }
+            }
+
             loadData();
+            rebuildCustomerNameOptions();
             renderCustomers();
             closeCustomerModal();
         }
@@ -496,6 +557,9 @@
             document.getElementById('customerModal-title').textContent = 'Add Customer';
             document.getElementById('customerForm').reset();
             document.getElementById('customerId').value = '';
+            document.getElementById('newCustomerLeadWrap').style.display = 'block';
+            const leadDateInput = document.getElementById('newCustomerLeadDate');
+            if (leadDateInput && !leadDateInput.value) leadDateInput.value = '';
             openModal('customerModal');
         }
 
@@ -514,6 +578,7 @@
             document.getElementById('customerEmail').value = c.email || '';
             document.getElementById('customerAddress').value = c.address || '';
             document.getElementById('customerNotes').value = c.notes || '';
+            document.getElementById('newCustomerLeadWrap').style.display = 'none';
 
             openModal('customerModal');
         }

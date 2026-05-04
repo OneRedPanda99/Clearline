@@ -219,13 +219,23 @@
                     <label class="text-xs text-gray-400 block mb-1">Time</label>
                     <input type="time" id="addLeadVisitTime" value="11:30" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white">
                 </div>
+                <input type="hidden" id="addLeadVisitCustomerId" value="">
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Customer name <span class="text-gray-500">(optional)</span></label>
-                    <input type="text" id="addLeadVisitName" placeholder="Name" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="name">
+                    <input type="text" id="addLeadVisitName" list="addLeadVisitCustomerOptions" oninput="syncLeadVisitCustomerSelection()" placeholder="Name" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="name">
+                    <datalist id="addLeadVisitCustomerOptions"></datalist>
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Phone <span class="text-gray-500">(optional)</span></label>
                     <input type="tel" id="addLeadVisitPhone" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="tel">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Email <span class="text-gray-500">(optional)</span></label>
+                    <input type="email" id="addLeadVisitEmail" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="email">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Address <span class="text-gray-500">(optional)</span></label>
+                    <input type="text" id="addLeadVisitAddress" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="street-address">
                 </div>
                 <button type="button" onclick="confirmAddLeadVisit()" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-semibold">
                     <i class="fas fa-file-alt mr-2"></i>Create &amp; open estimate
@@ -238,6 +248,7 @@
     <script>
         // Use CL_DATA for jobs
         let jobs = [];
+        let customers = [];
         let currentDate = new Date();
         let currentMonth = currentDate.getMonth();
         let currentYear = currentDate.getFullYear();
@@ -251,6 +262,36 @@ let currentView = safeGet('cl-calendar-view', null) || localStorage.getItem('cl-
         
         function loadData() {
             jobs = CL_DATA.getJobs();
+            customers = CL_DATA.getCustomers();
+        }
+
+        function buildLeadVisitAutocomplete() {
+            const list = document.getElementById('addLeadVisitCustomerOptions');
+            if (!list) return;
+            list.innerHTML = customers
+                .filter(c => c && c.name)
+                .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                .map(c => `<option value="${String(c.name || '').replace(/"/g, '&quot;')}" label="${String(c.phone || c.email || '').replace(/"/g, '&quot;')}"></option>`)
+                .join('');
+        }
+
+        function syncLeadVisitCustomerSelection() {
+            const nameEl = document.getElementById('addLeadVisitName');
+            const idEl = document.getElementById('addLeadVisitCustomerId');
+            if (!nameEl || !idEl) return;
+            const name = nameEl.value.trim().toLowerCase();
+            const exact = customers.find(c => (c.name || '').trim().toLowerCase() === name);
+            if (!exact) {
+                idEl.value = '';
+                return;
+            }
+            idEl.value = exact.id;
+            const p = document.getElementById('addLeadVisitPhone');
+            const e = document.getElementById('addLeadVisitEmail');
+            const a = document.getElementById('addLeadVisitAddress');
+            if (p && !p.value.trim() && exact.phone) p.value = exact.phone;
+            if (e && !e.value.trim() && exact.email) e.value = exact.email;
+            if (a && !a.value.trim() && exact.address) a.value = exact.address;
         }
 
         // Initialize
@@ -636,8 +677,12 @@ localStorage.setItem('cl-calendar-view', view);
         function openAddLeadVisitModal(dateStr) {
             document.getElementById('addLeadVisitDateStr').value = dateStr;
             document.getElementById('addLeadVisitTime').value = '11:30';
+            document.getElementById('addLeadVisitCustomerId').value = '';
             document.getElementById('addLeadVisitName').value = '';
             document.getElementById('addLeadVisitPhone').value = '';
+            document.getElementById('addLeadVisitEmail').value = '';
+            document.getElementById('addLeadVisitAddress').value = '';
+            buildLeadVisitAutocomplete();
             closeDayModal();
             openModal('addLeadVisitModal');
         }
@@ -655,15 +700,22 @@ localStorage.setItem('cl-calendar-view', view);
             const jobTime = document.getElementById('addLeadVisitTime').value || '';
             const customerName = document.getElementById('addLeadVisitName').value.trim();
             const customerPhone = document.getElementById('addLeadVisitPhone').value.trim();
+            const customerEmail = document.getElementById('addLeadVisitEmail').value.trim();
+            const customerAddress = document.getElementById('addLeadVisitAddress').value.trim();
+            let customerId = document.getElementById('addLeadVisitCustomerId').value || '';
+            if (!customerId && customerName) {
+                const cust = CL_DATA.findOrCreateCustomer(customerName, customerPhone, customerEmail, customerAddress);
+                if (cust) customerId = cust.id;
+            }
             const id = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
             const nowIso = new Date().toISOString();
             CL_DATA.addJob({
                 id,
-                customerId: null,
+                customerId: customerId || null,
                 customerName,
                 customerPhone,
-                customerEmail: '',
-                address: '',
+                customerEmail,
+                address: customerAddress,
                 serviceType: '',
                 jobCategory: '',
                 jobDate: '',
