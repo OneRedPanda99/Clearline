@@ -586,23 +586,6 @@
                 <div id="measureTotalDisplay" style="display:none;">Total Measured: 0 sq ft</div>
 
                 <div class="section-header">SERVICES</div>
-                <div id="jobTimerPanel" style="display:none;background:rgba(2,6,23,0.8);border:1px solid rgba(56,189,248,0.35);border-radius:12px;padding:12px;margin-bottom:12px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-                        <div>
-                            <p style="font-size:11px;color:#94a3b8;letter-spacing:0.04em;text-transform:uppercase;">Job Timer</p>
-                            <p id="jobTimerElapsed" style="font-size:28px;font-weight:800;color:#38bdf8;line-height:1.1;">00:00:00</p>
-                        </div>
-                        <div style="display:flex;gap:8px;">
-                            <button type="button" id="jobTimerStartBtn" class="add-service-btn" style="margin:0;background:#2563eb;" onclick="toggleJobTimer()">
-                                <i class="fas fa-play mr-1"></i>Start
-                            </button>
-                            <button type="button" id="jobTimerResetBtn" class="add-service-btn" style="margin:0;background:#475569;" onclick="resetJobTimer()">
-                                <i class="fas fa-rotate-left mr-1"></i>Reset
-                            </button>
-                        </div>
-                    </div>
-                    <div id="jobTimerChecklist" style="margin-top:10px;display:grid;gap:8px;"></div>
-                </div>
                 
                 <div id="servicesContainer">
                     <div class="service-item" data-service-id="1">
@@ -803,6 +786,7 @@
         const jobId = urlParams.get('jobId');
         const editDocId = urlParams.get('docId');
         const startJobNow = urlParams.get('startJob') === '1';
+        let activeJobEstimateDocId = editDocId || null;
         const JOB_TIMER_PREFIX = 'cl-job-timer-';
         let jobTimerInterval = null;
         let jobRunState = {
@@ -2341,8 +2325,8 @@
             if (!job.documents) job.documents = { estimates: [], invoices: [], waivers: [] };
             if (!Array.isArray(job.documents.estimates)) job.documents.estimates = [];
 
-            const existingIdx = editDocId
-                ? job.documents.estimates.findIndex(d => d && d.id === editDocId)
+            const existingIdx = activeJobEstimateDocId
+                ? job.documents.estimates.findIndex(d => d && d.id === activeJobEstimateDocId)
                 : -1;
 
             const nowIso = new Date().toISOString();
@@ -2356,17 +2340,26 @@
                     summary,
                     formState
                 };
+                activeJobEstimateDocId = existing.id;
             } else {
+                const newId = 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
                 job.documents.estimates.push({
-                    id: 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                    id: newId,
                     createdAt: nowIso,
                     updatedAt: nowIso,
                     summary,
                     formState
                 });
+                activeJobEstimateDocId = newId;
             }
 
             CL_DATA.updateJob(job.id, { documents: job.documents });
+            if (jobId && activeJobEstimateDocId && !urlParams.get('docId')) {
+                const qp = new URLSearchParams(window.location.search);
+                qp.set('docId', activeJobEstimateDocId);
+                const next = `${window.location.pathname}?${qp.toString()}`;
+                window.history.replaceState({}, '', next);
+            }
             renderJobTimerChecklist();
             if (!silent) showToast('Estimate saved to job');
             if (shouldRedirect) {
@@ -2383,6 +2376,7 @@
             if (!job || !job.documents || !Array.isArray(job.documents.estimates)) return;
             const entry = job.documents.estimates.find(d => d && d.id === editDocId);
             if (!entry) return;
+            activeJobEstimateDocId = editDocId;
             if (entry.formState) {
                 loadFormState(entry.formState);
             } else {

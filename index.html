@@ -286,7 +286,7 @@
                 ? `https://maps.google.com/?q=${encodeURIComponent(j.address)}`
                 : null;
             const startHref = isEst ? `estimate.html?jobId=${encodeURIComponent(j.id)}` : `jobs.html?highlight=${encodeURIComponent(j.id)}`;
-            const startTarget = isEst ? startHref : `estimate.html?jobId=${encodeURIComponent(j.id)}&startJob=1`;
+            const startTarget = isEst ? startHref : `jobs.html?highlight=${encodeURIComponent(j.id)}&start=1`;
             const phone = j.customerPhone ? esc(j.customerPhone) : '';
             return `
                 <div class="dash-schedule-card">
@@ -322,7 +322,7 @@
             const navUrl = job.address ? `https://maps.google.com/?q=${encodeURIComponent(job.address)}` : '';
             const startHref = isEst
                 ? `estimate.html?jobId=${encodeURIComponent(job.id)}`
-                : `estimate.html?jobId=${encodeURIComponent(job.id)}&startJob=1`;
+                : `jobs.html?highlight=${encodeURIComponent(job.id)}&start=1`;
             const moreToday = extra.moreToday || 0;
             return `
                 <div class="next-job-card__head">
@@ -389,7 +389,7 @@
             const val = document.getElementById('activeTimerElapsed');
             if (txt) txt.textContent = title;
             if (val) val.textContent = formatElapsed(timer.elapsed);
-            if (open) open.href = `estimate.html?jobId=${encodeURIComponent(timer.jobId)}`;
+            if (open) open.href = `jobs.html?highlight=${encodeURIComponent(timer.jobId)}`;
             section.classList.remove('hidden');
         }
 

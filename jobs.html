@@ -459,6 +459,61 @@
             return { h, m: mm };
         }
 
+        const JOB_TIMER_PREFIX = 'cl-job-timer-';
+        function getJobTimerKey(jobId) {
+            return `${JOB_TIMER_PREFIX}${jobId}`;
+        }
+        function getJobTimerState(jobId) {
+            return safeGet(getJobTimerKey(jobId), {
+                isRunning: false,
+                startedAt: null,
+                elapsedMs: 0,
+                checkpoints: {}
+            });
+        }
+        function setJobTimerState(jobId, state) {
+            safeSet(getJobTimerKey(jobId), state);
+        }
+        function timerElapsedMs(state) {
+            if (!state || !state.isRunning || !state.startedAt) return state && state.elapsedMs ? state.elapsedMs : 0;
+            return (state.elapsedMs || 0) + Math.max(0, Date.now() - state.startedAt);
+        }
+        function fmtElapsed(ms) {
+            const total = Math.max(0, Math.floor(ms / 1000));
+            const h = Math.floor(total / 3600);
+            const m = Math.floor((total % 3600) / 60);
+            const s = total % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+        function writeJobDuration(jobId, elapsedMs) {
+            const v = fmtElapsed(elapsedMs);
+            CL_DATA.updateJob(jobId, { jobDuration: v });
+        }
+        function toggleJobStopwatch(jobId) {
+            const st = getJobTimerState(jobId);
+            if (!st.isRunning) {
+                st.isRunning = true;
+                st.startedAt = Date.now();
+            } else {
+                st.elapsedMs = timerElapsedMs(st);
+                st.isRunning = false;
+                st.startedAt = null;
+                writeJobDuration(jobId, st.elapsedMs || 0);
+            }
+            setJobTimerState(jobId, st);
+            const job = jobs.find(j => j.id === jobId);
+            if (job) openJobModal(jobId);
+        }
+        function resetJobStopwatch(jobId) {
+            const ok = confirm('Reset this job stopwatch?');
+            if (!ok) return;
+            const st = { isRunning: false, startedAt: null, elapsedMs: 0, checkpoints: {} };
+            setJobTimerState(jobId, st);
+            CL_DATA.updateJob(jobId, { jobDuration: '' });
+            const job = jobs.find(j => j.id === jobId);
+            if (job) openJobModal(jobId);
+        }
+
         // Google Calendar - uses token from Firebase sign-in
         let gapiInited = false;
         let accessToken = localStorage.getItem('gcal-token') || null;
@@ -755,11 +810,23 @@
             const params = new URLSearchParams(window.location.search);
             const highlight = params.get('highlight');
             const edit = params.get('edit') === '1';
+            const startTimer = params.get('start') === '1';
             if (highlight) {
                 const job = jobs.find(j => j.id === highlight);
                 if (job) {
                     if (edit) editJob(highlight);
-                    else openJobModal(highlight);
+                    else {
+                        if (startTimer) {
+                            const st = getJobTimerState(highlight);
+                            if (!st.isRunning) {
+                                st.isRunning = true;
+                                st.startedAt = Date.now();
+                                setJobTimerState(highlight, st);
+                                showToast('Job stopwatch started');
+                            }
+                        }
+                        openJobModal(highlight);
+                    }
                     // Ensure the correct tab is active so the card is visible
                     // after closing the modal.
                     const bucket = job.status === 'completed' ? 'completed'
@@ -918,7 +985,7 @@
             const money = total > 0 ? `<span style="color:#34d399;font-weight:700;font-size:14px;">$${total.toFixed(0)}</span>` : '';
             const startHref = isEst
                 ? `estimate.html?jobId=${encodeURIComponent(job.id)}`
-                : `estimate.html?jobId=${encodeURIComponent(job.id)}&startJob=1`;
+                : `jobs.html?highlight=${encodeURIComponent(job.id)}&start=1`;
             const maps = job.address ? `https://maps.google.com/?q=${encodeURIComponent(job.address)}` : '';
 
             return `
@@ -1044,6 +1111,10 @@
             if (migrateDocumentIds(job)) loadData();
             document.body.classList.add('modal-open');
             document.getElementById('jobModal-title').textContent = 'Job Details';
+            const timerState = getJobTimerState(job.id);
+            const timerMs = timerElapsedMs(timerState);
+            const timerText = fmtElapsed(timerMs);
+            const timerBtnText = timerState.isRunning ? 'Pause' : 'Start';
             const amount = getJobDisplayTotal(job);
             const statusPill = job.status === 'completed'
                 ? 'bg-green-900/30 text-green-400'
@@ -1097,6 +1168,20 @@
                     </div>
                     ` : ''}
 
+                    <div class="glass-card rounded-xl p-3 border border-sky-500/30">
+                        <div class="flex justify-between items-center gap-3">
+                            <div>
+                                <p class="text-xs text-gray-400 uppercase tracking-wide">Job Stopwatch</p>
+                                <p class="text-2xl font-extrabold text-sky-300">${timerText}</p>
+                                ${job.jobDuration ? `<p class="text-xs text-gray-400">Last saved duration: ${job.jobDuration}</p>` : ''}
+                            </div>
+                            <div class="flex gap-2">
+                                <button type="button" onclick="toggleJobStopwatch('${job.id}')" class="${timerState.isRunning ? 'bg-amber-600' : 'bg-blue-600'} text-white px-4 py-2 rounded-lg font-semibold">${timerBtnText}</button>
+                                <button type="button" onclick="resetJobStopwatch('${job.id}')" class="bg-slate-700 text-gray-200 px-4 py-2 rounded-lg font-semibold">Reset</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="glass-card rounded-xl overflow-hidden">
                         <div class="list-item">
                             <i class="fas fa-screwdriver-wrench text-blue-400 mr-3"></i>
@@ -1127,7 +1212,7 @@
                     <div>
                         <p class="section-title mb-2">Quick Actions</p>
                         <div class="grid grid-cols-3 gap-2">
-                            ${job.status === 'scheduled' ? `<a href="estimate.html?jobId=${encodeURIComponent(job.id)}&startJob=1" class="bg-blue-600 text-white py-3 rounded-xl text-sm font-semibold text-center"><i class="fas fa-play mr-1"></i>Start Job</a>` : `<span class="bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-xl text-sm font-semibold text-center">Start Job</span>`}
+                            ${job.status === 'scheduled' ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="bg-blue-600 text-white py-3 rounded-xl text-sm font-semibold text-center"><i class="fas fa-play mr-1"></i>Start Job</a>` : `<span class="bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-xl text-sm font-semibold text-center">Start Job</span>`}
                             <button onclick="openDocumentForm('estimate', '${job.id}')" class="bg-slate-800 border border-slate-700 text-cyan-300 py-3 rounded-xl text-sm font-semibold"><i class="fas fa-file-invoice mr-1"></i>Add Estimate</button>
                             <button onclick="openDocumentForm('invoice', '${job.id}')" class="bg-slate-800 border border-slate-700 text-amber-300 py-3 rounded-xl text-sm font-semibold"><i class="fas fa-file-invoice-dollar mr-1"></i>Add Invoice</button>
                             <button onclick="openDocumentForm('waiver', '${job.id}')" class="bg-slate-800 border border-slate-700 text-emerald-300 py-3 rounded-xl text-sm font-semibold"><i class="fas fa-file-signature mr-1"></i>Add Waiver</button>
@@ -1136,6 +1221,32 @@
                             <a href="${job.address ? `https://maps.google.com/?q=${encodeURIComponent(job.address)}` : '#'}" ${job.address ? 'target="_blank"' : ''} class="bg-slate-800 border border-slate-700 text-purple-300 py-3 rounded-xl text-sm font-semibold text-center ${job.address ? '' : 'pointer-events-none opacity-40'}"><i class="fas fa-location-arrow mr-1"></i>Open Map</a>
                         </div>
                     </div>
+
+                    ${job.documents && (job.documents.estimates?.length || job.documents.invoices?.length || job.documents.waivers?.length) ? `
+                    <div class="glass-card rounded-xl p-3">
+                        <p class="section-title mb-2">Saved Documents</p>
+                        <div class="space-y-2">
+                            ${(job.documents.estimates || []).map((doc, i) => `
+                                <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded-lg">
+                                    <span class="text-sm text-cyan-300 truncate"><i class="fas fa-file-invoice mr-1"></i>${(doc.summary && (doc.summary.number || doc.summary.customerName)) || `Estimate ${i + 1}`}</span>
+                                    <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-cyan-600/20 border border-cyan-500/40 text-cyan-200 px-2 py-1 rounded">Edit</a>
+                                </div>
+                            `).join('')}
+                            ${(job.documents.invoices || []).map((doc, i) => `
+                                <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded-lg">
+                                    <span class="text-sm text-amber-300 truncate"><i class="fas fa-file-invoice-dollar mr-1"></i>${(doc.summary && (doc.summary.number || doc.summary.customerName)) || `Invoice ${i + 1}`}</span>
+                                    <a href="invoice.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-amber-600/20 border border-amber-500/40 text-amber-200 px-2 py-1 rounded">Edit</a>
+                                </div>
+                            `).join('')}
+                            ${(job.documents.waivers || []).map((doc, i) => `
+                                <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded-lg">
+                                    <span class="text-sm text-emerald-300 truncate"><i class="fas fa-file-signature mr-1"></i>Waiver ${i + 1}</span>
+                                    <a href="waiver.html?jobId=${encodeURIComponent(job.id)}" class="text-xs bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 px-2 py-1 rounded">Open</a>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
 
                     ${job.notes ? `
                         <div>
