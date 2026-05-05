@@ -51,57 +51,39 @@ window.safeRemove = function(key) {
  * Types: 'success' (default) | 'error' | 'info'
  */
 window.showToast = function(message, type = 'success') {
-  // Remove any existing toast
-  const existing = document.getElementById('sp-toast');
+  const existing = document.getElementById('cl-inline-status');
   if (existing) existing.remove();
-
-  const icons = { success: '✓', error: '✕', info: 'ℹ' };
   const colors = {
-    success: '#10B981',
-    error:   '#EF4444',
-    info:    '#3B82F6'
+    success: { bg: 'rgba(16,185,129,0.18)', border: 'rgba(16,185,129,0.45)', fg: '#d1fae5' },
+    error:   { bg: 'rgba(239,68,68,0.18)', border: 'rgba(239,68,68,0.45)', fg: '#fecaca' },
+    info:    { bg: 'rgba(59,130,246,0.18)', border: 'rgba(59,130,246,0.45)', fg: '#dbeafe' }
   };
-
-  const toast = document.createElement('div');
-  toast.id = 'sp-toast';
-  toast.setAttribute('role', 'alert');
-  toast.setAttribute('aria-live', 'polite');
-  toast.innerHTML = `<span style="font-weight:700">${icons[type]}</span> ${message}`;
-  
-  Object.assign(toast.style, {
-    position:     'fixed',
-    bottom:       '80px',          // above tab bar
-    left:         '50%',
-    transform:    'translateX(-50%) translateY(20px)',
-    background:   colors[type],
-    color:        '#fff',
-    padding:      '10px 20px',
-    borderRadius: '999px',
-    fontSize:     '14px',
-    fontWeight:   '500',
-    boxShadow:    '0 4px 20px rgba(0,0,0,0.25)',
-    zIndex:       '9999',
-    opacity:      '0',
-    transition:   'opacity 0.25s ease, transform 0.25s ease',
-    whiteSpace:   'nowrap',
-    maxWidth:     '90vw',
-    textAlign:    'center'
+  const c = colors[type] || colors.success;
+  const bar = document.createElement('div');
+  bar.id = 'cl-inline-status';
+  bar.setAttribute('role', 'status');
+  bar.setAttribute('aria-live', 'polite');
+  bar.textContent = String(message || '');
+  Object.assign(bar.style, {
+    position: 'fixed',
+    top: '64px',
+    left: '12px',
+    right: '12px',
+    background: c.bg,
+    border: `1px solid ${c.border}`,
+    color: c.fg,
+    padding: '10px 12px',
+    borderRadius: '10px',
+    fontSize: '13px',
+    fontWeight: '600',
+    zIndex: '9999',
+    boxShadow: '0 8px 20px rgba(0,0,0,0.25)'
   });
-
-  document.body.appendChild(toast);
-
-  // Animate in
-  requestAnimationFrame(() => {
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateX(-50%) translateY(0)';
-  });
-
-  // Auto-dismiss
+  document.body.appendChild(bar);
   setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(-50%) translateY(10px)';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+    const n = document.getElementById('cl-inline-status');
+    if (n) n.remove();
+  }, 5000);
 };
 
 /**

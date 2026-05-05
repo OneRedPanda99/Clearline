@@ -506,13 +506,101 @@
             if (job) openJobModal(jobId);
         }
         function resetJobStopwatch(jobId) {
-            const ok = confirm('Reset this job stopwatch?');
-            if (!ok) return;
             const st = { isRunning: false, startedAt: null, elapsedMs: 0, checkpoints: {} };
             setJobTimerState(jobId, st);
             CL_DATA.updateJob(jobId, { jobDuration: '' });
             const job = jobs.find(j => j.id === jobId);
+            setJobActionStatus('Stopwatch reset.');
             if (job) openJobModal(jobId);
+        }
+
+        function latestEstimateForJob(job) {
+            if (!job || !job.documents || !Array.isArray(job.documents.estimates)) return null;
+            const docs = job.documents.estimates.filter(Boolean);
+            if (!docs.length) return null;
+            return docs.slice().sort((a, b) => {
+                const ta = Date.parse(a.updatedAt || a.createdAt || '') || 0;
+                const tb = Date.parse(b.updatedAt || b.createdAt || '') || 0;
+                return tb - ta;
+            })[0];
+        }
+
+        function getTimerServiceItemsForJob(job) {
+            const latest = latestEstimateForJob(job);
+            const services = latest && latest.formState && Array.isArray(latest.formState.services)
+                ? latest.formState.services
+                : [];
+            return services.map((svc, idx) => ({
+                id: `svc-${idx}`,
+                label: (svc && svc.description ? String(svc.description).trim() : '') || `Service ${idx + 1}`
+            }));
+        }
+
+        function parseElapsedInput(raw) {
+            const m = String(raw || '').trim().match(/^(\d{1,2}):([0-5]\d):([0-5]\d)$/);
+            if (!m) return null;
+            const h = parseInt(m[1], 10);
+            const mm = parseInt(m[2], 10);
+            const ss = parseInt(m[3], 10);
+            return ((h * 3600) + (mm * 60) + ss) * 1000;
+        }
+
+        function markServiceCheckpoint(jobId, serviceId) {
+            const st = getJobTimerState(jobId);
+            if (!st.checkpoints) st.checkpoints = {};
+            if (st.checkpoints[serviceId]) {
+                delete st.checkpoints[serviceId];
+            } else {
+                st.checkpoints[serviceId] = { atMs: timerElapsedMs(st), atIso: new Date().toISOString() };
+            }
+            setJobTimerState(jobId, st);
+            openJobModal(jobId);
+        }
+
+        function setServiceCheckpointFromInput(jobId, serviceId, raw) {
+            const ms = parseElapsedInput(raw);
+            if (ms == null) {
+                setJobActionStatus('Time must be HH:MM:SS.', true);
+                return;
+            }
+            const st = getJobTimerState(jobId);
+            if (!st.checkpoints) st.checkpoints = {};
+            st.checkpoints[serviceId] = { atMs: ms, atIso: new Date().toISOString(), manual: true };
+            setJobTimerState(jobId, st);
+            openJobModal(jobId);
+            setJobActionStatus('Checkpoint time updated.');
+        }
+
+        function renderJobTimerChecklist(job, timerState) {
+            const items = getTimerServiceItemsForJob(job);
+            if (!items.length) {
+                return '<p class="text-xs text-slate-400 mt-2">No estimate services found yet. Save an estimate on this job to track service checkpoints.</p>';
+            }
+            return `
+                <div class="mt-3 space-y-2">
+                    <p class="text-xs text-slate-400 uppercase tracking-wide">Service Checkpoints (latest estimate)</p>
+                    ${items.map(item => {
+                        const cp = timerState && timerState.checkpoints ? timerState.checkpoints[item.id] : null;
+                        const at = cp ? fmtElapsed(cp.atMs || 0) : '';
+                        return `
+                            <div class="bg-slate-900/50 border border-slate-700 rounded-lg p-2">
+                                <div class="flex items-center justify-between gap-2">
+                                    <button type="button" onclick="markServiceCheckpoint('${job.id}', '${item.id}')" class="text-sm text-left font-semibold ${cp ? 'text-emerald-300' : 'text-slate-200'}">
+                                        <i class="fas ${cp ? 'fa-check-circle' : 'fa-circle'} mr-1"></i>${item.label.replace(/</g, '&lt;')}
+                                    </button>
+                                    <span class="text-xs ${cp ? 'text-emerald-300' : 'text-slate-500'}">${cp ? at : 'Pending'}</span>
+                                </div>
+                                ${cp ? `
+                                    <div class="mt-2 flex items-center gap-2">
+                                        <input type="text" value="${at}" placeholder="HH:MM:SS" class="w-32 p-2 rounded bg-slate-800 border border-slate-700 text-xs text-white" id="cp-input-${job.id}-${item.id}">
+                                        <button type="button" onclick="setServiceCheckpointFromInput('${job.id}', '${item.id}', document.getElementById('cp-input-${job.id}-${item.id}').value)" class="text-xs bg-slate-700 text-slate-100 px-2 py-1 rounded">Set time</button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
         }
 
         // Google Calendar - uses token from Firebase sign-in
@@ -1196,6 +1284,7 @@
                                 <button type="button" onclick="resetJobStopwatch('${job.id}')" class="bg-slate-700 text-gray-200 px-4 py-2 rounded-lg font-semibold">Reset</button>
                             </div>
                         </div>
+                        ${renderJobTimerChecklist(job, timerState)}
                     </div>
 
                     <div class="glass-card rounded-xl overflow-hidden">
@@ -1279,6 +1368,8 @@
                     ` : ''}
 
                     <div class="grid grid-cols-1 gap-2 pt-1">
+                        <div id="jobActionStatus" class="text-xs text-slate-300 mb-1"></div>
+                        <input id="cancelReasonInput" type="text" placeholder="Cancel reason (required for cancel)" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-sm">
                         ${job.status !== 'completed' ? `
                             <button onclick="markComplete('${job.id}'); closeJobModal();" class="bg-green-600 text-white py-4 rounded-xl font-semibold text-lg">
                                 <i class="fas fa-check-circle mr-1"></i>Mark as Complete
@@ -1292,7 +1383,7 @@
                         <button onclick="editJob('${job.id}')" class="bg-slate-600 text-white py-3 rounded-xl font-semibold">
                             <i class="fas fa-pen mr-1"></i>Edit Job
                         </button>
-                        <button onclick="cancelJobWithReason('${job.id}'); closeJobModal();" class="bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
+                        <button onclick="cancelJobWithReason('${job.id}');" class="bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
                             <i class="fas fa-ban mr-1"></i>Cancel Job
                         </button>
                         </div>
@@ -1587,7 +1678,6 @@
         function deleteJob(id) {
             const snapshot = CL_DATA.findJob(id);
             if (!snapshot) return;
-            if (!confirm('Delete this job?')) return;
             CL_DATA.deleteJob(id);
             loadData();
             updateStats();
@@ -1624,12 +1714,18 @@
             el.className = `text-xs mb-2 ${isError ? 'text-red-300' : 'text-emerald-300'}`;
         }
 
+        function setJobActionStatus(message, isError = false) {
+            const el = document.getElementById('jobActionStatus');
+            if (!el) return;
+            el.textContent = message || '';
+            el.className = `text-xs mb-1 ${isError ? 'text-red-300' : 'text-emerald-300'}`;
+        }
+
         function cancelJobWithReason(id) {
-            const reason = window.prompt('Cancel reason (required):', '');
-            if (reason == null) return;
-            const clean = String(reason).trim();
+            const reasonEl = document.getElementById('cancelReasonInput');
+            const clean = String((reasonEl && reasonEl.value) || '').trim();
             if (!clean) {
-                showToast('Cancellation requires a reason.', 'error');
+                setJobActionStatus('Cancellation requires a reason.', true);
                 return;
             }
             const job = CL_DATA.findJob(id);
@@ -1639,7 +1735,7 @@
             loadData();
             updateStats();
             renderJobs();
-            showToast('Job cancelled');
+            closeJobModal();
         }
 
         function restoreDeletedJob(job) {
@@ -1699,7 +1795,7 @@
                     const result = await createCalendarEvent(job);
                     CL_DATA.updateJob(id, { googleEventId: result.id });
                     loadData();
-                    alert('Added to Google Calendar!');
+                    showToast('Added to Google Calendar');
                     return;
                 } catch (err) {
                     const status = err && (err.status || (err.result && err.result.error && err.result.error.code));
@@ -1820,7 +1916,7 @@
         function viewDocument(jobId, docType, index) {
             const job = jobs.find(j => j.id === jobId);
             if (!job || !job.documents || !job.documents[docType] || !job.documents[docType][index]) {
-                alert('Document not found');
+                setJobDocStatus('Document not found.', true);
                 return;
             }
 
@@ -1991,7 +2087,6 @@
         // Delete by stable doc.id rather than list index so concurrent cloud
         // merges (which can reorder) don't cause us to delete the wrong entry. (#5)
         function deleteDocument(jobId, docType, docId) {
-            if (!confirm('Delete this document?')) return;
             const job = jobs.find(j => j.id === jobId);
             if (!job || !job.documents || !Array.isArray(job.documents[docType])) return;
             const idx = job.documents[docType].findIndex(d => d && d.id === docId);

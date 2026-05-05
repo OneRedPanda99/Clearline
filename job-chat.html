@@ -204,8 +204,9 @@
                 if (e.key === 'Enter') { e.preventDefault(); pushLocalNote(document.getElementById('chatInput').value); }
             });
             document.getElementById('btnSmsTemplate').addEventListener('click', () => {
-                const body = window.prompt('Message to send (opens SMS):', 'Hi — quick update on your job.');
-                if (body) window.openJobChatSms(body);
+                const input = document.getElementById('chatInput');
+                const body = (input.value || '').trim() || 'Hi - quick update on your job.';
+                window.openJobChatSms(body);
             });
             render();
         });
