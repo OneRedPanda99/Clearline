@@ -732,15 +732,20 @@
             if (b) b.innerHTML = connected ? '<i class="fab fa-google mr-1"></i>Reconnect' : '<i class="fab fa-google mr-1"></i>Connect Calendar';
         }
         async function connectGoogleCalendarFromJobs() {
-            if (!window.CL_FIREBASE || !CL_FIREBASE.signInWithGoogle) {
+            if (!window.CL_FIREBASE || !CL_FIREBASE.ensureCalendarConnection) {
                 showToast('Calendar connect unavailable here', 'error');
                 return;
             }
-            await CL_FIREBASE.signInWithGoogle();
+            const res = await CL_FIREBASE.ensureCalendarConnection();
             checkGoogleAuth();
             if (accessToken && tokenExpiry > Date.now()) await initGapiClient();
             renderGCalSyncRow();
             flushQueuedGCalSync();
+            if (!(res && res.ok)) {
+                showToast('Calendar connection failed. Allow popup and Google permissions.', 'error');
+            } else {
+                showToast('Google Calendar connected');
+            }
         }
 
         // Use CL_DATA for separate jobs

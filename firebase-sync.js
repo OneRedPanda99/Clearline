@@ -366,6 +366,49 @@ const CL_FIREBASE = (function() {
         }
     }
 
+    function storeCalendarTokenFromResult(result) {
+        const credential = (result && result.credential)
+            || (firebase && firebase.auth && firebase.auth.GoogleAuthProvider && firebase.auth.GoogleAuthProvider.credentialFromResult
+                ? firebase.auth.GoogleAuthProvider.credentialFromResult(result)
+                : null);
+        const token = credential && credential.accessToken ? credential.accessToken : null;
+        if (!token) return false;
+        calendarAccessToken = token;
+        calendarTokenExpiry = Date.now() + (3600 * 1000);
+        localStorage.setItem('gcal-token', calendarAccessToken);
+        localStorage.setItem('gcal-token-expiry', calendarTokenExpiry);
+        return true;
+    }
+
+    // Explicitly request/refresh Calendar access even when already signed in.
+    // Returns { ok: boolean, code?: string } so callers can show inline UI state.
+    async function ensureCalendarConnection() {
+        if (!isInitialized) {
+            const ready = await init();
+            if (!ready) return { ok: false, code: 'init-failed' };
+        }
+        if (getCalendarToken()) return { ok: true };
+        try {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            provider.addScope('https://www.googleapis.com/auth/calendar.events');
+            let result = null;
+            if (auth.currentUser && auth.currentUser.reauthenticateWithPopup) {
+                result = await auth.currentUser.reauthenticateWithPopup(provider);
+            } else {
+                result = await auth.signInWithPopup(provider);
+            }
+            const ok = storeCalendarTokenFromResult(result);
+            if (!ok) return { ok: false, code: 'no-calendar-token' };
+            window.dispatchEvent(new CustomEvent('cl-auth-change', {
+                detail: { user: getUserInfo() }
+            }));
+            return { ok: true };
+        } catch (err) {
+            console.error('Calendar connect error:', err);
+            return { ok: false, code: err && err.code ? err.code : 'unknown' };
+        }
+    }
+
     // Get Calendar access token (for other modules to use)
     function getCalendarToken() {
         // Check if token is still valid
@@ -753,6 +796,7 @@ const CL_FIREBASE = (function() {
         syncFromCloud,
         getCalendarToken,
         isCalendarConnected,
+        ensureCalendarConnection,
         getProfile: () => (userProfile ? Object.assign({}, userProfile) : null),
         getGlobalSettings,
         updateGlobalSettings,
