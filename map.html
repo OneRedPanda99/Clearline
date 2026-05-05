@@ -98,16 +98,29 @@
     </div>
 
     <script>
-        const MAPS_API_KEY = window.CL_SECRETS?.mapsApiKey || '';
         let map, markers = [], routePolyline = null;
         let currentFilter = 'allJobs';
         let filteredJobs = [], jobs = [];
         let userLocMarker = null;
         let userLoc = null;
+        const MAP_GEOCODE_CACHE_KEY = 'cl-map-geocode-cache';
+        const MAP_GEOCODE_TTL_MS = 24 * 60 * 60 * 1000;
         // Legacy fallback only; routing no longer uses this by default.
         const homeAddress = localStorage.getItem('cl-home-address') || '';
 
         function loadData() { jobs = CL_DATA.getJobs(); }
+        function getMapGeocodeCache() { return safeGet(MAP_GEOCODE_CACHE_KEY, {}) || {}; }
+        function getCachedMapGeocode(address) {
+            const cache = getMapGeocodeCache();
+            const e = cache[address];
+            if (e && typeof e.ts === 'number' && (Date.now() - e.ts) < MAP_GEOCODE_TTL_MS) return { lat: e.lat, lng: e.lng };
+            return null;
+        }
+        function saveMapGeocode(address, lat, lng) {
+            const cache = getMapGeocodeCache();
+            cache[address] = { lat, lng, ts: Date.now() };
+            safeSet(MAP_GEOCODE_CACHE_KEY, cache);
+        }
 
         function initMap() {
             loadData();
@@ -276,19 +289,28 @@
                 showToast('Enable location or tap "Locate me" first', 'error');
                 return;
             }
-            const originParam = `${loc.lat},${loc.lng}`;
-
-            const destination = jobsWithAddr[jobsWithAddr.length - 1].address;
-            const waypoints = jobsWithAddr.slice(0, -1).map(j => j.address).join('|');
-
-            const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(originParam)}&destination=${encodeURIComponent(destination)}${waypoints ? '&waypoints=optimize:true|' + encodeURIComponent(waypoints) : ''}&key=${MAPS_API_KEY}`;
+            const resolved = [];
+            for (const job of jobsWithAddr) {
+                const coords = job._lat && job._lng ? { lat: job._lat, lng: job._lng } : await geocodeAddress(job.address);
+                if (coords) {
+                    job._lat = coords.lat;
+                    job._lng = coords.lng;
+                    resolved.push(job);
+                }
+            }
+            if (!resolved.length) {
+                showToast('Could not geocode any job addresses', 'error');
+                return;
+            }
+            const coordsStr = [`${loc.lng},${loc.lat}`].concat(resolved.map(j => `${j._lng},${j._lat}`)).join(';');
+            const url = `https://router.project-osrm.org/trip/v1/driving/${coordsStr}?source=first&roundtrip=false&overview=full&geometries=polyline`;
 
             try {
                 const resp = await fetch(url);
                 const data = await resp.json();
-                if (data.status !== 'OK') { showToast('Could not get directions: ' + data.status, 'error'); return; }
+                if (data.code !== 'Ok' || !data.trips || !data.trips[0]) { showToast('Could not get route', 'error'); return; }
 
-                const route = data.routes[0];
+                const route = data.trips[0];
                 // Draw polyline
                 if (routePolyline) map.removeLayer(routePolyline);
                 const points = decodePolyline(route.overview_polyline.points);
@@ -296,7 +318,9 @@
                 map.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
 
                 // Build route summary
-                buildRouteSummary(route, jobsWithAddr);
+                const waypoints = (data.waypoints || []).slice(1).sort((a, b) => a.waypoint_index - b.waypoint_index);
+                const orderedJobs = waypoints.map(w => resolved[Math.max(0, (w.waypoint_index || 1) - 1)]).filter(Boolean);
+                buildRouteSummary(route, orderedJobs);
                 document.getElementById('routeSheet').classList.add('open');
             } catch (err) {
                 console.error('Directions error:', err);
@@ -311,13 +335,7 @@
             let currentTime = new Date(); currentTime.setHours(startH, startM, 0, 0);
             const container = document.getElementById('routeSummaryContent');
 
-            // Reorder jobs by waypoint_order if optimized
-            let orderedJobs = [...jobsWithAddr];
-            if (route.waypoint_order && route.waypoint_order.length > 0) {
-                const reordered = route.waypoint_order.map(i => jobsWithAddr[i]);
-                reordered.push(jobsWithAddr[jobsWithAddr.length - 1]); // destination
-                orderedJobs = reordered;
-            }
+            const orderedJobs = jobsWithAddr;
 
             let html = '';
             for (let i = 0; i < legs.length; i++) {
@@ -406,16 +424,24 @@
             }
         }
 
-        function geocodeAddress(address) {
-            return fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${MAPS_API_KEY}`)
-                .then(r => r.json())
-                .then(data => {
-                    if (data.status === 'OK' && data.results[0]) {
-                        const loc = data.results[0].geometry.location;
-                        return { lat: loc.lat, lng: loc.lng };
-                    }
-                    return null;
+        async function geocodeAddress(address) {
+            if (!address) return null;
+            const cached = getCachedMapGeocode(address);
+            if (cached) return cached;
+            try {
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(address)}`, {
+                    headers: { 'Accept': 'application/json' }
                 });
+                const data = await resp.json();
+                if (Array.isArray(data) && data[0]) {
+                    const out = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+                    if (!Number.isNaN(out.lat) && !Number.isNaN(out.lng)) {
+                        saveMapGeocode(address, out.lat, out.lng);
+                        return out;
+                    }
+                }
+            } catch (_) {}
+            return null;
         }
 
         document.addEventListener('DOMContentLoaded', () => { initMap(); setActiveNav(); });

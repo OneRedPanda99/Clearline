@@ -40,8 +40,8 @@
         
         body {
             font-family: Arial, sans-serif;
-            background: white;
-            color: black;
+            background: #1b1e23;
+            color: #e5e7eb;
             padding: 0;
             line-height: 1.4;
         }
@@ -81,17 +81,22 @@
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
+            color: #d1d5db;
         }
         
         .form-group input, .form-group select, .form-group textarea {
             width: 100%;
-            padding: 8px;
-            border: 1px solid rgba(255,255,255,0.16);
+            padding: 10px 10px;
+            border: 1px solid #6b7280;
             font-size: 14px;
             font-family: Arial, sans-serif;
             border-radius: 7px;
-            background: rgba(255,255,255,0.03);
-            color: #e5e7eb;
+            background: #111827;
+            color: #f9fafb;
+        }
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: #9ca3af;
         }
         
         .form-group textarea {
@@ -195,8 +200,11 @@
         }
         
         .results-section {
-            border: 1px solid black;
+            border: 1px solid rgba(255,255,255,0.14);
             min-height: 500px;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #000;
         }
         
         .estimate-content {

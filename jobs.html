@@ -266,6 +266,16 @@
             <button type="button" role="tab" class="jobs-filter-pill" onclick="setTab('overdue')" data-tab="overdue">Overdue (<span id="count-overdue">0</span>)</button>
             <button type="button" role="tab" class="jobs-filter-pill" onclick="setTab('completed')" data-tab="completed">Completed (<span id="count-completed">0</span>)</button>
         </div>
+        <div id="gcalSyncRow" class="glass-card" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:10px;">
+            <button type="button" id="gcalConnectBtn" onclick="connectGoogleCalendarFromJobs()" class="jobs-map-btn" style="width:auto;padding:7px 10px;border-radius:8px;">
+                <i class="fab fa-google mr-1"></i>Connect Calendar
+            </button>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#cbd5e1;">
+                <input type="checkbox" id="gcalAutoSyncToggle" onchange="setAutoGCalEnabled(this.checked)">
+                Auto sync jobs
+            </label>
+            <span id="gcalStatusText" style="font-size:12px;color:#94a3b8;margin-left:auto;">Not connected</span>
+        </div>
 
         <!-- Jobs List -->
         <div id="jobsList" style="margin-bottom: 16px;"></div>
@@ -429,12 +439,24 @@
             let coords = cachedGeocode(address);
             if (!coords) {
                 try {
-                    const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${MAPS_API_KEY}`);
-                    const data = await res.json();
-                    if (data.status === 'OK' && data.results[0]) {
-                        const loc = data.results[0].geometry.location;
-                        coords = { lat: loc.lat, lng: loc.lng };
-                        saveGeocode(address, coords.lat, coords.lng);
+                    if (MAPS_API_KEY) {
+                        const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${MAPS_API_KEY}`);
+                        const data = await res.json();
+                        if (data.status === 'OK' && data.results[0]) {
+                            const loc = data.results[0].geometry.location;
+                            coords = { lat: loc.lat, lng: loc.lng };
+                            saveGeocode(address, coords.lat, coords.lng);
+                        }
+                    }
+                    if (!coords) {
+                        const free = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(address)}`, {
+                            headers: { 'Accept': 'application/json' }
+                        });
+                        const arr = await free.json();
+                        if (Array.isArray(arr) && arr[0]) {
+                            coords = { lat: parseFloat(arr[0].lat), lng: parseFloat(arr[0].lon) };
+                            if (!Number.isNaN(coords.lat) && !Number.isNaN(coords.lng)) saveGeocode(address, coords.lat, coords.lng);
+                        }
                     }
                 } catch (e) { console.log('Geocode error:', e); }
             }
@@ -461,8 +483,66 @@
         }
 
         const JOB_TIMER_PREFIX = 'cl-job-timer-';
+        const placeBoxesByInput = {};
         function getJobTimerKey(jobId) {
             return `${JOB_TIMER_PREFIX}${jobId}`;
+        }
+        function initAddressAutocomplete(inputId) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            if (input.dataset.placeAcInit === '1') return;
+            input.dataset.placeAcInit = '1';
+            let box = placeBoxesByInput[inputId];
+            if (box && box.parentElement) box.remove();
+            box = document.createElement('div');
+            box.style.cssText = 'display:none;position:absolute;z-index:1300;background:#1e293b;border:1px solid #334155;border-radius:8px;max-height:220px;overflow:auto;';
+            document.body.appendChild(box);
+            placeBoxesByInput[inputId] = box;
+            let reqToken = 0;
+            let debounceTimer = null;
+            const positionBox = () => {
+                const r = input.getBoundingClientRect();
+                box.style.left = `${r.left + window.scrollX}px`;
+                box.style.top = `${r.bottom + window.scrollY + 4}px`;
+                box.style.width = `${r.width}px`;
+            };
+            const closeBox = () => { box.style.display = 'none'; box.innerHTML = ''; };
+            const query = async () => {
+                const q = input.value.trim();
+                if (q.length < 4) { closeBox(); return; }
+                const token = ++reqToken;
+                positionBox();
+                box.style.display = 'block';
+                box.innerHTML = '<div class="px-3 py-2 text-xs text-slate-300">Searching addresses…</div>';
+                try {
+                    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=${encodeURIComponent(q)}`, { headers: { 'Accept': 'application/json' }});
+                    const arr = await r.json();
+                    if (token !== reqToken) return;
+                    if (!Array.isArray(arr) || !arr.length) {
+                        box.style.display = 'block';
+                        box.innerHTML = '<div class="px-3 py-2 text-xs text-slate-400">No addresses found.</div>';
+                        return;
+                    }
+                    box.innerHTML = arr.map(p => `<button type="button" class="w-full text-left px-3 py-2 text-sm border-b border-slate-700 last:border-b-0 hover:bg-slate-700" data-place="${String(p.display_name || '').replace(/"/g, '&quot;')}">${String(p.display_name || '').replace(/</g, '&lt;')}</button>`).join('');
+                    box.style.display = 'block';
+                } catch (_) { closeBox(); }
+            };
+            input.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(query, 280);
+            });
+            input.addEventListener('focus', query);
+            window.addEventListener('resize', positionBox);
+            document.addEventListener('click', (e) => {
+                if (e.target === input || box.contains(e.target)) return;
+                closeBox();
+            });
+            box.addEventListener('click', (e) => {
+                const btn = e.target.closest('button[data-place]');
+                if (!btn) return;
+                input.value = btn.getAttribute('data-place') || '';
+                closeBox();
+            });
         }
         function getJobTimerState(jobId) {
             return safeGet(getJobTimerKey(jobId), {
@@ -512,6 +592,12 @@
             const job = jobs.find(j => j.id === jobId);
             setJobActionStatus('Stopwatch reset.');
             if (job) openJobModal(jobId);
+        }
+
+        function scrollJobQuickActions(dir) {
+            const row = document.getElementById('jobQuickActionsRow');
+            if (!row) return;
+            row.scrollBy({ left: dir * 220, behavior: 'smooth' });
         }
 
         function latestEstimateForJob(job) {
@@ -607,6 +693,48 @@
         let gapiInited = false;
         let accessToken = localStorage.getItem('gcal-token') || null;
         let tokenExpiry = parseInt(localStorage.getItem('gcal-token-expiry') || '0');
+        const GCAL_AUTO_KEY = 'cl-gcal-auto-sync';
+        const GCAL_QUEUE_KEY = 'cl-gcal-sync-queue';
+
+        function isAutoGCalEnabled() {
+            return safeGet(GCAL_AUTO_KEY, true) !== false;
+        }
+        function setAutoGCalEnabled(enabled) {
+            safeSet(GCAL_AUTO_KEY, !!enabled);
+            renderGCalSyncRow();
+        }
+        function getGCalQueue() {
+            return safeGet(GCAL_QUEUE_KEY, []);
+        }
+        function queueGCalSync(jobId) {
+            const q = getGCalQueue();
+            if (!q.includes(jobId)) q.push(jobId);
+            safeSet(GCAL_QUEUE_KEY, q);
+        }
+        function dequeueGCalSync(jobId) {
+            const q = getGCalQueue().filter(id => id !== jobId);
+            safeSet(GCAL_QUEUE_KEY, q);
+        }
+        function renderGCalSyncRow() {
+            const t = document.getElementById('gcalAutoSyncToggle');
+            const s = document.getElementById('gcalStatusText');
+            const b = document.getElementById('gcalConnectBtn');
+            if (t) t.checked = isAutoGCalEnabled();
+            const connected = !!(accessToken && tokenExpiry > Date.now());
+            if (s) s.textContent = connected ? 'Connected' : 'Not connected';
+            if (b) b.innerHTML = connected ? '<i class="fab fa-google mr-1"></i>Reconnect' : '<i class="fab fa-google mr-1"></i>Connect Calendar';
+        }
+        async function connectGoogleCalendarFromJobs() {
+            if (!window.CL_FIREBASE || !CL_FIREBASE.signInWithGoogle) {
+                showToast('Calendar connect unavailable here', 'error');
+                return;
+            }
+            await CL_FIREBASE.signInWithGoogle();
+            checkGoogleAuth();
+            if (accessToken && tokenExpiry > Date.now()) await initGapiClient();
+            renderGCalSyncRow();
+            flushQueuedGCalSync();
+        }
 
         // Use CL_DATA for separate jobs
         let allManagers = [];
@@ -724,6 +852,7 @@
                 dateInput.value = new Date().toISOString().split('T')[0];
             }
             buildLeadCustomerAutocomplete();
+            initAddressAutocomplete('addLeadCustomerAddress');
             openModal('addLeadModal');
         }
 
@@ -770,6 +899,7 @@
                 followUpDate: dateStr,
                 documents: { estimates: [], invoices: [], waivers: [] }
             });
+            syncJobToCalendarIfEnabled(id);
             if (CL_FIREBASE && CL_FIREBASE.isSignedIn) {
                 CL_FIREBASE.syncToCloud();
             } else {
@@ -860,6 +990,8 @@
             checkGoogleAuth();
             updateSyncPill();
             if (CL_FIREBASE.isCalendarConnected()) initGapiClient();
+            renderGCalSyncRow();
+            flushQueuedGCalSync();
         });
         window.addEventListener('cl-sync-updated', () => {
             flashSyncPill('✓ Synced', '#064e3b', '#a7f3d0');
@@ -881,6 +1013,7 @@
             if (accessToken && tokenExpiry > Date.now()) {
                 initGapiClient(); // Init Calendar API if connected
             }
+            renderGCalSyncRow();
             setActiveNav();
             updateSyncPill();
 
@@ -931,6 +1064,7 @@
             if (tab && ['all', 'booked', 'estimate', 'overdue', 'completed'].includes(tab)) {
                 setTab(tab);
             }
+            flushQueuedGCalSync();
         });
 
         function setTab(tab) {
@@ -1316,13 +1450,18 @@
 
                     <div>
                         <p class="section-title mb-2">Quick Actions</p>
-                        <div class="flex gap-2 overflow-x-auto pb-1">
-                            ${job.status === 'scheduled' ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-play mr-1"></i>Start Job</a>` : `<span class="bg-slate-800/50 border border-slate-700 text-slate-500 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">Start Job</span>`}
-                            <button onclick="openDocumentForm('estimate', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-invoice mr-1"></i>Add Estimate</button>
-                            <button onclick="openDocumentForm('invoice', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-invoice-dollar mr-1"></i>Add Invoice</button>
-                            <button onclick="openDocumentForm('waiver', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-signature mr-1"></i>Add Waiver</button>
-                            <button onclick="createCustomerFromJob('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">${job.customerId ? `<i class="fas fa-user-check mr-1"></i>${(job.customerName || 'Customer')}` : '<i class="fas fa-user-plus mr-1"></i>Link Customer'}</button>
-                            ${job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-phone mr-1"></i>Call</a>` : '<span class="bg-slate-800/50 border border-slate-700 text-slate-500 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">No phone</span>'}
+                        <div class="flex items-center gap-1">
+                            <button type="button" onclick="scrollJobQuickActions(-1)" class="hidden md:inline-flex bg-slate-800 border border-slate-700 text-slate-200 px-2 py-2 rounded-lg text-xs" aria-label="Scroll actions left"><i class="fas fa-chevron-left"></i></button>
+                            <div id="jobQuickActionsRow" class="flex gap-2 overflow-x-auto pb-1 scroll-smooth" style="scrollbar-width:thin;">
+                                ${job.status === 'scheduled' ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-play mr-1"></i>Start Job</a>` : `<span class="bg-slate-800/50 border border-slate-700 text-slate-500 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">Start Job</span>`}
+                                <button onclick="openDocumentForm('estimate', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-invoice mr-1"></i>Add Estimate</button>
+                                <button onclick="openDocumentForm('invoice', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-invoice-dollar mr-1"></i>Add Invoice</button>
+                                <button onclick="openDocumentForm('waiver', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-signature mr-1"></i>Add Waiver</button>
+                                <button onclick="addToGoogleCalendar('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fab fa-google mr-1"></i>Add to GCal</button>
+                                <button onclick="createCustomerFromJob('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">${job.customerId ? `<i class="fas fa-user-check mr-1"></i>${(job.customerName || 'Customer')}` : '<i class="fas fa-user-plus mr-1"></i>Link Customer'}</button>
+                                ${job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-phone mr-1"></i>Call</a>` : '<span class="bg-slate-800/50 border border-slate-700 text-slate-500 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">No phone</span>'}
+                            </div>
+                            <button type="button" onclick="scrollJobQuickActions(1)" class="hidden md:inline-flex bg-slate-800 border border-slate-700 text-slate-200 px-2 py-2 rounded-lg text-xs" aria-label="Scroll actions right"><i class="fas fa-chevron-right"></i></button>
                         </div>
                     </div>
 
@@ -1551,6 +1690,7 @@
             `;
             // Render existing photos
             renderEditPhotos();
+            initAddressAutocomplete('editAddress');
         }
 
         function saveJobEdit(id) {
@@ -1606,6 +1746,7 @@
             updateStats();
             renderJobs();
             showToast('Job updated!');
+            syncJobToCalendarIfEnabled(id);
             openJobModal(id); // Reopen detail view
         }
 
@@ -1655,6 +1796,7 @@
             loadData();
             updateStats();
             renderJobs();
+            syncJobToCalendarIfEnabled(id);
         }
 
         function markScheduled(id) {
@@ -1669,6 +1811,7 @@
             loadData();
             updateStats();
             renderJobs();
+            syncJobToCalendarIfEnabled(id);
         }
         
         // Soft delete with a 6-second Undo toast. (#13) Restore re-creates
@@ -1681,6 +1824,7 @@
             updateStats();
             renderJobs();
             showUndoToast('Job deleted', () => restoreDeletedJob(snapshot));
+            removeJobFromGoogleCalendar(snapshot).catch(() => {});
         }
 
         function deleteJobDocument(jobId, docType, docId) {
@@ -1733,6 +1877,7 @@
             loadData();
             updateStats();
             renderJobs();
+            syncJobToCalendarIfEnabled(id);
             closeJobModal();
         }
 
@@ -1746,6 +1891,7 @@
             updateStats();
             renderJobs();
             showToast('Job restored');
+            syncJobToCalendarIfEnabled(job.id);
         }
 
         // Compact toast with an Undo action. Isolated from `showToast` in
@@ -1867,6 +2013,76 @@
             });
 
             return response.result;
+        }
+
+        function buildCalendarEventResource(job) {
+            let startHour = 9, startMin = 0;
+            const parsed = parseJobTime(job.jobTime);
+            if (parsed) { startHour = parsed.h; startMin = parsed.m; }
+            const startDate = new Date((job.jobDate || '') + 'T00:00:00');
+            startDate.setHours(startHour, startMin, 0);
+            const endDate = new Date(startDate);
+            endDate.setHours(endDate.getHours() + 2);
+            return {
+                summary: `${job.serviceType || 'Service'} - ${job.customerName || 'Customer'}`,
+                location: job.address || '',
+                description: `Customer: ${job.customerName || ''}\nPhone: ${job.customerPhone || ''}\n${job.notes || ''}`.trim(),
+                start: { dateTime: startDate.toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+                end: { dateTime: endDate.toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }
+            };
+        }
+        async function upsertJobOnGoogleCalendar(jobId) {
+            const job = CL_DATA.findJob(jobId);
+            if (!job) return;
+            if (!accessToken || tokenExpiry <= Date.now()) {
+                queueGCalSync(jobId);
+                return;
+            }
+            await initGapiClient();
+            const shouldExist = (job.status === 'scheduled' || job.status === 'new') && !!(job.jobDate || job.followUpDate);
+            if (!shouldExist) {
+                if (job.googleEventId) {
+                    await gapi.client.calendar.events.delete({ calendarId: 'primary', eventId: job.googleEventId });
+                    CL_DATA.updateJob(jobId, { googleEventId: '' });
+                }
+                dequeueGCalSync(jobId);
+                return;
+            }
+            const normalized = { ...job, jobDate: job.jobDate || job.followUpDate };
+            const resource = buildCalendarEventResource(normalized);
+            if (job.googleEventId) {
+                await gapi.client.calendar.events.patch({
+                    calendarId: 'primary',
+                    eventId: job.googleEventId,
+                    resource
+                });
+            } else {
+                const created = await gapi.client.calendar.events.insert({ calendarId: 'primary', resource });
+                CL_DATA.updateJob(jobId, { googleEventId: created.result && created.result.id ? created.result.id : '' });
+            }
+            dequeueGCalSync(jobId);
+        }
+        async function removeJobFromGoogleCalendar(job) {
+            if (!job || !job.googleEventId || !accessToken || tokenExpiry <= Date.now()) return;
+            await initGapiClient();
+            await gapi.client.calendar.events.delete({ calendarId: 'primary', eventId: job.googleEventId });
+        }
+        async function syncJobToCalendarIfEnabled(jobId) {
+            if (!isAutoGCalEnabled()) return;
+            try {
+                await upsertJobOnGoogleCalendar(jobId);
+            } catch (err) {
+                const status = err && (err.status || (err.result && err.result.error && err.result.error.code));
+                if (status === 401 || status === 403) invalidateCalendarToken();
+                queueGCalSync(jobId);
+            }
+        }
+        async function flushQueuedGCalSync() {
+            if (!isAutoGCalEnabled() || !accessToken || tokenExpiry <= Date.now()) return;
+            const q = getGCalQueue();
+            for (const jobId of q) {
+                try { await upsertJobOnGoogleCalendar(jobId); } catch (_) {}
+            }
         }
 
         // (#3) `syncAllToGCal` was removed — no UI element on this page ever

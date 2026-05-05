@@ -1051,68 +1051,76 @@
             window.location.href = 'invoice.html';
         }
 
-        // Maps API Key (from config.js)
-        const MAPS_API_KEY = window.CL_SECRETS?.mapsApiKey || '';
-        let mapsLoaded = false;
-
-        function loadMapsScript() {
-            if (mapsLoaded || window.google?.maps) {
-                initMapsAutocomplete();
-                return;
-            }
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_API_KEY}&libraries=places&callback=initMapsAutocomplete`;
-            script.async = true;
-            script.defer = true;
-            document.head.appendChild(script);
+        let placeAcBox = null;
+        let placeAcToken = 0;
+        function ensurePlaceAutocompleteUI() {
+            const input = document.getElementById('customerAddress');
+            if (!input) return;
+            if (input.dataset.placeAcInit === '1') return;
+            input.dataset.placeAcInit = '1';
+            if (placeAcBox && placeAcBox.parentElement) placeAcBox.remove();
+            placeAcBox = document.createElement('div');
+            placeAcBox.id = 'placeAutocompleteBox';
+            placeAcBox.style.cssText = 'display:none;position:absolute;z-index:1200;background:#1e293b;border:1px solid #334155;border-radius:8px;max-height:220px;overflow:auto;';
+            document.body.appendChild(placeAcBox);
+            let debounceTimer = null;
+            const positionBox = () => {
+                const r = input.getBoundingClientRect();
+                placeAcBox.style.left = `${r.left + window.scrollX}px`;
+                placeAcBox.style.top = `${r.bottom + window.scrollY + 4}px`;
+                placeAcBox.style.width = `${r.width}px`;
+            };
+            const closeBox = () => { placeAcBox.style.display = 'none'; placeAcBox.innerHTML = ''; };
+            const onInput = async () => {
+                const q = input.value.trim();
+                if (q.length < 4) { closeBox(); return; }
+                const token = ++placeAcToken;
+                positionBox();
+                placeAcBox.style.display = 'block';
+                placeAcBox.innerHTML = '<div class="px-3 py-2 text-xs text-slate-300">Searching addresses…</div>';
+                try {
+                    const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const list = await resp.json();
+                    if (token !== placeAcToken) return;
+                    if (!Array.isArray(list) || !list.length) {
+                        placeAcBox.style.display = 'block';
+                        placeAcBox.innerHTML = '<div class="px-3 py-2 text-xs text-slate-400">No addresses found.</div>';
+                        return;
+                    }
+                    placeAcBox.innerHTML = list.map(p => `<button type="button" class="w-full text-left px-3 py-2 text-sm border-b border-slate-700 last:border-b-0 hover:bg-slate-700" data-place="${String(p.display_name || '').replace(/"/g, '&quot;')}">${String(p.display_name || '').replace(/</g, '&lt;')}</button>`).join('');
+                    placeAcBox.style.display = 'block';
+                } catch (_) { closeBox(); }
+            };
+            input.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(onInput, 280);
+            });
+            input.addEventListener('focus', onInput);
+            window.addEventListener('resize', positionBox);
+            document.addEventListener('click', (e) => {
+                if (e.target === input || placeAcBox.contains(e.target)) return;
+                closeBox();
+            });
+            placeAcBox.addEventListener('click', (e) => {
+                const btn = e.target.closest('button[data-place]');
+                if (!btn) return;
+                input.value = btn.getAttribute('data-place') || '';
+                closeBox();
+            });
         }
 
-        function initMapsAutocomplete() {
-            mapsLoaded = true;
-            const addressInput = document.getElementById('customerAddress');
-            if (!addressInput) return;
-            
-            const autocomplete = new google.maps.places.Autocomplete(addressInput, {
-                types: ['address'],
-                componentRestrictions: { country: 'us' },
-                fields: ['formatted_address', 'geometry']
-            });
-
-            autocomplete.addListener('place_changed', () => {
-                const place = autocomplete.getPlace();
-                if (place.formatted_address) {
-                    addressInput.value = place.formatted_address;
-                }
-            });
-
-            // Style the autocomplete dropdown for dark theme
-            if (!document.querySelector('#maps-autocomplete-style')) {
-                const style = document.createElement('style');
-                style.id = 'maps-autocomplete-style';
-                style.textContent = `
-                    .pac-container { background: #1e293b; border: 1px solid #334155; border-radius: 12px; margin-top: 4px; font-family: system-ui; z-index: 9999; }
-                    .pac-item { padding: 10px 12px; color: #f8fafc; border-top: 1px solid #334155; cursor: pointer; }
-                    .pac-item:first-child { border-top: none; }
-                    .pac-item:hover, .pac-item-selected { background: #334155; }
-                    .pac-item-query { color: #0ea5e9; }
-                    .pac-matched { color: #38bdf8; font-weight: bold; }
-                    .pac-icon { display: none; }
-                `;
-                document.head.appendChild(style);
-            }
-        }
-        window.initMapsAutocomplete = initMapsAutocomplete;
-
-        // Load maps when modal opens
+        // Initialize autocomplete when modal opens
         const origOpenAddModal = openAddModal;
         openAddModal = function() {
             origOpenAddModal();
-            loadMapsScript();
+            ensurePlaceAutocompleteUI();
         };
         const origEditCustomer = editCustomer;
         editCustomer = function(id) {
             origEditCustomer(id);
-            loadMapsScript();
+            ensurePlaceAutocompleteUI();
         };
     </script>
 </body>
