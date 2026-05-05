@@ -210,7 +210,7 @@
             </div>
             <div class="stat-card">
                 <p class="value" style="color:#34d399;" id="ctStatRev">0</p>
-                <p class="label">Revenue</p>
+                <p class="label">Lifetime rev</p>
             </div>
             <div class="stat-card">
                 <p class="value" style="color:#fbbf24;" id="ctStatMonth">0</p>
@@ -638,13 +638,13 @@
                         </a>
                         <div class="customer-icon-row">
                             ${c.phone ? `
-                            <a href="tel:${c.phone}" class="customer-icon-btn phone" aria-label="Call"><i class="fas fa-phone"></i></a>
-                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-ban"></i></span>
+                            <a href="tel:${c.phone}" class="customer-icon-btn phone" aria-label="Call"><i class="fas fa-phone"></i><span style="font-size:11px;margin-left:6px;">Call</span></a>
+                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-ban"></i><span style="font-size:11px;margin-left:6px;">Text</span></span>
                             ` : `
-                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-phone"></i></span>
-                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-ban"></i></span>
+                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-phone"></i><span style="font-size:11px;margin-left:6px;">Call</span></span>
+                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-ban"></i><span style="font-size:11px;margin-left:6px;">Text</span></span>
                             `}
-                            <button type="button" onclick="event.stopPropagation(); editCustomer('${c.id}')" class="customer-icon-btn edit" aria-label="Edit customer"><i class="fas fa-edit"></i></button>
+                            <button type="button" onclick="event.stopPropagation(); editCustomer('${c.id}')" class="customer-icon-btn edit" aria-label="Open customer"><i class="fas fa-up-right-from-square"></i><span style="font-size:11px;margin-left:6px;">Open</span></button>
                         </div>
                     </div>
                 </div>

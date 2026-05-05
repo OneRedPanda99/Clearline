@@ -713,24 +713,24 @@
                 </div>
                 
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-                    <button type="button" class="add-service-btn" onclick="saveDraftToCloud()" style="flex:1;margin-bottom:0;background:#0ea5e9;">Save</button>
-                    <button type="button" class="add-service-btn" id="finalizeBtn" onclick="markAsFinal()" style="flex:1;margin-bottom:0;background:#f59e0b;">Finalize</button>
+                    <button type="button" class="add-service-btn" onclick="saveDraftToCloud()" style="flex:1;margin-bottom:0;background:#0ea5e9;">Save Draft</button>
+                    <button type="button" class="add-service-btn" id="finalizeBtn" onclick="markAsFinal()" style="flex:1;margin-bottom:0;background:#f59e0b;">Lock Estimate</button>
                     <button type="button" class="add-service-btn" id="shareFinalBtn" onclick="shareFinalEstimate()" style="flex:1;margin-bottom:0;background:#2563eb;display:none;">Share</button>
                     <button type="button" class="add-service-btn" id="convertInvoiceBtn" onclick="convertToInvoice()" style="flex:1;margin-bottom:0;background:#7c3aed;display:none;">Convert to Invoice</button>
                 </div>
                 <div class="two-column">
                     <button type="button" class="add-service-btn" onclick="saveEstimate()" style="margin-bottom: 5px;">
-                        Save to File
+                        Export File
                     </button>
                     <button type="button" class="add-service-btn" onclick="document.getElementById('loadFile').click()" style="margin-bottom: 5px;">
-                        Load from File
+                        Import File
                     </button>
                 </div>
                 
                 <input type="file" id="loadFile" accept=".json" style="display: none;" onchange="loadEstimate(event)">
                 
                 <div id="cloudSignInMsg" style="display:none;background:#e0f2fe;padding:10px;border-radius:8px;text-align:center;margin-bottom:10px;">
-                    <p id="cloudSignInMsgText" style="margin-bottom:8px;">Sign in to save to cloud</p>
+                    <p id="cloudSignInMsgText" style="margin-bottom:8px;">Running locally — sign in to sync your estimate library across devices.</p>
                     <button type="button" onclick="CL_FIREBASE.signInWithGoogle()" style="background:#0ea5e9;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600;">Sign in with Google</button>
                 </div>
                 
@@ -2757,7 +2757,7 @@
                 bar.textContent = 'Offline — your work saves on this device. Cloud sync resumes when you are online and signed in.';
             } else if (!signedIn) {
                 bar.style.background = '#f8fafc';
-                bar.textContent = 'Signed out — drafts stay on this device. Sign in to sync your cloud estimate library.';
+                bar.textContent = 'Running locally — drafts stay on this device. Sign in anytime to sync cloud.';
             } else {
                 bar.style.background = '#ecfdf5';
                 bar.style.borderColor = '#a7f3d0';
@@ -2820,7 +2820,7 @@
                     }).join('');
             } catch (err) {
                 console.error('Load error:', err);
-                container.innerHTML = '<p style="color:#dc3545;">Error loading saved estimates</p>';
+                container.innerHTML = '<p style="color:#dc3545;margin-bottom:8px;">Error loading saved estimates</p><button type="button" onclick="loadSavedEstimates()" style="background:#0ea5e9;color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;">Retry</button>';
             }
             updateEstimateSyncUI();
         }

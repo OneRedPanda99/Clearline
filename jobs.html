@@ -263,6 +263,7 @@
             <button type="button" role="tab" class="jobs-filter-pill active" onclick="setTab('all')" data-tab="all">All (<span id="count-all">0</span>)</button>
             <button type="button" role="tab" class="jobs-filter-pill" onclick="setTab('booked')" data-tab="booked">Booked (<span id="count-booked">0</span>)</button>
             <button type="button" role="tab" class="jobs-filter-pill" onclick="setTab('estimate')" data-tab="estimate">Estimate (<span id="count-estimate">0</span>)</button>
+            <button type="button" role="tab" class="jobs-filter-pill" onclick="setTab('overdue')" data-tab="overdue">Overdue (<span id="count-overdue">0</span>)</button>
             <button type="button" role="tab" class="jobs-filter-pill" onclick="setTab('completed')" data-tab="completed">Completed (<span id="count-completed">0</span>)</button>
         </div>
 
@@ -838,6 +839,10 @@
             if (params.get('addLead') === '1') {
                 setTimeout(() => openAddLeadModal(), 250);
             }
+            const tab = params.get('tab');
+            if (tab && ['all', 'booked', 'estimate', 'overdue', 'completed'].includes(tab)) {
+                setTab(tab);
+            }
         });
 
         function setTab(tab) {
@@ -852,6 +857,7 @@
             document.getElementById('count-all').textContent = jobs.length;
             document.getElementById('count-booked').textContent = jobs.filter(j => j.status === 'scheduled').length;
             document.getElementById('count-estimate').textContent = jobs.filter(j => j.status === 'new').length;
+            document.getElementById('count-overdue').textContent = jobs.filter(isOverdueJob).length;
             document.getElementById('count-completed').textContent = jobs.filter(j => j.status === 'completed').length;
         }
 
@@ -868,6 +874,14 @@
             return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
         }
 
+        function isOverdueJob(job) {
+            if (!job || job.status !== 'scheduled' || !job.jobDate) return false;
+            const d = new Date(job.jobDate + 'T12:00:00');
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            return d < now;
+        }
+
         function renderJobsList() {
             const today = new Date().toISOString().split('T')[0];
             const tomorrowD = new Date();
@@ -878,6 +892,7 @@
             if (currentTab === 'all') filtered = jobs.slice();
             else if (currentTab === 'booked') filtered = jobs.filter(j => j.status === 'scheduled');
             else if (currentTab === 'estimate') filtered = jobs.filter(j => j.status === 'new');
+            else if (currentTab === 'overdue') filtered = jobs.filter(isOverdueJob);
             else if (currentTab === 'completed') filtered = jobs.filter(j => j.status === 'completed');
 
             const q = jobsSearchQuery.trim().toLowerCase();
@@ -977,15 +992,17 @@
         function renderJobCard(job) {
             const isDone = job.status === 'completed';
             const isEst = job.status === 'new';
+            const isOverdue = isOverdueJob(job);
             const stripe = isDone ? 'job-card-v2__stripe--done' : isEst ? 'job-card-v2__stripe--estimate' : 'job-card-v2__stripe--booked';
             const pill = isDone ? '<span class="tag-pill" style="background:rgba(34,197,94,0.15);color:#4ade80;">Completed</span>'
+                : isOverdue ? '<span class="tag-pill" style="background:rgba(239,68,68,0.18);color:#fca5a5;">Overdue</span>'
                 : isEst ? '<span class="tag-pill tag-pill--estimate">Estimate</span>'
                 : '<span class="tag-pill tag-pill--booked">Booked</span>';
             const total = getJobDisplayTotal(job);
             const money = total > 0 ? `<span style="color:#34d399;font-weight:700;font-size:14px;">$${total.toFixed(0)}</span>` : '';
             const startHref = isEst
                 ? `estimate.html?jobId=${encodeURIComponent(job.id)}`
-                : `jobs.html?highlight=${encodeURIComponent(job.id)}&start=1`;
+                : (isOverdue ? `jobs.html?highlight=${encodeURIComponent(job.id)}&edit=1` : `jobs.html?highlight=${encodeURIComponent(job.id)}&start=1`);
             const maps = job.address ? `https://maps.google.com/?q=${encodeURIComponent(job.address)}` : '';
 
             return `
@@ -1003,7 +1020,7 @@
                             </div>
                             ${job.address ? `<p class="text-xs text-gray-500 mt-1 truncate"><i class="fas fa-map-marker-alt mr-1"></i>${job.address.replace(/</g, '&lt;')}</p>` : ''}
                             <div class="job-card-v2__actions" onclick="event.stopPropagation()">
-                                <a class="jc-start" href="${startHref}"><i class="fas fa-play"></i> Start</a>
+                                <a class="jc-start" href="${startHref}"><i class="fas ${isOverdue ? 'fa-check-circle' : 'fa-play'}"></i> ${isOverdue ? 'Mark done' : 'Start'}</a>
                                 ${job.customerPhone ? `<a class="jc-call" href="tel:${job.customerPhone}"><i class="fas fa-phone"></i> Call</a>` : '<span class="jc-call" style="opacity:0.35;"><i class="fas fa-phone"></i> Call</span>'}
                                 ${maps ? `<a class="jc-nav" target="_blank" rel="noopener" href="${maps}"><i class="fas fa-location-arrow"></i> Nav</a>` : '<span class="jc-nav" style="opacity:0.35;"><i class="fas fa-location-arrow"></i> Nav</span>'}
                             </div>
@@ -1162,9 +1179,8 @@
                     </div>
 
                     ${(job.address || job.customerPhone) ? `
-                    <div class="grid grid-cols-2 gap-2">
-                        ${job.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="bg-blue-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-location-arrow mr-2"></i>Navigate</a>` : `<span class="bg-slate-700/40 text-slate-500 py-3 rounded-xl text-center font-semibold">Navigate</span>`}
-                        ${job.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="bg-slate-800 border border-blue-500/40 text-blue-300 py-3 rounded-xl text-center font-semibold"><i class="fas fa-directions mr-2"></i>Directions</a>` : (job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-green-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-phone mr-2"></i>Call customer</a>` : `<span class="bg-slate-700/40 text-slate-500 py-3 rounded-xl text-center font-semibold">No action</span>`)}
+                    <div class="grid grid-cols-1 gap-2">
+                        ${job.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="bg-blue-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-location-arrow mr-2"></i>Navigate</a>` : (job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-green-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-phone mr-2"></i>Call customer</a>` : `<span class="bg-slate-700/40 text-slate-500 py-3 rounded-xl text-center font-semibold">No navigation target</span>`)}
                     </div>
                     ` : ''}
 
@@ -1187,7 +1203,7 @@
                             <i class="fas fa-screwdriver-wrench text-blue-400 mr-3"></i>
                             <div class="flex-1 min-w-0">
                                 <p class="text-xs text-gray-400">Service</p>
-                                <p class="font-semibold">${job.serviceType || '-'}</p>
+                                <p class="font-semibold">${job.serviceType || 'No service details — tap Edit Job to add'}</p>
                             </div>
                             <i class="fas fa-chevron-right text-gray-500"></i>
                         </div>
@@ -1216,9 +1232,9 @@
                             <button onclick="openDocumentForm('estimate', '${job.id}')" class="bg-slate-800 border border-slate-700 text-cyan-300 py-3 rounded-xl text-sm font-semibold"><i class="fas fa-file-invoice mr-1"></i>Add Estimate</button>
                             <button onclick="openDocumentForm('invoice', '${job.id}')" class="bg-slate-800 border border-slate-700 text-amber-300 py-3 rounded-xl text-sm font-semibold"><i class="fas fa-file-invoice-dollar mr-1"></i>Add Invoice</button>
                             <button onclick="openDocumentForm('waiver', '${job.id}')" class="bg-slate-800 border border-slate-700 text-emerald-300 py-3 rounded-xl text-sm font-semibold"><i class="fas fa-file-signature mr-1"></i>Add Waiver</button>
-                            <button onclick="createCustomerFromJob('${job.id}')" class="bg-slate-800 border border-slate-700 text-blue-300 py-3 rounded-xl text-sm font-semibold">${job.customerId ? '<i class="fas fa-user-check mr-1"></i>Customer Linked' : '<i class="fas fa-user-plus mr-1"></i>Link Customer'}</button>
+                            <button onclick="createCustomerFromJob('${job.id}')" class="bg-slate-800 border border-slate-700 text-blue-300 py-3 rounded-xl text-sm font-semibold">${job.customerId ? `<i class="fas fa-user-check mr-1"></i>${(job.customerName || 'Customer')} ✓` : '<i class="fas fa-user-plus mr-1"></i>Link Customer'}</button>
                             ${job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-slate-800 border border-slate-700 text-green-300 py-3 rounded-xl text-sm font-semibold text-center"><i class="fas fa-phone mr-1"></i>Call Customer</a>` : '<span class="bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-xl text-sm font-semibold text-center">No phone</span>'}
-                            <a href="${job.address ? `https://maps.google.com/?q=${encodeURIComponent(job.address)}` : '#'}" ${job.address ? 'target="_blank"' : ''} class="bg-slate-800 border border-slate-700 text-purple-300 py-3 rounded-xl text-sm font-semibold text-center ${job.address ? '' : 'pointer-events-none opacity-40'}"><i class="fas fa-location-arrow mr-1"></i>Open Map</a>
+                            <span class="bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-xl text-sm font-semibold text-center">Map in Navigate</span>
                         </div>
                     </div>
 
@@ -1258,22 +1274,24 @@
                         </div>
                     ` : ''}
 
-                    <div class="grid grid-cols-3 gap-2 pt-1">
-                        <button onclick="editJob('${job.id}')" class="bg-slate-600 text-white py-3 rounded-xl font-semibold">
-                            <i class="fas fa-pen mr-1"></i>Edit Job
-                        </button>
+                    <div class="grid grid-cols-1 gap-2 pt-1">
                         ${job.status !== 'completed' ? `
-                            <button onclick="markComplete('${job.id}'); closeJobModal();" class="bg-green-600 text-white py-3 rounded-xl font-semibold">
+                            <button onclick="markComplete('${job.id}'); closeJobModal();" class="bg-green-600 text-white py-4 rounded-xl font-semibold text-lg">
                                 <i class="fas fa-check-circle mr-1"></i>Mark as Complete
                             </button>
                         ` : `
-                            <button onclick="markScheduled('${job.id}'); closeJobModal();" class="bg-purple-600 text-white py-3 rounded-xl font-semibold">
-                                <i class="fas fa-undo mr-1"></i>Reopen
+                            <button onclick="markScheduled('${job.id}'); closeJobModal();" class="bg-purple-600 text-white py-4 rounded-xl font-semibold text-lg">
+                                <i class="fas fa-undo mr-1"></i>Reopen Job
                             </button>
                         `}
-                        <button onclick="deleteJob('${job.id}'); closeJobModal();" class="bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
+                        <div class="grid grid-cols-2 gap-2">
+                        <button onclick="editJob('${job.id}')" class="bg-slate-600 text-white py-3 rounded-xl font-semibold">
+                            <i class="fas fa-pen mr-1"></i>Edit Job
+                        </button>
+                        <button onclick="cancelJobWithReason('${job.id}'); closeJobModal();" class="bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
                             <i class="fas fa-ban mr-1"></i>Cancel Job
                         </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -1571,6 +1589,24 @@
             updateStats();
             renderJobs();
             showUndoToast('Job deleted', () => restoreDeletedJob(snapshot));
+        }
+
+        function cancelJobWithReason(id) {
+            const reason = window.prompt('Cancel reason (required):', '');
+            if (reason == null) return;
+            const clean = String(reason).trim();
+            if (!clean) {
+                showToast('Cancellation requires a reason.', 'error');
+                return;
+            }
+            const job = CL_DATA.findJob(id);
+            if (!job) return;
+            const notes = [job.notes || '', `Cancelled: ${clean}`].filter(Boolean).join('\n');
+            CL_DATA.updateJob(id, { status: 'completed', notes });
+            loadData();
+            updateStats();
+            renderJobs();
+            showToast('Job cancelled');
         }
 
         function restoreDeletedJob(job) {
