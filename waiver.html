@@ -398,6 +398,7 @@
                         <button type="button" class="save-btn" onclick="saveToJob()" id="saveBtn">
                             <i class="fas fa-save" style="margin-right: 8px;"></i>Sign & Save to Job
                         </button>
+                        <div id="waiverStatus" style="margin-top:10px;font-size:13px;color:#334155;"></div>
                     </form>
                 </div>
                 
@@ -424,8 +425,8 @@
                 <i class="fas fa-briefcase"></i>
                 <span>Jobs</span>
             </a>
-            <a href="calendar.html" class="tab-item tab-item--fab">
-                <span class="tab-fab-circle"><i class="fas fa-plus"></i></span>
+            <a href="calendar.html" class="tab-item">
+                <i class="fas fa-calendar-alt"></i>
                 <span>Calendar</span>
             </a>
             <a href="customer-tracker.html" class="tab-item">
@@ -520,6 +521,13 @@
                 phone: settings.businessPhone || '',
                 email: settings.businessEmail || ''
             };
+        }
+
+        function setWaiverStatus(message, isError = false) {
+            const el = document.getElementById('waiverStatus');
+            if (!el) return;
+            el.textContent = message || '';
+            el.style.color = isError ? '#b91c1c' : '#065f46';
         }
         
         function renderWaiverPreview(includeSignature = false) {
@@ -618,20 +626,21 @@
         
         async function saveToJob() {
             if (!jobId) {
-                alert('No job associated with this waiver');
+                setWaiverStatus('No job is linked to this waiver screen.', true);
                 return;
             }
             const signatureImg = getSignatureImage();
             if (!signatureImg) {
-                alert('Please review the waiver, then collect a signature before saving.');
+                setWaiverStatus('Have the customer sign in the signature box, then save.', true);
                 return;
             }
             if (!document.getElementById('customerName').value.trim()) {
-                alert('Please enter customer name before saving.');
+                setWaiverStatus('Enter customer name before saving.', true);
                 return;
             }
             // Ensure preview includes the latest signature before capture.
             renderWaiverPreview(true);
+            setWaiverStatus('Saving signed waiver to this job...');
             
             const preview = document.getElementById('waiverPreview');
             
@@ -671,14 +680,14 @@
                     job.documents.waivers.push(waiverData);
                     CL_DATA.updateJob(job.id, { documents: job.documents });
                     
-                    alert('Waiver saved to job!');
+                    setWaiverStatus('Signed waiver saved to the job.');
                     window.location.href = `jobs.html`;
                 } else {
-                    alert('Job not found');
+                    setWaiverStatus('Job was not found. Open waiver from a job and try again.', true);
                 }
             } catch (err) {
                 console.error('Error saving waiver:', err);
-                alert('Error saving waiver. Please try again.');
+                setWaiverStatus('Could not save waiver. Please try again.', true);
             }
         }
         
@@ -705,6 +714,7 @@
                 saveBtn.textContent = 'Save requires a job';
                 saveBtn.style.opacity = '0.6';
                 saveBtn.style.cursor = 'not-allowed';
+                setWaiverStatus('Open this page from a job to save the signed waiver.', true);
             }
             ['customerName', 'customerAddress', 'customerPhone', 'serviceDescription', 'waiverDate'].forEach(id => {
                 const el = document.getElementById(id);

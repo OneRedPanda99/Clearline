@@ -293,8 +293,8 @@
                 <i class="fas fa-briefcase"></i>
                 <span>Jobs</span>
             </a>
-            <a href="calendar.html" class="tab-item tab-item--fab">
-                <span class="tab-fab-circle"><i class="fas fa-plus"></i></span>
+            <a href="calendar.html" class="tab-item">
+                <i class="fas fa-calendar-alt"></i>
                 <span>Calendar</span>
             </a>
             <a href="customer-tracker.html" class="tab-item">
@@ -1241,6 +1241,7 @@
                     ${job.documents && (job.documents.estimates?.length || job.documents.invoices?.length || job.documents.waivers?.length) ? `
                     <div class="glass-card rounded-xl p-3">
                         <p class="section-title mb-2">Saved Documents</p>
+                        <div id="jobDocStatus" class="text-xs text-slate-300 mb-2"></div>
                         <div class="space-y-2">
                             ${(job.documents.estimates || []).map((doc, i) => `
                                 <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded-lg">
@@ -1596,10 +1597,16 @@
 
         function deleteJobDocument(jobId, docType, docId) {
             const job = CL_DATA.findJob(jobId);
-            if (!job || !job.documents || !Array.isArray(job.documents[docType])) return;
+            if (!job || !job.documents || !Array.isArray(job.documents[docType])) {
+                setJobDocStatus('Unable to find document list for this job.', true);
+                return;
+            }
             const label = docType === 'estimates' ? 'estimate' : docType === 'invoices' ? 'invoice' : 'document';
-            if (!confirm(`Delete this ${label}?`)) return;
             const next = job.documents[docType].filter(d => String(d && d.id) !== String(docId));
+            if (next.length === job.documents[docType].length) {
+                setJobDocStatus(`That ${label} was already removed.`, true);
+                return;
+            }
             const docs = { ...(job.documents || {}) };
             docs[docType] = next;
             CL_DATA.updateJob(jobId, { documents: docs });
@@ -1607,7 +1614,14 @@
             updateStats();
             renderJobs();
             openJobModal(jobId);
-            showToast(`${label.charAt(0).toUpperCase() + label.slice(1)} deleted`);
+            setJobDocStatus(`${label.charAt(0).toUpperCase() + label.slice(1)} deleted.`);
+        }
+
+        function setJobDocStatus(message, isError = false) {
+            const el = document.getElementById('jobDocStatus');
+            if (!el) return;
+            el.textContent = message || '';
+            el.className = `text-xs mb-2 ${isError ? 'text-red-300' : 'text-emerald-300'}`;
         }
 
         function cancelJobWithReason(id) {
