@@ -391,6 +391,7 @@ const CL_FIREBASE = (function() {
         try {
             const provider = new firebase.auth.GoogleAuthProvider();
             provider.addScope('https://www.googleapis.com/auth/calendar.events');
+            provider.setCustomParameters({ prompt: 'consent', access_type: 'offline' });
             let result = null;
             if (auth.currentUser && auth.currentUser.reauthenticateWithPopup) {
                 result = await auth.currentUser.reauthenticateWithPopup(provider);

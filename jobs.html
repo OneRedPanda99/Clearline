@@ -963,6 +963,9 @@
             await new Promise(resolve => gapi.load('client', resolve));
             await gapi.client.init({});
             await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest');
+            if (accessToken && tokenExpiry > Date.now() && gapi.client && gapi.client.setToken) {
+                gapi.client.setToken({ access_token: accessToken });
+            }
             gapiInited = true;
         }
 
@@ -971,6 +974,10 @@
         function checkGoogleAuth() {
             accessToken = localStorage.getItem('gcal-token');
             tokenExpiry = parseInt(localStorage.getItem('gcal-token-expiry') || '0');
+            if (window.gapi && gapi.client && gapi.client.setToken) {
+                if (accessToken && tokenExpiry > Date.now()) gapi.client.setToken({ access_token: accessToken });
+                else gapi.client.setToken(null);
+            }
         }
 
         // Wipe the cached Calendar token when we get an auth error from the
@@ -980,6 +987,9 @@
             tokenExpiry = 0;
             safeRemove('gcal-token');
             safeRemove('gcal-token-expiry');
+            if (window.gapi && gapi.client && gapi.client.setToken) {
+                gapi.client.setToken(null);
+            }
         }
 
         // Sync-state pill in the header. Reflects online + signed-in + sync
@@ -2093,7 +2103,12 @@
             try {
                 await upsertJobOnGoogleCalendar(jobId);
             } catch (err) {
-                const status = err && (err.status || (err.result && err.result.error && err.result.error.code));
+                const status = err && (
+                    err.status ||
+                    (err.result && err.result.error && err.result.error.code) ||
+                    (err.result && err.result.error && err.result.error.status) ||
+                    (err.body && String(err.body).includes('401') ? 401 : null)
+                );
                 if (status === 401 || status === 403) invalidateCalendarToken();
                 queueGCalSync(jobId);
             }
