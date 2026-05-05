@@ -920,25 +920,81 @@
             return `${formatElapsed(cp.atMs || 0)}${t ? ` · ${t}` : ''}`;
         }
 
+        function parseElapsedInput(raw) {
+            const v = String(raw || '').trim();
+            const m = v.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+            if (!m) return null;
+            const h = parseInt(m[1], 10);
+            const min = parseInt(m[2], 10);
+            const sec = parseInt(m[3] || '0', 10);
+            if ([h, min, sec].some(n => Number.isNaN(n)) || min > 59 || sec > 59) return null;
+            return ((h * 3600) + (min * 60) + sec) * 1000;
+        }
+
+        function editServiceCheckpoint(serviceId) {
+            const cur = jobRunState.checkpoints[serviceId];
+            const seed = cur ? formatElapsed(cur.atMs || 0) : '00:00:00';
+            const next = window.prompt('Set completion elapsed time (HH:MM:SS)', seed);
+            if (next == null) return;
+            const ms = parseElapsedInput(next);
+            if (ms == null) {
+                showToast('Use HH:MM:SS format', 'error');
+                return;
+            }
+            jobRunState.checkpoints[serviceId] = {
+                atMs: ms,
+                atIso: new Date().toISOString(),
+                manual: true
+            };
+            persistJobTimerState();
+            updateJobTimerDisplay();
+        }
+
+        function getSavedJobServices() {
+            if (!jobId) return [];
+            const job = CL_DATA.findJob(jobId);
+            if (!job || !job.documents || !Array.isArray(job.documents.estimates) || !job.documents.estimates.length) return [];
+            const docs = job.documents.estimates.slice().sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+            const latest = docs[0];
+            const services = latest && latest.formState && Array.isArray(latest.formState.services) ? latest.formState.services : [];
+            return services.map((s, idx) => ({
+                id: `svc-${idx}`,
+                label: (s.description || '').trim() || `Service ${idx + 1}`
+            }));
+        }
+
+        function getTimerServiceItems() {
+            const saved = getSavedJobServices();
+            if (saved.length) return saved;
+            const services = Array.from(document.querySelectorAll('.service-item'));
+            return services.map((item, idx) => {
+                const sid = item.getAttribute('data-service-id') || String(idx + 1);
+                const descEl = item.querySelector('[name="description"]');
+                const desc = (descEl && descEl.value.trim()) ? descEl.value.trim() : `Service ${idx + 1}`;
+                return { id: `svc-${sid}`, label: desc };
+            });
+        }
+
         function renderJobTimerChecklist() {
             const wrap = document.getElementById('jobTimerChecklist');
             if (!wrap) return;
-            const services = Array.from(document.querySelectorAll('.service-item'));
+            const services = getTimerServiceItems();
             if (!services.length) {
                 wrap.innerHTML = '<p style="font-size:12px;color:#94a3b8;">Add services to track completion checkpoints.</p>';
                 return;
             }
-            wrap.innerHTML = services.map((item, idx) => {
-                const sid = item.getAttribute('data-service-id') || String(idx + 1);
-                const descEl = item.querySelector('[name="description"]');
-                const desc = (descEl && descEl.value.trim()) ? descEl.value.trim() : `Service ${idx + 1}`;
+            wrap.innerHTML = services.map((svc) => {
+                const sid = svc.id;
                 const checked = !!jobRunState.checkpoints[sid];
                 const sub = serviceCheckpointLabel(sid);
                 return `
-                    <button type="button" onclick="markServiceCheckpoint('${sid}')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid ${checked ? 'rgba(34,197,94,0.5)' : 'rgba(148,163,184,0.25)'};background:${checked ? 'rgba(34,197,94,0.14)' : 'rgba(30,41,59,0.55)'};color:#e2e8f0;text-align:left;">
-                        <span style="font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fas ${checked ? 'fa-check-circle' : 'fa-circle'}" style="margin-right:6px;color:${checked ? '#22c55e' : '#64748b'};"></i>${desc.replace(/</g, '&lt;')}</span>
-                        <span style="font-size:11px;color:${checked ? '#86efac' : '#64748b'};white-space:nowrap;">${sub || 'Pending'}</span>
-                    </button>
+                    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid ${checked ? 'rgba(34,197,94,0.5)' : 'rgba(148,163,184,0.25)'};background:${checked ? 'rgba(34,197,94,0.14)' : 'rgba(30,41,59,0.55)'};">
+                        <button type="button" onclick="markServiceCheckpoint('${sid}')" style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:8px;background:none;border:none;color:#e2e8f0;text-align:left;padding:0;">
+                            <span style="font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fas ${checked ? 'fa-check-circle' : 'fa-circle'}" style="margin-right:6px;color:${checked ? '#22c55e' : '#64748b'};"></i>${String(svc.label || '').replace(/</g, '&lt;')}</span>
+                            <span style="font-size:11px;color:${checked ? '#86efac' : '#64748b'};white-space:nowrap;">${sub || 'Pending'}</span>
+                        </button>
+                        ${checked ? `<button type="button" onclick="editServiceCheckpoint('${sid}')" title="Edit time" style="width:28px;height:28px;border-radius:7px;border:1px solid rgba(255,255,255,0.15);background:rgba(15,23,42,0.7);color:#cbd5e1;"><i class="fas fa-pen" style="font-size:11px;"></i></button>` : ''}
+                    </div>
                 `;
             }).join('');
         }
@@ -1046,8 +1102,9 @@
             const serviceItem = document.querySelector(`[data-service-id="${serviceId}"]`);
             serviceItem.remove();
             updateRemoveButtons();
-            if (jobRunState.checkpoints && jobRunState.checkpoints[serviceId]) {
-                delete jobRunState.checkpoints[serviceId];
+            const checkpointKey = `svc-${serviceId}`;
+            if (jobRunState.checkpoints && jobRunState.checkpoints[checkpointKey]) {
+                delete jobRunState.checkpoints[checkpointKey];
                 persistJobTimerState();
             }
             renderJobTimerChecklist();
@@ -1482,6 +1539,10 @@
                 total: displayTotal,
                 notes
             };
+
+            if (jobId) {
+                saveEstimateToJob({ redirect: false, silent: true });
+            }
             
             document.getElementById('estimateContent').innerHTML = estimateHTML;
 
@@ -2246,6 +2307,7 @@
         // PNG — so it stays well under Firestore's 1 MB per-doc limit.
         function saveEstimateToJob(opts = {}) {
             const shouldRedirect = opts.redirect !== false;
+            const silent = !!opts.silent;
             if (!jobId) { alert('No job associated with this estimate'); return; }
 
             const job = CL_DATA.findJob(jobId);
@@ -2305,7 +2367,8 @@
             }
 
             CL_DATA.updateJob(job.id, { documents: job.documents });
-            showToast('Estimate saved to job');
+            renderJobTimerChecklist();
+            if (!silent) showToast('Estimate saved to job');
             if (shouldRedirect) {
                 setTimeout(() => { window.location.href = 'jobs.html'; }, 600);
             }
