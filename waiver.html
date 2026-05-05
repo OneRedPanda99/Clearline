@@ -391,12 +391,12 @@
                             <canvas id="signatureCanvas" class="signature-canvas"></canvas>
                         </div>
                         
-                        <button type="button" class="calc-button" onclick="generateWaiver()">
-                            <i class="fas fa-file-signature" style="margin-right: 8px;"></i>Generate Waiver
+                        <button type="button" class="calc-button" onclick="renderWaiverPreview(false)">
+                            <i class="fas fa-file-signature" style="margin-right: 8px;"></i>Refresh Waiver Preview
                         </button>
                         
-                        <button type="button" class="save-btn" onclick="saveToJob()" id="saveBtn" style="display: none;">
-                            <i class="fas fa-save" style="margin-right: 8px;"></i>Save to Job
+                        <button type="button" class="save-btn" onclick="saveToJob()" id="saveBtn">
+                            <i class="fas fa-save" style="margin-right: 8px;"></i>Sign & Save to Job
                         </button>
                     </form>
                 </div>
@@ -405,7 +405,7 @@
                     <div id="waiverPreview" class="waiver-content">
                         <div style="text-align: center; color: #666; padding: 50px;">
                             <i class="fas fa-file-signature" style="font-size: 48px; margin-bottom: 15px;"></i>
-                            <p>Fill out the form and generate the waiver to see the preview</p>
+                            <p>Fill out customer details to preview the waiver. Customer reviews first, then signs.</p>
                         </div>
                     </div>
                 </div>
@@ -522,19 +522,14 @@
             };
         }
         
-        function generateWaiver() {
+        function renderWaiverPreview(includeSignature = false) {
             const business = getBusinessInfo();
             const customerName = document.getElementById('customerName').value.trim();
             const customerAddress = document.getElementById('customerAddress').value.trim();
             const customerPhone = document.getElementById('customerPhone').value.trim();
             const serviceDescription = document.getElementById('serviceDescription').value.trim();
             const waiverDate = document.getElementById('waiverDate').value;
-            const signatureImg = getSignatureImage();
-            
-            if (!customerName) {
-                alert('Please enter customer name');
-                return;
-            }
+            const signatureImg = includeSignature ? getSignatureImage() : null;
             
             const formattedDate = waiverDate ? new Date(waiverDate + 'T12:00:00').toLocaleDateString('en-US', {
                 year: 'numeric', month: 'long', day: 'numeric'
@@ -584,10 +579,10 @@
                 
                 <div class="waiver-text">
                     <h3>ACKNOWLEDGMENT</h3>
-                    <p>I, <strong>${customerName}</strong>, have read and understand this liability waiver. I agree to its terms and acknowledge that I am signing this document voluntarily.</p>
+                    <p>I, <strong>${customerName || '________________'}</strong>, have read and understand this liability waiver. I agree to its terms and acknowledge that I am signing this document voluntarily.</p>
                 </div>
                 <div style="background:#eff6ff;border:1px solid #bfdbfe;padding:10px;border-radius:6px;margin-top:12px;">
-                    <strong>Next step:</strong> Review this waiver, then collect the signature and tap <em>Save to Job</em>.
+                    <strong>Flow:</strong> Customer reads this waiver first, then signs in the signature box. Tap <em>Sign & Save to Job</em> to attach signature.
                 </div>
                 
                 <div class="signature-display">
@@ -615,10 +610,10 @@
                 </div>
             `;
             
-            // Show save button if we have a job ID
-            if (jobId) {
-                document.getElementById('saveBtn').style.display = 'block';
-            }
+        }
+
+        function generateWaiver() {
+            renderWaiverPreview(false);
         }
         
         async function saveToJob() {
@@ -631,6 +626,12 @@
                 alert('Please review the waiver, then collect a signature before saving.');
                 return;
             }
+            if (!document.getElementById('customerName').value.trim()) {
+                alert('Please enter customer name before saving.');
+                return;
+            }
+            // Ensure preview includes the latest signature before capture.
+            renderWaiverPreview(true);
             
             const preview = document.getElementById('waiverPreview');
             
@@ -698,7 +699,19 @@
                     document.getElementById('customerPhone').value = currentJob.customerPhone || '';
                     document.getElementById('serviceDescription').value = currentJob.serviceType || '';
                 }
+            } else {
+                const saveBtn = document.getElementById('saveBtn');
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Save requires a job';
+                saveBtn.style.opacity = '0.6';
+                saveBtn.style.cursor = 'not-allowed';
             }
+            ['customerName', 'customerAddress', 'customerPhone', 'serviceDescription', 'waiverDate'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', () => renderWaiverPreview(false));
+                if (el) el.addEventListener('change', () => renderWaiverPreview(false));
+            });
+            renderWaiverPreview(false);
             
             setActiveNav();
         });

@@ -1245,7 +1245,10 @@
                             ${(job.documents.estimates || []).map((doc, i) => `
                                 <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded-lg">
                                     <span class="text-sm text-cyan-300 truncate"><i class="fas fa-file-invoice mr-1"></i>${(doc.summary && (doc.summary.number || doc.summary.customerName)) || `Estimate ${i + 1}`}</span>
-                                    <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-cyan-600/20 border border-cyan-500/40 text-cyan-200 px-2 py-1 rounded">Edit</a>
+                                    <div class="flex items-center gap-1">
+                                        <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-cyan-600/20 border border-cyan-500/40 text-cyan-200 px-2 py-1 rounded">Edit</a>
+                                        <button type="button" onclick="deleteJobDocument('${job.id}', 'estimates', '${doc.id}')" class="text-xs bg-red-600/20 border border-red-500/40 text-red-200 px-2 py-1 rounded">Delete</button>
+                                    </div>
                                 </div>
                             `).join('')}
                             ${(job.documents.invoices || []).map((doc, i) => `
@@ -1589,6 +1592,22 @@
             updateStats();
             renderJobs();
             showUndoToast('Job deleted', () => restoreDeletedJob(snapshot));
+        }
+
+        function deleteJobDocument(jobId, docType, docId) {
+            const job = CL_DATA.findJob(jobId);
+            if (!job || !job.documents || !Array.isArray(job.documents[docType])) return;
+            const label = docType === 'estimates' ? 'estimate' : docType === 'invoices' ? 'invoice' : 'document';
+            if (!confirm(`Delete this ${label}?`)) return;
+            const next = job.documents[docType].filter(d => String(d && d.id) !== String(docId));
+            const docs = { ...(job.documents || {}) };
+            docs[docType] = next;
+            CL_DATA.updateJob(jobId, { documents: docs });
+            loadData();
+            updateStats();
+            renderJobs();
+            openJobModal(jobId);
+            showToast(`${label.charAt(0).toUpperCase() + label.slice(1)} deleted`);
         }
 
         function cancelJobWithReason(id) {
