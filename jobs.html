@@ -370,9 +370,9 @@
     <datalist id="jobCustomerNameOptions"></datalist>
 
     <!-- Job Detail Modal -->
-    <div id="jobModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="jobModal-title" hidden style="z-index:200; position:fixed; inset:0; background:rgba(0,0,0,0.8); align-items:flex-end; justify-content:center;">
+    <div id="jobModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="jobModal-title" hidden style="z-index:200; position:fixed; inset:0; background:rgba(0,0,0,0.8); align-items:flex-end; justify-content:center; padding-top:16px;">
         <div class="modal-content bg-slate-800 rounded-t-2xl w-full overflow-y-auto" role="document" style="max-height: calc(100dvh - 40px); max-height: calc(100vh - 40px); padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));">
-            <div class="modal-header sticky top-0 bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center" style="z-index:10;">
+            <div class="modal-header sticky top-0 bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center" style="z-index:10; padding-top:10px; padding-bottom:10px;">
                 <h2 id="jobModal-title" class="text-lg font-bold">Job Details</h2>
                 <button class="modal-close-btn" onclick="closeJobModal()" aria-label="Close dialog">&times;</button>
             </div>
@@ -1282,6 +1282,7 @@
                 ? `estimate.html?jobId=${encodeURIComponent(job.id)}`
                 : (isOverdue ? `jobs.html?highlight=${encodeURIComponent(job.id)}&edit=1` : `jobs.html?highlight=${encodeURIComponent(job.id)}&start=1`);
             const maps = job.address ? `https://maps.google.com/?q=${encodeURIComponent(job.address)}` : '';
+            const startLabel = isOverdue ? 'Mark done' : 'Start';
 
             return `
                 <div class="job-card-v2 glass-card animate-in" onclick="openJobModal('${job.id}')">
@@ -1298,7 +1299,7 @@
                             </div>
                             ${job.address ? `<p class="text-xs text-gray-500 mt-1 truncate"><i class="fas fa-map-marker-alt mr-1"></i>${job.address.replace(/</g, '&lt;')}</p>` : ''}
                             <div class="job-card-v2__actions" onclick="event.stopPropagation()">
-                                <a class="jc-start" href="${startHref}"><i class="fas ${isOverdue ? 'fa-check-circle' : 'fa-play'}"></i> ${isOverdue ? 'Mark done' : 'Start'}</a>
+                                ${isDone ? '' : `<a class="jc-start" href="${startHref}"><i class="fas ${isOverdue ? 'fa-check-circle' : 'fa-play'}"></i> ${startLabel}</a>`}
                                 ${job.customerPhone ? `<a class="jc-call" href="tel:${job.customerPhone}"><i class="fas fa-phone"></i> Call</a>` : '<span class="jc-call" style="opacity:0.35;"><i class="fas fa-phone"></i> Call</span>'}
                                 ${maps ? `<a class="jc-nav" target="_blank" rel="noopener" href="${maps}"><i class="fas fa-location-arrow"></i> Nav</a>` : '<span class="jc-nav" style="opacity:0.35;"><i class="fas fa-location-arrow"></i> Nav</span>'}
                             </div>

@@ -994,7 +994,8 @@ localStorage.setItem('cl-calendar-view', view);
             );
             const location = job.address ? encodeURIComponent(job.address) : '';
 
-            window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${location}`, '_blank');
+            const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${location}`;
+            window.open(url, '_blank');
         }
 
         function closeDayModal() {
