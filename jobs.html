@@ -732,15 +732,18 @@
             if (b) b.innerHTML = connected ? '<i class="fab fa-google mr-1"></i>Reconnect' : '<i class="fab fa-google mr-1"></i>Connect Calendar';
         }
         async function connectGoogleCalendarFromJobs() {
-            if (!window.CL_FIREBASE) {
+            const fb = (typeof CL_FIREBASE !== 'undefined' && CL_FIREBASE)
+                ? CL_FIREBASE
+                : (window.CL_FIREBASE || null);
+            if (!fb) {
                 showToast('Calendar connect unavailable here', 'error');
                 return;
             }
             let res = { ok: false, code: 'missing-handler' };
-            if (CL_FIREBASE.ensureCalendarConnection) {
-                res = await CL_FIREBASE.ensureCalendarConnection();
-            } else if (CL_FIREBASE.signInWithGoogle) {
-                const user = await CL_FIREBASE.signInWithGoogle();
+            if (fb.ensureCalendarConnection) {
+                res = await fb.ensureCalendarConnection();
+            } else if (fb.signInWithGoogle) {
+                const user = await fb.signInWithGoogle();
                 res = { ok: !!user, code: user ? 'ok' : 'signin-failed' };
             }
             checkGoogleAuth();
