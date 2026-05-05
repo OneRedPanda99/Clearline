@@ -223,6 +223,13 @@
         }
         .jobs-add-circle i { font-size: 16px; }
         .jobs-add-circle:active { transform: scale(0.94); }
+        .quick-actions-row {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .quick-actions-row::-webkit-scrollbar {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -1452,7 +1459,7 @@
                         <p class="section-title mb-2">Quick Actions</p>
                         <div class="flex items-center gap-1">
                             <button type="button" onclick="scrollJobQuickActions(-1)" class="hidden md:inline-flex bg-slate-800 border border-slate-700 text-slate-200 px-2 py-2 rounded-lg text-xs" aria-label="Scroll actions left"><i class="fas fa-chevron-left"></i></button>
-                            <div id="jobQuickActionsRow" class="flex gap-2 overflow-x-auto pb-1 scroll-smooth" style="scrollbar-width:thin;">
+                            <div id="jobQuickActionsRow" class="quick-actions-row flex gap-2 overflow-x-auto pb-1 scroll-smooth">
                                 ${job.status === 'scheduled' ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-play mr-1"></i>Start Job</a>` : `<span class="bg-slate-800/50 border border-slate-700 text-slate-500 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">Start Job</span>`}
                                 <button onclick="openDocumentForm('estimate', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-invoice mr-1"></i>Add Estimate</button>
                                 <button onclick="openDocumentForm('invoice', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-invoice-dollar mr-1"></i>Add Invoice</button>
