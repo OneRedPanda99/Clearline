@@ -731,6 +731,20 @@
             if (s) s.textContent = connected ? 'Connected' : 'Not connected';
             if (b) b.innerHTML = connected ? '<i class="fab fa-google mr-1"></i>Reconnect' : '<i class="fab fa-google mr-1"></i>Connect Calendar';
         }
+        function calendarErrInfo(err) {
+            const status = err && (
+                err.status ||
+                (err.result && err.result.error && err.result.error.code) ||
+                (err.body && String(err.body).includes('403') ? 403 : null) ||
+                (err.body && String(err.body).includes('401') ? 401 : null)
+            );
+            const message = (err && (
+                (err.result && err.result.error && err.result.error.message) ||
+                err.message ||
+                (typeof err.body === 'string' ? err.body : '')
+            )) || '';
+            return { status, message: String(message) };
+        }
         async function connectGoogleCalendarFromJobs() {
             const fb = (typeof CL_FIREBASE !== 'undefined' && CL_FIREBASE)
                 ? CL_FIREBASE
@@ -748,6 +762,17 @@
             }
             checkGoogleAuth();
             if (accessToken && tokenExpiry > Date.now()) await initGapiClient();
+            if (accessToken && tokenExpiry > Date.now()) {
+                try {
+                    await gapi.client.calendar.calendarList.list({ maxResults: 1 });
+                } catch (err) {
+                    const info = calendarErrInfo(err);
+                    if (info.status === 403) {
+                        setAutoGCalEnabled(false);
+                        showToast('Calendar permission denied (403). Enable Google Calendar API + OAuth scope, then reconnect.', 'error');
+                    }
+                }
+            }
             renderGCalSyncRow();
             flushQueuedGCalSync();
             if (!(res && res.ok)) {
@@ -2103,13 +2128,18 @@
             try {
                 await upsertJobOnGoogleCalendar(jobId);
             } catch (err) {
-                const status = err && (
-                    err.status ||
-                    (err.result && err.result.error && err.result.error.code) ||
-                    (err.result && err.result.error && err.result.error.status) ||
-                    (err.body && String(err.body).includes('401') ? 401 : null)
-                );
-                if (status === 401 || status === 403) invalidateCalendarToken();
+                const info = calendarErrInfo(err);
+                if (info.status === 401) {
+                    invalidateCalendarToken();
+                    queueGCalSync(jobId);
+                    return;
+                }
+                if (info.status === 403) {
+                    // Avoid spamming retries when API/scope is forbidden.
+                    setAutoGCalEnabled(false);
+                    showToast('Google Calendar returned 403. Auto-sync paused. Reconnect after enabling Calendar API access.', 'error');
+                    return;
+                }
                 queueGCalSync(jobId);
             }
         }
@@ -2117,7 +2147,15 @@
             if (!isAutoGCalEnabled() || !accessToken || tokenExpiry <= Date.now()) return;
             const q = getGCalQueue();
             for (const jobId of q) {
-                try { await upsertJobOnGoogleCalendar(jobId); } catch (_) {}
+                try {
+                    await upsertJobOnGoogleCalendar(jobId);
+                } catch (err) {
+                    const info = calendarErrInfo(err);
+                    if (info.status === 403) {
+                        setAutoGCalEnabled(false);
+                        break;
+                    }
+                }
             }
         }
 
