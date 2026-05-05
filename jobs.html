@@ -1224,8 +1224,8 @@
             const statusPill = job.status === 'completed'
                 ? 'bg-green-900/30 text-green-400'
                 : job.status === 'scheduled'
-                    ? 'bg-purple-900/30 text-purple-300'
-                    : 'bg-amber-900/30 text-amber-300';
+                    ? 'bg-slate-700 text-slate-100'
+                    : 'bg-slate-700/80 text-slate-200';
             const statusLabel = job.status === 'scheduled' ? 'SCHEDULED' : (job.status || 'new').toUpperCase();
             const firstLetter = (job.customerName || 'J').trim().charAt(0).toUpperCase();
             const formattedDate = job.jobDate
@@ -1240,7 +1240,7 @@
                     <div class="glass-card rounded-2xl p-4 border border-white/10">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex items-start gap-3 min-w-0">
-                                <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl text-white flex-shrink-0" style="background:linear-gradient(135deg,#7c3aed,#4338ca);">${firstLetter || 'J'}</div>
+                                <div class="w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl text-slate-200 flex-shrink-0" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.14);">${firstLetter || 'J'}</div>
                                 <div class="min-w-0">
                                     <p class="text-2xl font-bold truncate">${job.customerName || 'Customer'}</p>
                                     <span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${statusPill}">${statusLabel}</span>
@@ -1256,7 +1256,7 @@
                             <div>
                                 <p class="text-xs text-gray-400 mb-1">Scheduled</p>
                                 <p class="font-semibold">${formattedDate}</p>
-                                ${job.jobTime ? `<p class="text-gray-300 mt-1"><i class="far fa-clock mr-1 text-purple-300"></i>${job.jobTime}</p>` : ''}
+                                ${job.jobTime ? `<p class="text-gray-300 mt-1"><i class="far fa-clock mr-1 text-slate-300"></i>${job.jobTime}</p>` : ''}
                             </div>
                             <div class="border-l border-slate-700 pl-3">
                                 <p class="text-xs text-gray-400 mb-1">Job ID</p>
@@ -1305,7 +1305,7 @@
                             <i class="fas fa-chevron-right text-gray-500"></i>
                         </div>
                         <div class="list-item">
-                            <i class="fas fa-calendar-alt text-purple-400 mr-3"></i>
+                            <i class="fas fa-calendar-alt text-slate-300 mr-3"></i>
                             <div class="flex-1 min-w-0">
                                 <p class="text-xs text-gray-400">Scheduled</p>
                                 <p class="font-semibold">${formattedDate}${job.jobTime ? ` at ${job.jobTime}` : ''}</p>
@@ -1316,14 +1316,13 @@
 
                     <div>
                         <p class="section-title mb-2">Quick Actions</p>
-                        <div class="grid grid-cols-3 gap-2">
-                            ${job.status === 'scheduled' ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="bg-blue-600 text-white py-3 rounded-xl text-sm font-semibold text-center"><i class="fas fa-play mr-1"></i>Start Job</a>` : `<span class="bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-xl text-sm font-semibold text-center">Start Job</span>`}
-                            <button onclick="openDocumentForm('estimate', '${job.id}')" class="bg-slate-800 border border-slate-700 text-cyan-300 py-3 rounded-xl text-sm font-semibold"><i class="fas fa-file-invoice mr-1"></i>Add Estimate</button>
-                            <button onclick="openDocumentForm('invoice', '${job.id}')" class="bg-slate-800 border border-slate-700 text-amber-300 py-3 rounded-xl text-sm font-semibold"><i class="fas fa-file-invoice-dollar mr-1"></i>Add Invoice</button>
-                            <button onclick="openDocumentForm('waiver', '${job.id}')" class="bg-slate-800 border border-slate-700 text-emerald-300 py-3 rounded-xl text-sm font-semibold"><i class="fas fa-file-signature mr-1"></i>Add Waiver</button>
-                            <button onclick="createCustomerFromJob('${job.id}')" class="bg-slate-800 border border-slate-700 text-blue-300 py-3 rounded-xl text-sm font-semibold">${job.customerId ? `<i class="fas fa-user-check mr-1"></i>${(job.customerName || 'Customer')} ✓` : '<i class="fas fa-user-plus mr-1"></i>Link Customer'}</button>
-                            ${job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-slate-800 border border-slate-700 text-green-300 py-3 rounded-xl text-sm font-semibold text-center"><i class="fas fa-phone mr-1"></i>Call Customer</a>` : '<span class="bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-xl text-sm font-semibold text-center">No phone</span>'}
-                            <span class="bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-xl text-sm font-semibold text-center">Map in Navigate</span>
+                        <div class="flex gap-2 overflow-x-auto pb-1">
+                            ${job.status === 'scheduled' ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-play mr-1"></i>Start Job</a>` : `<span class="bg-slate-800/50 border border-slate-700 text-slate-500 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">Start Job</span>`}
+                            <button onclick="openDocumentForm('estimate', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-invoice mr-1"></i>Add Estimate</button>
+                            <button onclick="openDocumentForm('invoice', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-invoice-dollar mr-1"></i>Add Invoice</button>
+                            <button onclick="openDocumentForm('waiver', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-signature mr-1"></i>Add Waiver</button>
+                            <button onclick="createCustomerFromJob('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">${job.customerId ? `<i class="fas fa-user-check mr-1"></i>${(job.customerName || 'Customer')}` : '<i class="fas fa-user-plus mr-1"></i>Link Customer'}</button>
+                            ${job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-phone mr-1"></i>Call</a>` : '<span class="bg-slate-800/50 border border-slate-700 text-slate-500 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">No phone</span>'}
                         </div>
                     </div>
 
@@ -1375,7 +1374,7 @@
                                 <i class="fas fa-check-circle mr-1"></i>Mark as Complete
                             </button>
                         ` : `
-                            <button onclick="markScheduled('${job.id}'); closeJobModal();" class="bg-purple-600 text-white py-4 rounded-xl font-semibold text-lg">
+                            <button onclick="markScheduled('${job.id}'); closeJobModal();" class="bg-slate-700 text-white py-4 rounded-xl font-semibold text-lg">
                                 <i class="fas fa-undo mr-1"></i>Reopen Job
                             </button>
                         `}
@@ -1383,10 +1382,9 @@
                         <button onclick="editJob('${job.id}')" class="bg-slate-600 text-white py-3 rounded-xl font-semibold">
                             <i class="fas fa-pen mr-1"></i>Edit Job
                         </button>
-                        <button onclick="cancelJobWithReason('${job.id}');" class="bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
-                            <i class="fas fa-ban mr-1"></i>Cancel Job
-                        </button>
+                        ${job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-slate-700 text-white py-3 rounded-xl font-semibold text-center"><i class="fas fa-phone mr-1"></i>Call</a>` : `<span class="bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-xl font-semibold text-center">No phone</span>`}
                         </div>
+                        <button onclick="cancelJobWithReason('${job.id}');" class="text-red-300 text-sm text-left underline underline-offset-2 py-1 px-1 bg-transparent border-none">Cancel job</button>
                     </div>
                 </div>
             `;

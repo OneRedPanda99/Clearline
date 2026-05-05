@@ -3,16 +3,16 @@
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     /* Electric / mockup palette */
-    --app-bg: #0b0e14;
-    --app-surface: #12151c;
+    --app-bg: #1a1c1f;
+    --app-surface: #23262b;
     --app-border: rgba(255, 255, 255, 0.08);
-    --electric: #2e7bff;
-    --electric-dim: #1d4ed8;
+    --electric: #4f8cff;
+    --electric-dim: #3d73d8;
     --stripe-booked: #2e7bff;
     --stripe-estimate: #eab308;
     --primary: #2e7bff;
     --primary-dark: #1d4ed8;
-    --accent: #38bdf8;
+    --accent: #4f8cff;
     --dark: #0f172a;
     --darker: #0b0e14;
 }
@@ -52,7 +52,7 @@ html, body {
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-    background: linear-gradient(180deg, #0f172a 0%, var(--app-bg, #0b0e14) 45%, #050608 100%);
+    background: linear-gradient(180deg, #24272c 0%, var(--app-bg, #1a1c1f) 55%, #15171a 100%);
     background-color: var(--app-bg, #0b0e14);
     color: #f8fafc;
     display: flex;
@@ -169,7 +169,7 @@ button:hover .fa-cog {
     bottom: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(to top, rgba(5, 6, 10, 0.98), rgba(11, 14, 20, 0.96));
+    background: linear-gradient(to top, rgba(24, 26, 30, 0.98), rgba(30, 33, 38, 0.96));
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
     border-top: 1px solid rgba(255,255,255,0.06);
@@ -821,7 +821,7 @@ a.header-icon-btn {
 .jobs-filter-pill {
     flex: 0 0 auto;
     padding: 8px 14px;
-    border-radius: 999px;
+    border-radius: 7px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(18, 22, 30, 0.75);
     font-size: 12px;
@@ -831,10 +831,59 @@ a.header-icon-btn {
     transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 .jobs-filter-pill.active {
-    background: linear-gradient(135deg, var(--electric, #2e7bff), var(--electric-dim, #1d4ed8));
-    color: #fff;
-    border-color: transparent;
-    box-shadow: 0 4px 14px rgba(46, 123, 255, 0.35);
+    background: rgba(79, 140, 255, 0.16);
+    color: #dbe7ff;
+    border-color: rgba(79, 140, 255, 0.45);
+    box-shadow: none;
+}
+
+/* De-AI visual pass: flatter radii + quieter active states */
+.glass-card,
+.job-card-v2,
+.next-job-card,
+.dash-schedule-card,
+.coming-row,
+.customer-card,
+.modal-content,
+.tab-item,
+.action-btn,
+button,
+a.btn,
+input,
+select,
+textarea {
+    border-radius: 8px !important;
+}
+.tab-bar a.nav-active::before,
+.bottom-nav a.nav-active::before {
+    height: 2px;
+    border-radius: 0;
+    background: #dbe7ff;
+}
+.tab-bar a.nav-active:not(.tab-item--fab) i,
+.tab-bar a.nav-active:not(.tab-item--fab) span {
+    color: #dbe7ff;
+}
+
+/* Home quick action rows */
+.quick-action-plain {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    background: rgba(255,255,255,0.02);
+    color: #e5e7eb;
+    padding: 14px 12px;
+    text-decoration: none;
+    font-weight: 650;
+    font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.16);
+    min-height: 78px;
+}
+.quick-action-plain small {
+    font-size: 10px;
+    margin-top: 4px;
+    color: #9ca3af;
 }
 
 .job-card-v2 {

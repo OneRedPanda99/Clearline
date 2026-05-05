@@ -84,14 +84,14 @@
             justify-content: center;
             gap: 8px;
             width: 100%;
-            min-height: 44px;
-            border-radius: 10px;
-            background: rgba(139, 92, 246, 0.18);
-            color: #e9d5ff;
+            min-height: 38px;
+            border-radius: 7px;
+            background: rgba(255, 255, 255, 0.03);
+            color: #d1d5db;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13px;
             text-decoration: none;
-            border: 1px solid rgba(139, 92, 246, 0.38);
+            border: 1px solid rgba(255, 255, 255, 0.14);
         }
         .customer-est-btn:active { transform: scale(0.98); }
         .customer-icon-row {
@@ -617,7 +617,7 @@
             return `
                 <div class="customer-card glass-card rounded-xl p-4" onclick="openDetailModal('${c.id}')">
                     <div class="flex gap-3 items-start mb-2">
-                        <div class="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold" style="background:rgba(46,123,255,0.2);color:#93c5fd;">
+                        <div class="flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-sm font-bold" style="background:rgba(255,255,255,0.06);color:#d1d5db;border:1px solid rgba(255,255,255,0.12);">
                             ${ini}
                         </div>
                         <div class="flex-1 min-w-0">
@@ -627,7 +627,7 @@
                         </div>
                     </div>
                     ${scheduledJob ? `
-                        <div class="text-purple-400 text-xs mb-3">
+                        <div class="text-gray-300 text-xs mb-3">
                             <i class="fas fa-calendar mr-1"></i>Next: ${new Date(scheduledJob.jobDate + 'T12:00:00').toLocaleDateString()} · ${scheduledJob.serviceType || 'Service'}
                         </div>
                     ` : ''}

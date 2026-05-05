@@ -58,15 +58,19 @@
         }
         
         .input-section {
-            border: 1px solid black;
-            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.14);
+            padding: 16px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
         }
         
         .input-section h2 {
-            border-bottom: 2px solid black;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            font-size: 18px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 8px;
+            margin-bottom: 14px;
+            font-size: 14px;
+            color: #e5e7eb;
+            letter-spacing: 0.02em;
         }
         
         .form-group {
@@ -82,9 +86,12 @@
         .form-group input, .form-group select, .form-group textarea {
             width: 100%;
             padding: 8px;
-            border: 1px solid black;
+            border: 1px solid rgba(255,255,255,0.16);
             font-size: 14px;
             font-family: Arial, sans-serif;
+            border-radius: 7px;
+            background: rgba(255,255,255,0.03);
+            color: #e5e7eb;
         }
         
         .form-group textarea {
@@ -93,7 +100,7 @@
         }
         
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-            outline: 2px solid black;
+            outline: 2px solid #4f8cff;
         }
         
         .two-column {
@@ -103,10 +110,11 @@
         }
         
         .service-item {
-            border: 1px solid #ccc;
+            border: 1px solid rgba(255,255,255,0.14);
             padding: 15px;
             margin-bottom: 15px;
-            background: #f9f9f9;
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
         }
         
         .service-header {
@@ -135,41 +143,46 @@
         
         .add-service-btn {
             width: 100%;
-            background: #28a745;
-            color: white;
-            border: none;
+            background: rgba(255,255,255,0.04);
+            color: #e5e7eb;
+            border: 1px solid rgba(255,255,255,0.16);
             padding: 10px;
             font-size: 14px;
             cursor: pointer;
             margin-bottom: 15px;
+            border-radius: 7px;
+            font-weight: 600;
         }
         
         .add-service-btn:hover {
-            background: #218838;
+            background: rgba(255,255,255,0.08);
         }
         
         .calc-button {
             width: 100%;
-            background: black;
+            background: #4f8cff;
             color: white;
             border: none;
             padding: 12px;
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
+            border-radius: 7px;
         }
         
         .calc-button:hover {
-            background: #333;
+            background: #3d73d8;
         }
         
         .section-header {
-            background: #f0f0f0;
-            padding: 8px;
-            margin: 15px -20px 15px -20px;
-            border-left: 4px solid black;
+            background: rgba(255,255,255,0.03);
+            padding: 8px 10px;
+            margin: 14px 0 12px;
+            border-left: 2px solid #4f8cff;
             font-weight: bold;
             font-size: 14px;
+            border-radius: 6px;
+            color: #e5e7eb;
         }
         
         .dirt-level-info {
@@ -510,7 +523,7 @@
         <div class="main-content">
             <div class="container">
         <div class="input-section">
-            <h2>PRESSURE POINT POWERWASHING - ESTIMATE GENERATOR</h2>
+            <h2>Estimate Generator</h2>
             
             <form id="estimateForm">
                 <div id="estimateSyncBar" style="display:none;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:12px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569;line-height:1.4;"></div>
@@ -519,15 +532,15 @@
                     <button type="button" onclick="restoreStandaloneEstimateBackup()" style="margin-left:8px;background:#f59e0b;color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:600;">Restore</button>
                     <button type="button" onclick="dismissStandaloneEstimateBackup()" style="margin-left:6px;background:transparent;border:1px solid #b45309;color:#92400e;padding:4px 10px;border-radius:6px;cursor:pointer;">Dismiss</button>
                 </div>
-                <div class="section-header">CUSTOMER INFORMATION</div>
+                <div class="section-header">Customer</div>
                 
                 <!-- Customer Quick Actions -->
                 <div style="display: flex; gap: 8px; margin-bottom: 15px;">
-                    <button type="button" onclick="openCustomerSearch()" style="flex: 1; background: #0ea5e9; color: white; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600;">
+                    <button type="button" onclick="openCustomerSearch()" style="flex: 1; background: #4f8cff; color: white; padding: 10px; border-radius: 7px; border: 1px solid #4f8cff; cursor: pointer; font-weight: 600;">
                         <i class="fas fa-users" style="margin-right: 6px;"></i>Select Customer
                     </button>
-                    <label style="flex: 1; background: #10b981; color: white; padding: 10px; border-radius: 8px; text-align: center; cursor: pointer; font-weight: 600;">
-                        <i class="fas fa-file-import" style="margin-right: 6px;"></i>Import VCF
+                    <label style="flex: 1; background: rgba(255,255,255,0.04); color: #e5e7eb; padding: 10px; border-radius: 7px; text-align: center; cursor: pointer; font-weight: 600; border:1px solid rgba(255,255,255,0.16);">
+                        <i class="fas fa-file-import" style="margin-right: 6px;"></i>Import Contacts
                         <input type="file" accept=".vcf,text/vcard" onchange="importVCFToEstimate(this)" style="display: none;">
                     </label>
                 </div>
@@ -555,7 +568,7 @@
                     </div>
                 </div>
                 
-                <div class="section-header">PRICING & MATERIALS</div>
+                <div class="section-header">Pricing & Materials</div>
                 
                 <!-- Gas price — Owner-only. Phase 4 hides this row for any
                      non-Owner and pulls the value silently from
@@ -580,12 +593,12 @@
                     </div>
                 </div>
                 
-                <div class="section-header">MEASUREMENT CALCULATOR</div>
+                <div class="section-header">Measurement Calculator</div>
                 <div id="measureContainer"></div>
                 <button type="button" class="add-service-btn" onclick="addMeasurement()" style="background:#0ea5e9;margin-bottom:10px;">+ Add Measurement Section</button>
                 <div id="measureTotalDisplay" style="display:none;">Total Measured: 0 sq ft</div>
 
-                <div class="section-header">SERVICES</div>
+                <div class="section-header">Services</div>
                 
                 <div id="servicesContainer">
                     <div class="service-item" data-service-id="1">
@@ -660,7 +673,7 @@
                 
                 <button type="button" class="add-service-btn" onclick="addService()">+ Add Another Service</button>
                 
-                <div class="section-header">OVERALL ADJUSTMENTS</div>
+                <div class="section-header">Adjustments & Notes</div>
                 
                 <div class="two-column">
                     <div class="form-group">
@@ -690,14 +703,15 @@
                 
                 <div class="extended-info-toggle">
                     <input type="checkbox" id="extendedInfo">
-                    <label for="extendedInfo">Extended Information (show rates, gas &amp; chemical to customer)</label>
+                    <label for="extendedInfo">Show extended breakdown (rates, gas, chemical) on estimate</label>
                 </div>
 
                 <button type="button" class="calc-button" onclick="generateEstimate()" style="margin-top:10px;">
-                    GENERATE ESTIMATE
+                    Generate Estimate
                 </button>
                 
-                <div class="section-header" style="margin-top: 20px;">SAVE & LOAD</div>
+                <div class="section-header" style="margin-top: 20px;">Save & Share</div>
+                <p style="font-size:12px;color:#9ca3af;margin-bottom:8px;">Generate first, then save draft or lock this estimate.</p>
                 
                 <input type="hidden" id="firestoreDocId" value="">
                 <input type="hidden" id="docStatus" value="draft">
@@ -712,17 +726,18 @@
                     <button type="button" onclick="reopenEstimate()" style="margin-left:10px;background:#f59e0b;color:white;border:none;padding:6px 12px;cursor:pointer;border-radius:4px;">Edit / Reopen</button>
                 </div>
                 
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-                    <button type="button" class="add-service-btn" onclick="saveDraftToCloud()" style="flex:1;margin-bottom:0;background:#0ea5e9;">Save Draft</button>
-                    <button type="button" class="add-service-btn" id="finalizeBtn" onclick="markAsFinal()" style="flex:1;margin-bottom:0;background:#f59e0b;">Lock Estimate</button>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                    <button type="button" class="add-service-btn" onclick="saveDraftToCloud()" style="flex:1;margin-bottom:0;background:#4f8cff;color:#fff;border-color:#4f8cff;">Save Draft</button>
+                    <button type="button" class="add-service-btn" id="finalizeBtn" onclick="markAsFinal()" style="flex:1;margin-bottom:0;background:rgba(255,255,255,0.04);color:#e5e7eb;border:1px solid rgba(255,255,255,0.18);">Lock Estimate</button>
                     <button type="button" class="add-service-btn" id="shareFinalBtn" onclick="shareFinalEstimate()" style="flex:1;margin-bottom:0;background:#2563eb;display:none;">Share</button>
-                    <button type="button" class="add-service-btn" id="convertInvoiceBtn" onclick="convertToInvoice()" style="flex:1;margin-bottom:0;background:#7c3aed;display:none;">Convert to Invoice</button>
+                    <button type="button" class="add-service-btn" id="convertInvoiceBtn" onclick="convertToInvoice()" style="flex:1;margin-bottom:0;background:rgba(255,255,255,0.04);display:none;">Convert to Invoice</button>
                 </div>
-                <div class="two-column">
-                    <button type="button" class="add-service-btn" onclick="saveEstimate()" style="margin-bottom: 5px;">
+                <p style="font-size:11px;color:#9ca3af;margin:2px 0 6px;">File tools</p>
+                <div class="two-column" style="margin-bottom:8px;">
+                    <button type="button" class="add-service-btn" onclick="saveEstimate()" style="margin-bottom: 0;">
                         Export File
                     </button>
-                    <button type="button" class="add-service-btn" onclick="document.getElementById('loadFile').click()" style="margin-bottom: 5px;">
+                    <button type="button" class="add-service-btn" onclick="document.getElementById('loadFile').click()" style="margin-bottom: 0;">
                         Import File
                     </button>
                 </div>

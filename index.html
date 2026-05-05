@@ -99,20 +99,20 @@
 
             <!-- Quick actions -->
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px;">
-                <a href="estimate.html" class="action-btn" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: center; background: linear-gradient(145deg, rgba(6,182,212,0.95), rgba(14,165,233,0.88)); color: white; padding: 16px 12px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 13px; border: 1px solid rgba(255,255,255,0.12); min-height: 86px;">
+                <a href="estimate.html" class="quick-action-plain">
                     <i class="fas fa-file-circle-plus" style="font-size: 22px; margin-bottom: 8px;"></i>
                     New estimate
-                    <span style="font-size: 10px; font-weight: 500; opacity: 0.9; margin-top: 4px;">Create a new estimate</span>
+                    <small>Create a new estimate</small>
                 </a>
-                <a href="calendar.html" class="action-btn" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: center; background: linear-gradient(145deg, rgba(139,92,246,0.9), rgba(109,40,217,0.88)); color: white; padding: 16px 12px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 13px; border: 1px solid rgba(255,255,255,0.12); min-height: 86px;">
+                <a href="calendar.html" class="quick-action-plain">
                     <i class="fas fa-calendar-plus" style="font-size: 22px; margin-bottom: 8px;"></i>
                     Schedule job
-                    <span style="font-size: 10px; font-weight: 500; opacity: 0.9; margin-top: 4px;">Add to calendar</span>
+                    <small>Add to calendar</small>
                 </a>
-                <a href="jobs.html?addLead=1" class="action-btn" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: center; background: linear-gradient(145deg, rgba(245,158,11,0.95), rgba(217,119,6,0.9)); color: white; padding: 16px 12px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 13px; border: 1px solid rgba(255,255,255,0.12); min-height: 86px;">
+                <a href="jobs.html?addLead=1" class="quick-action-plain">
                     <i class="fas fa-user-plus" style="font-size: 22px; margin-bottom: 8px;"></i>
                     Add lead
-                    <span style="font-size: 10px; font-weight: 500; opacity: 0.9; margin-top: 4px;">Estimate visit</span>
+                    <small>Estimate visit</small>
                 </a>
             </div>
 
@@ -617,7 +617,7 @@
             const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
             const first = (p && p.displayName) ? p.displayName.trim().split(/\s+/)[0] : '';
             const el = document.getElementById('homeGreeting');
-            if (el) el.textContent = first ? `${g}, ${first} 👋` : `${g} 👋`;
+            if (el) el.textContent = first ? `${g}, ${first}` : g;
         }
 
         function applyRoleUI(profile) {
