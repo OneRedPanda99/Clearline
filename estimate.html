@@ -412,21 +412,23 @@
 
         /* ── Measurement Calculator ── */
         .measure-row {
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin-bottom: 8px;
-            background: #f0f8ff;
+            border: 1px solid rgba(255,255,255,0.14);
+            padding: 12px;
+            margin-bottom: 10px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
+            color: #e5e7eb;
         }
         .measure-row .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .measure-result { font-weight: bold; margin-top: 6px; font-size: 14px; }
-        .measure-result.error { color: #dc3545; }
+        .measure-result { font-weight: 800; margin-top: 8px; font-size: 14px; color: #e5e7eb; }
+        .measure-result.error { color: #fca5a5; }
         .measure-actions { display: flex; gap: 6px; margin-top: 6px; }
         .measure-actions button {
             padding: 8px 12px;
             border: none;
             cursor: pointer;
             font-size: 12px;
-            border-radius: 4px;
+            border-radius: 7px;
             min-height: 44px;
         }
         .measure-use-btn { background: #0ea5e9; color: white; }
@@ -434,7 +436,12 @@
         #measureTotalDisplay {
             font-weight: bold;
             font-size: 16px;
-            padding: 8px 0;
+            padding: 10px 12px;
+            margin: 6px 0 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.02);
+            color: #e5e7eb;
         }
         
         @media (max-width: 1000px) {
@@ -656,12 +663,12 @@
                             <div style="margin: 10px 0;">
                                 <input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="3.5" 
                                        style="width: 100%;" oninput="updateDirtDisplay(this)">
-                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 5px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8; margin-top: 5px;">
                                     <span>Light Work</span>
                                     <span>Heavy Work</span>
                                 </div>
                                 <div style="text-align: center; margin-top: 5px;">
-                                    <span name="dirtDisplay" style="font-weight: bold; color: #333;">Level 3.5</span>
+                                    <span name="dirtDisplay" style="font-weight: bold; color: #e5e7eb;">Level 3.5</span>
                                 </div>
                             </div>
                         </div>
@@ -1078,12 +1085,12 @@
                             <div style="margin:10px 0">
                                 <input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="3.5" 
                                        style="width:100%" oninput="updateDirtDisplay(this)">
-                                <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-top:5px">
+                                <div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-top:5px">
                                     <span>Light Work</span>
                                     <span>Heavy Work</span>
                                 </div>
                                 <div style="text-align:center;margin-top:5px">
-                                    <span name="dirtDisplay" style="font-weight:bold;color:#333">Level 3.5</span>
+                                    <span name="dirtDisplay" style="font-weight:bold;color:#e5e7eb">Level 3.5</span>
                                 </div>
                             </div>
                         </div>
@@ -1971,12 +1978,12 @@
                                     <div style="margin: 10px 0;">
                                         <input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="${serviceData.dirtLevel || '3.5'}" 
                                                style="width: 100%;" oninput="updateDirtDisplay(this)">
-                                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 5px;">
+                                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8; margin-top: 5px;">
                                             <span>Light Work</span>
                                             <span>Heavy Work</span>
                                         </div>
                                         <div style="text-align: center; margin-top: 5px;">
-                                            <span name="dirtDisplay" style="font-weight: bold; color: #333;">Level ${serviceData.dirtLevel || '3.5'}</span>
+                                            <span name="dirtDisplay" style="font-weight: bold; color: #e5e7eb;">Level ${serviceData.dirtLevel || '3.5'}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -2550,7 +2557,7 @@
                         <div class="form-group"><label>Surface Type:</label><select name="surfaceType" onchange="applySurfaceDefaults(this)"><option value="siding" ${sd.surfaceType==='siding'?'selected':''}>Vinyl Siding (Flat Panels)</option><option value="vinylFence" ${sd.surfaceType==='vinylFence'?'selected':''}>Vinyl Fence</option><option value="concrete" ${(!sd.surfaceType||sd.surfaceType==='concrete')?'selected':''}>Concrete / Flatwork</option><option value="roof" ${sd.surfaceType==='roof'?'selected':''}>Roof</option><option value="fence" ${sd.surfaceType==='fence'?'selected':''}>Wood Fence</option><option value="other" ${sd.surfaceType==='other'?'selected':''}>Other / Mixed</option></select></div>
                         <div class="two-column"><div class="form-group"><label>Square Footage:</label><input type="number" name="squareFootage" value="${sd.squareFootage||''}" required></div><div class="form-group"><label>Price per Sq Ft ($):</label><input type="number" name="pricePerSqFt" step="0.01" value="${sd.pricePerSqFt||'0.30'}" required></div></div>
                         <div class="two-column"><div class="form-group"><label>Number of Workers:</label><select name="numWorkers" required><option value="1" ${sd.numWorkers==='1'?'selected':''}>1 Worker</option><option value="2" ${sd.numWorkers==='2'?'selected':''}>2 Workers</option></select></div>
-                        <div class="form-group"><label>Dirt Level:</label><div style="margin:10px 0"><input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="${sd.dirtLevel||'3.5'}" style="width:100%" oninput="updateDirtDisplay(this)"><div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-top:5px"><span>Light Work</span><span>Heavy Work</span></div><div style="text-align:center;margin-top:5px"><span name="dirtDisplay" style="font-weight:bold;color:#333">Level ${sd.dirtLevel||'3.5'}</span></div></div></div></div>
+                        <div class="form-group"><label>Dirt Level:</label><div style="margin:10px 0"><input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="${sd.dirtLevel||'3.5'}" style="width:100%" oninput="updateDirtDisplay(this)"><div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-top:5px"><span>Light Work</span><span>Heavy Work</span></div><div style="text-align:center;margin-top:5px"><span name="dirtDisplay" style="font-weight:bold;color:#e5e7eb">Level ${sd.dirtLevel||'3.5'}</span></div></div></div></div>
                         <div class="dirt-level-info"><strong>Dirt Level Guide:</strong><br>1 — Maintenance, minimal buildup &nbsp;|&nbsp; 2 — Light dust/dirt &nbsp;|&nbsp; 3 — Normal residential &nbsp;|&nbsp; 3.5 — Heavy buildup (default) &nbsp;|&nbsp; 4 — Very dirty &nbsp;|&nbsp; 5 — Extreme</div>
                     `;
                     container.appendChild(div);
