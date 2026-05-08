@@ -130,6 +130,16 @@
             return '$' + v.toFixed(0);
         }
 
+        // HTML escape (same intent as esc() used elsewhere)
+        function esc(v) {
+            return String(v ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function parseAmt(v) {
             const n = parseFloat(String(v || '').replace(/[^0-9.\-]/g, ''));
             return isNaN(n) ? 0 : n;

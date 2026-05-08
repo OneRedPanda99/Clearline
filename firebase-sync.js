@@ -216,21 +216,32 @@ const CL_FIREBASE = (function() {
 
         if (!realtimeListenersActive) {
             realtimeListenersActive = true;
+            const onSnapErr = (src) => (err) => {
+                try {
+                    const code = err && (err.code || err.name) || 'unknown';
+                    console.warn('[CL_FIREBASE] snapshot listener error:', src, code, err && err.message);
+                    // Don't crash the app on permission/transient listener errors.
+                    if (code === 'permission-denied' && typeof window !== 'undefined' && typeof showToast === 'function') {
+                        try { showToast('Cloud access blocked (rules) — check Firestore rules', 'error'); } catch (_) {}
+                    }
+                } catch (_) {}
+            };
+
             db.collection('jobs').onSnapshot(() => {
                 if (!pullInProgress) syncFromCloud();
-            });
+            }, onSnapErr('jobs'));
             db.collection('customers').onSnapshot(() => {
                 if (!pullInProgress) syncFromCloud();
-            });
+            }, onSnapErr('customers'));
             // Owner-only collections: expenses + payroll.
             try {
                 if (userProfile && userProfile.role === 'owner') {
                     db.collection('expenses').onSnapshot(() => {
                         if (!pullInProgress) syncFromCloud();
-                    });
+                    }, onSnapErr('expenses'));
                     db.collection('payroll').onSnapshot(() => {
                         if (!pullInProgress) syncFromCloud();
-                    });
+                    }, onSnapErr('payroll'));
                 }
             } catch (_) {
                 // ignore listener failures
