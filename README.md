@@ -1,6 +1,6 @@
 # Clearline
 
-Pressure washing CRM — mobile-first PWA for managing customers, jobs, estimates, and invoices.
+Pressure washing CRM, mobile-first PWA for managing customers, jobs, estimates, and invoices.
 
 ## Setup
 
