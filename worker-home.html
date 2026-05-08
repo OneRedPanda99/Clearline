@@ -75,7 +75,9 @@
             const now = new Date();
             const start = new Date(now); start.setHours(0,0,0,0);
             const end = new Date(now); end.setDate(end.getDate() + 7);
-            return { startIso: start.toISOString().split('T')[0], endIso: end.toISOString().split('T')[0] };
+            const startIso = (window.localYmd ? localYmd(start) : start.toISOString().split('T')[0]);
+            const endIso = (window.localYmd ? localYmd(end) : end.toISOString().split('T')[0]);
+            return { startIso, endIso };
         }
 
         function renderJobs(jobs) {

@@ -137,8 +137,8 @@
                 <div id="upcomingHomeList" class="glass-card" style="overflow: hidden; padding: 4px 12px;"></div>
             </div>
 
-            <!-- Today's performance -->
-            <p class="section-title">Today's performance</p>
+            <!-- Performance (all-time totals) -->
+            <p class="section-title">All-time performance</p>
             <div class="stats-grid stats-grid--4">
                 <div class="stat-card" role="button" tabindex="0" onclick="window.location.href='jobs.html?tab=all'" style="cursor:pointer;">
                     <p class="value" style="color: #60a5fa;">$<span id="estimatedTotal">0</span></p>
@@ -391,7 +391,7 @@
             const tj = document.getElementById('statTotalJobs');
             if (tj) tj.textContent = jobs.length;
 
-            const today = new Date().toISOString().split('T')[0];
+            const today = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
             const fmtShort = (iso) => {
                 const d = new Date(iso + 'T12:00:00');
                 return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();

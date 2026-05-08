@@ -388,7 +388,7 @@
                 elR.textContent = '$' + rev.toFixed(0);
             }
             if (elM) {
-                const ym = new Date().toISOString().slice(0, 7);
+                const ym = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]).slice(0, 7);
                 elM.textContent = customers.filter(c => c.dateAdded && c.dateAdded.slice(0, 7) === ym).length;
             }
         }
@@ -903,7 +903,8 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `sc-pressure-point-backup-${new Date().toISOString().split('T')[0]}.json`;
+            const stamp = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
+            a.download = `clearline-backup-${stamp}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);

@@ -180,9 +180,9 @@
             markers.forEach(m => map.removeLayer(m)); markers = [];
             if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
 
-            const today = new Date().toISOString().split('T')[0];
+            const today = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
             const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() + 7);
-            const weekEndStr = weekEnd.toISOString().split('T')[0];
+            const weekEndStr = (window.localYmd ? localYmd(weekEnd) : weekEnd.toISOString().split('T')[0]);
 
             // Filter contract:
             // - 'allJobs' (default): every job with an address, any date/status.
@@ -241,7 +241,7 @@
         function renderJobList() {
             const container = document.getElementById('jobListContent');
             if (filteredJobs.length === 0) { container.innerHTML = '<div class="text-center text-gray-400 py-8"><i class="fas fa-map-marker-alt text-3xl mb-2"></i><p>No jobs with addresses</p></div>'; return; }
-            const today = new Date().toISOString().split('T')[0];
+            const today = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
             container.innerHTML = filteredJobs.map((job, i) => {
                 const isToday = job.jobDate === today;
                 const dateStr = new Date(job.jobDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });

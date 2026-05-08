@@ -696,7 +696,7 @@
             initCanvas();
             
             // Set today's date
-            document.getElementById('waiverDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('waiverDate').value = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
             
             if (jobId) {
                 const jobs = CL_DATA.getJobs();

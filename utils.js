@@ -35,6 +35,18 @@ window.safeSet = function(key, value) {
 };
 
 /**
+ * Local YYYY-MM-DD (timezone-safe).
+ * Avoids UTC `toISOString().split('T')[0]` off-by-one (shows tomorrow in evening).
+ */
+window.localYmd = function(d = new Date()) {
+  const dt = d instanceof Date ? d : new Date(d);
+  const yr = dt.getFullYear();
+  const mo = String(dt.getMonth() + 1).padStart(2, '0');
+  const da = String(dt.getDate()).padStart(2, '0');
+  return `${yr}-${mo}-${da}`;
+};
+
+/**
  * Safe localStorage remove.
  */
 window.safeRemove = function(key) {

@@ -895,7 +895,7 @@
         function openAddLeadModal() {
             const dateInput = document.getElementById('addLeadJobDate');
             if (dateInput && !dateInput.value) {
-                dateInput.value = new Date().toISOString().split('T')[0];
+                dateInput.value = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
             }
             buildLeadCustomerAutocomplete();
             initAddressAutocomplete('addLeadCustomerAddress');
@@ -1161,10 +1161,10 @@
         }
 
         function renderJobsList() {
-            const today = new Date().toISOString().split('T')[0];
+            const today = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
             const tomorrowD = new Date();
             tomorrowD.setDate(tomorrowD.getDate() + 1);
-            const tomorrow = tomorrowD.toISOString().split('T')[0];
+            const tomorrow = (window.localYmd ? localYmd(tomorrowD) : tomorrowD.toISOString().split('T')[0]);
 
             let filtered = [];
             if (currentTab === 'all') filtered = jobs.slice();

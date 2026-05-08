@@ -367,7 +367,8 @@
             a.href = url;
             const settings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
             const businessSlug = (settings.businessName || 'business').toLowerCase().replace(/\s+/g, '-');
-            a.download = `${businessSlug}-backup-${new Date().toISOString().split('T')[0]}.json`;
+            const stamp = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
+            a.download = `${businessSlug}-backup-${stamp}.json`;
             a.click();
             URL.revokeObjectURL(url);
         }
