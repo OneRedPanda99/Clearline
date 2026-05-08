@@ -449,16 +449,65 @@ var CL_DATA = {
         const mergedCustomers = mergeRecords(localCustomers, remoteCustomers, deletedCustomerMap);
         const mergedJobs = mergeRecords(localJobs, remoteJobs, deletedJobMap);
 
-        this.saveDeletedCustomers(mergedDeletedCustomers, { skipSync: true });
-        this.saveDeletedJobs(mergedDeletedJobs, { skipSync: true });
-        this.saveCustomers(mergedCustomers, { skipSync: true });
-        this.saveJobs(mergedJobs, { skipSync: true });
-        localStorage.setItem(this.MIGRATED_KEY, 'true');
-        if (typeof window !== 'undefined') {
-            try {
-                window.dispatchEvent(new CustomEvent('cl-sync-updated', { detail: { source: 'cloud' } }));
-            } catch (e) {
-                // ignore event errors
+        // Avoid unnecessary localStorage writes + UI rerenders when the cloud
+        // payload is identical to what we already have locally. Frequent pulls
+        // (realtime listeners, polling, tab focus) can otherwise cause visible
+        // flicker when pages rebuild lists on `cl-sync-updated`.
+        const sigList = (list, pick) => {
+            if (!Array.isArray(list) || list.length === 0) return '0';
+            const rows = [];
+            for (const it of list) {
+                if (!it || !it.id) continue;
+                rows.push(pick(it));
+            }
+            rows.sort();
+            return rows.join('|');
+        };
+        const sigRecords = (list) => sigList(list, (it) => {
+            const ts = it.lastUpdated ? (Date.parse(it.lastUpdated) || 0) : 0;
+            return `${String(it.id)}@${ts}`;
+        });
+        const sigTombstones = (list) => sigList(list, (it) => `${String(it.id)}@${Number(it.deletedAt || 0)}`);
+
+        const before = [
+            sigRecords(localCustomers),
+            sigRecords(localJobs),
+            sigTombstones(localDeletedCustomers),
+            sigTombstones(localDeletedJobs)
+        ].join('~~');
+        const after = [
+            sigRecords(mergedCustomers),
+            sigRecords(mergedJobs),
+            sigTombstones(mergedDeletedCustomers),
+            sigTombstones(mergedDeletedJobs)
+        ].join('~~');
+
+        if (before !== after) {
+            this.saveDeletedCustomers(mergedDeletedCustomers, { skipSync: true });
+            this.saveDeletedJobs(mergedDeletedJobs, { skipSync: true });
+            this.saveCustomers(mergedCustomers, { skipSync: true });
+            this.saveJobs(mergedJobs, { skipSync: true });
+            localStorage.setItem(this.MIGRATED_KEY, 'true');
+            if (typeof window !== 'undefined') {
+                try {
+                    window.dispatchEvent(new CustomEvent('cl-sync-updated', {
+                        detail: { source: 'cloud', changed: true }
+                    }));
+                } catch (e) {
+                    // ignore event errors
+                }
+            }
+        } else {
+            // Still mark migrated so a fresh device doesn't keep re-running the legacy migration.
+            localStorage.setItem(this.MIGRATED_KEY, 'true');
+            if (typeof window !== 'undefined') {
+                try {
+                    window.dispatchEvent(new CustomEvent('cl-sync-updated', {
+                        detail: { source: 'cloud', changed: false }
+                    }));
+                } catch (e) {
+                    // ignore event errors
+                }
             }
         }
     },

@@ -682,8 +682,6 @@ const CL_FIREBASE = (function() {
 
             localStorage.setItem('cl-last-sync', new Date().toISOString());
             console.log('Data synced from cloud');
-            window.dispatchEvent(new CustomEvent('cl-sync-updated'));
-
             return true;
         } catch (err) {
             const code = err && (err.code || err.name) || 'unknown';
@@ -727,12 +725,14 @@ const CL_FIREBASE = (function() {
         }
     });
 
-    // Auto-sync periodically when signed in
+    // Auto-sync periodically when signed in.
+    // Realtime listeners already pull on changes; this interval is only a
+    // safety net for missed snapshots / background tab throttling.
     setInterval(() => {
-        if (currentUser && navigator.onLine) {
-            syncFromCloud();
-        }
-    }, 5 * 1000);
+        if (!currentUser || !navigator.onLine) return;
+        if (realtimeListenersActive) return;
+        syncFromCloud();
+    }, 60 * 1000);
 
     // Get the raw Firebase user object (needed for uid in Firestore queries)
     function getCurrentUser() {
