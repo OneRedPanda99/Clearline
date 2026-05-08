@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Estimate Generator - Pressure Point Powerwashing</title>
+    <title>Generator - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
     <link rel="manifest" href="manifest.json">
@@ -531,14 +531,20 @@
 <body>
     <header class="app-header">
         <div class="app-header-inner">
-            <h1>Estimate</h1>
+            <h1 id="docModeTitle">Estimate</h1>
         </div>
     </header>
     <main class="app-content">
         <div class="main-content">
             <div class="container">
         <div class="input-section">
-            <h2>Estimate Generator</h2>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
+                <h2 id="docModeH2" style="margin:0;">Estimate Generator</h2>
+                <div style="display:flex;gap:6px;">
+                    <button type="button" id="modeEstimateBtn" class="add-service-btn" style="margin:0;background:#4f8cff;color:#fff;border-color:#4f8cff;padding:8px 10px;font-size:12px;" onclick="switchDocMode('estimate')">Estimate</button>
+                    <button type="button" id="modeInvoiceBtn" class="add-service-btn" style="margin:0;background:rgba(255,255,255,0.04);color:#e5e7eb;border:1px solid rgba(255,255,255,0.18);padding:8px 10px;font-size:12px;" onclick="switchDocMode('invoice')">Invoice</button>
+                </div>
+            </div>
             
             <form id="estimateForm">
                 <div id="estimateSyncBar" style="display:none;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:12px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569;line-height:1.4;"></div>
@@ -721,7 +727,7 @@
                     <label for="extendedInfo">Show extended breakdown (rates, gas, chemical) on estimate</label>
                 </div>
 
-                <button type="button" class="calc-button" onclick="generateEstimate()" style="margin-top:10px;">
+                <button type="button" class="calc-button" id="generateBtn" onclick="generateEstimate()" style="margin-top:10px;">
                     Generate Estimate
                 </button>
                 
@@ -732,7 +738,7 @@
                 <input type="hidden" id="docStatus" value="draft">
                 
                 <div class="form-group" style="margin-bottom: 5px;">
-                    <label for="estimateName">Estimate Name (for saving):</label>
+                    <label for="estimateName" id="docNameLabel">Estimate Name (for saving):</label>
                     <input type="text" id="estimateName" placeholder="Enter name for this estimate">
                 </div>
                 
@@ -742,7 +748,7 @@
                 </div>
                 
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-                    <button type="button" class="add-service-btn" onclick="saveDraftToCloud()" style="flex:1;margin-bottom:0;background:#4f8cff;color:#fff;border-color:#4f8cff;">Save Draft</button>
+                    <button type="button" class="add-service-btn" id="saveDraftBtn" onclick="saveDraftToCloud()" style="flex:1;margin-bottom:0;background:#4f8cff;color:#fff;border-color:#4f8cff;">Save Draft</button>
                     <button type="button" class="add-service-btn" id="finalizeBtn" onclick="markAsFinal()" style="flex:1;margin-bottom:0;background:rgba(255,255,255,0.04);color:#e5e7eb;border:1px solid rgba(255,255,255,0.18);">Lock Estimate</button>
                     <button type="button" class="add-service-btn" id="shareFinalBtn" onclick="shareFinalEstimate()" style="flex:1;margin-bottom:0;background:#2563eb;display:none;">Share</button>
                     <button type="button" class="add-service-btn" id="convertInvoiceBtn" onclick="convertToInvoice()" style="flex:1;margin-bottom:0;background:rgba(255,255,255,0.04);display:none;">Convert to Invoice</button>
@@ -815,6 +821,9 @@
         const urlParams = new URLSearchParams(window.location.search);
         const jobId = urlParams.get('jobId');
         const editDocId = urlParams.get('docId');
+        const docMode = urlParams.get('mode') === 'invoice' ? 'invoice' : 'estimate';
+        const jobDocsKey = docMode === 'invoice' ? 'invoices' : 'estimates';
+        const cloudCollection = docMode === 'invoice' ? 'invoices' : 'estimates';
         const startJobNow = urlParams.get('startJob') === '1';
         let activeJobEstimateDocId = editDocId || null;
         const JOB_TIMER_PREFIX = 'cl-job-timer-';
@@ -967,8 +976,9 @@
         function getSavedJobServices() {
             if (!jobId) return [];
             const job = CL_DATA.findJob(jobId);
-            if (!job || !job.documents || !Array.isArray(job.documents.estimates) || !job.documents.estimates.length) return [];
-            const docs = job.documents.estimates.slice().sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+            const arr = job && job.documents ? job.documents[jobDocsKey] : null;
+            if (!job || !job.documents || !Array.isArray(arr) || !arr.length) return [];
+            const docs = arr.slice().sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
             const latest = docs[0];
             const services = latest && latest.formState && Array.isArray(latest.formState.services) ? latest.formState.services : [];
             return services.map((s, idx) => ({
@@ -1742,7 +1752,7 @@
                 quoteAmount: total ? String(total) : '',
                 notes: document.getElementById('notes').value || ''
             });
-            window.location.href = `invoice.html?jobId=${encodeURIComponent(jobId)}&docId=${encodeURIComponent(invoiceDocId)}`;
+            window.location.href = `estimate.html?mode=invoice&jobId=${encodeURIComponent(jobId)}&docId=${encodeURIComponent(invoiceDocId)}`;
         }
         
         function generateShareText() {
@@ -2354,16 +2364,16 @@
             CL_DATA.updateJob(job.id, jobFieldUpdates);
 
             if (!job.documents) job.documents = { estimates: [], invoices: [], waivers: [] };
-            if (!Array.isArray(job.documents.estimates)) job.documents.estimates = [];
+            if (!Array.isArray(job.documents[jobDocsKey])) job.documents[jobDocsKey] = [];
 
             const existingIdx = activeJobEstimateDocId
-                ? job.documents.estimates.findIndex(d => d && d.id === activeJobEstimateDocId)
+                ? job.documents[jobDocsKey].findIndex(d => d && d.id === activeJobEstimateDocId)
                 : -1;
 
             const nowIso = new Date().toISOString();
             if (existingIdx >= 0) {
-                const existing = job.documents.estimates[existingIdx];
-                job.documents.estimates[existingIdx] = {
+                const existing = job.documents[jobDocsKey][existingIdx];
+                job.documents[jobDocsKey][existingIdx] = {
                     ...existing,
                     id: existing.id,
                     createdAt: existing.createdAt || nowIso,
@@ -2374,7 +2384,7 @@
                 activeJobEstimateDocId = existing.id;
             } else {
                 const newId = 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-                job.documents.estimates.push({
+                job.documents[jobDocsKey].push({
                     id: newId,
                     createdAt: nowIso,
                     updatedAt: nowIso,
@@ -2392,7 +2402,7 @@
                 window.history.replaceState({}, '', next);
             }
             renderJobTimerChecklist();
-            if (!silent) showToast('Estimate saved to job');
+            if (!silent) showToast((docMode === 'invoice' ? 'Invoice' : 'Estimate') + ' saved to job');
             if (shouldRedirect) {
                 setTimeout(() => { window.location.href = 'jobs.html'; }, 600);
             }
@@ -2404,8 +2414,9 @@
         function loadEstimateFromJobDoc() {
             if (!jobId || !editDocId) return;
             const job = CL_DATA.findJob(jobId);
-            if (!job || !job.documents || !Array.isArray(job.documents.estimates)) return;
-            const entry = job.documents.estimates.find(d => d && d.id === editDocId);
+            const arr = job && job.documents ? job.documents[jobDocsKey] : null;
+            if (!job || !job.documents || !Array.isArray(arr)) return;
+            const entry = arr.find(d => d && d.id === editDocId);
             if (!entry) return;
             activeJobEstimateDocId = editDocId;
             if (entry.formState) {
@@ -2459,6 +2470,41 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Mode UI (Estimate ↔ Invoice)
+            try {
+                const title = docMode === 'invoice' ? 'Invoice' : 'Estimate';
+                const h1 = document.getElementById('docModeTitle');
+                const h2 = document.getElementById('docModeH2');
+                if (h1) h1.textContent = title;
+                if (h2) h2.textContent = title + ' Generator';
+                document.title = title + ' - Clearline';
+
+                const btn = document.getElementById('generateBtn');
+                if (btn) btn.textContent = 'Generate ' + title;
+
+                const nameLabel = document.getElementById('docNameLabel');
+                if (nameLabel) nameLabel.textContent = title + ' Name (for saving):';
+
+                const finalize = document.getElementById('finalizeBtn');
+                if (finalize) finalize.textContent = 'Lock ' + title;
+
+                const estBtn = document.getElementById('modeEstimateBtn');
+                const invBtn = document.getElementById('modeInvoiceBtn');
+                if (estBtn && invBtn) {
+                    const isInv = docMode === 'invoice';
+                    estBtn.style.background = isInv ? 'rgba(255,255,255,0.04)' : '#4f8cff';
+                    estBtn.style.border = isInv ? '1px solid rgba(255,255,255,0.18)' : '1px solid #4f8cff';
+                    estBtn.style.color = isInv ? '#e5e7eb' : '#fff';
+                    invBtn.style.background = isInv ? '#4f8cff' : 'rgba(255,255,255,0.04)';
+                    invBtn.style.border = isInv ? '1px solid #4f8cff' : '1px solid rgba(255,255,255,0.18)';
+                    invBtn.style.color = isInv ? '#fff' : '#e5e7eb';
+                }
+
+                // In invoice mode, we don't need the legacy "convert" button.
+                const convert = document.getElementById('convertInvoiceBtn');
+                if (convert && docMode === 'invoice') convert.style.display = 'none';
+            } catch (_) {}
+
             loadEstimateFromJobDoc();
             updateEstimateSyncUI();
             maybeShowStandaloneRestoreBanner();
@@ -2477,6 +2523,15 @@
             if (p) applyEstimatePermissions(p);
             window.addEventListener('cl-profile-updated', (e) => applyEstimatePermissions(e.detail && e.detail.profile));
         });
+
+        function switchDocMode(next) {
+            const qp = new URLSearchParams(window.location.search);
+            if (next === 'invoice') qp.set('mode', 'invoice');
+            else qp.delete('mode');
+            // Keep jobId/docId so the same doc can be edited across modes.
+            const url = `${window.location.pathname}?${qp.toString()}`;
+            window.location.replace(url);
+        }
         // ── Firebase Cloud Save/Load ───────────────────────────────
         function collectFormState() {
             const services = [];
@@ -2491,7 +2546,7 @@
                 });
             });
             return {
-                type: 'estimate',
+                type: docMode,
                 status: document.getElementById('docStatus').value || 'draft',
                 customerId: document.getElementById('selectedCustomerId').value || null,
                 customerName: document.getElementById('customerName').value,
@@ -2658,10 +2713,10 @@
             try {
                 await _syncGasPriceIfOwner(data);
                 if (docId) {
-                    await db.collection('estimates').doc(docId).set(data, { merge: true });
+                    await db.collection(cloudCollection).doc(docId).set(data, { merge: true });
                 } else {
                     data.createdAt = new Date().toISOString();
-                    const ref = await db.collection('estimates').add(data);
+                    const ref = await db.collection(cloudCollection).add(data);
                     document.getElementById('firestoreDocId').value = ref.id;
                 }
                 showToast('Draft saved');
@@ -2699,10 +2754,10 @@
             try {
                 await _syncGasPriceIfOwner(ownedData);
                 if (docId) {
-                    await db.collection('estimates').doc(docId).set(ownedData, { merge: true });
+                    await db.collection(cloudCollection).doc(docId).set(ownedData, { merge: true });
                 } else {
                     ownedData.createdAt = new Date().toISOString();
-                    const ref = await db.collection('estimates').add(ownedData);
+                    const ref = await db.collection(cloudCollection).add(ownedData);
                     document.getElementById('firestoreDocId').value = ref.id;
                 }
                 showToast('Estimate finalized');
@@ -2833,7 +2888,7 @@
             const user = CL_FIREBASE.getCurrentUser();
             if (!db || !user) return;
             try {
-                const snap = await db.collection('estimates').where('userId', '==', user.uid).orderBy('updatedAt', 'desc').limit(20).get();
+                const snap = await db.collection(cloudCollection).where('userId', '==', user.uid).orderBy('updatedAt', 'desc').limit(20).get();
                 if (snap.empty) {
                     container.innerHTML = '<p style="color:#888;text-align:center;padding:10px;">No saved estimates</p>';
                     return;
@@ -2860,7 +2915,7 @@
             const db = CL_FIREBASE.getFirestore();
             if (!db) return;
             try {
-                const doc = await db.collection('estimates').doc(docId).get();
+                const doc = await db.collection(cloudCollection).doc(docId).get();
                 if (!doc.exists) { showToast('Not found', 'error'); return; }
                 document.getElementById('firestoreDocId').value = docId;
                 loadFormState(doc.data());

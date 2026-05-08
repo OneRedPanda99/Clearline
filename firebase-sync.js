@@ -222,6 +222,19 @@ const CL_FIREBASE = (function() {
             db.collection('customers').onSnapshot(() => {
                 if (!pullInProgress) syncFromCloud();
             });
+            // Owner-only collections: expenses + payroll.
+            try {
+                if (userProfile && userProfile.role === 'owner') {
+                    db.collection('expenses').onSnapshot(() => {
+                        if (!pullInProgress) syncFromCloud();
+                    });
+                    db.collection('payroll').onSnapshot(() => {
+                        if (!pullInProgress) syncFromCloud();
+                    });
+                }
+            } catch (_) {
+                // ignore listener failures
+            }
         }
     }
 
@@ -557,18 +570,30 @@ const CL_FIREBASE = (function() {
             const localData = CL_DATA.exportAll();
             const customers = localData.customers || [];
             const jobs = localData.jobs || [];
+            const expenses = localData.expenses || [];
+            const payroll = localData.payroll || [];
             const deletedCustomers = localData.deletedCustomers || [];
             const deletedJobs = localData.deletedJobs || [];
+            const deletedExpenses = localData.deletedExpenses || [];
+            const deletedPayroll = localData.deletedPayroll || [];
 
-            await Promise.all([
+            const ownerOnly = userProfile && userProfile.role === 'owner';
+            const ops = [
                 _syncCollection('customers', customers, deletedCustomers),
                 _syncCollection('jobs', jobs, deletedJobs)
-            ]);
+            ];
+            if (ownerOnly) {
+                ops.push(_syncCollection('expenses', expenses, deletedExpenses));
+                ops.push(_syncCollection('payroll', payroll, deletedPayroll));
+            }
+            await Promise.all(ops);
 
             const userRef = db.collection('users').doc(currentUser.uid);
             await userRef.set({
                 deletedCustomers,
                 deletedJobs,
+                deletedExpenses: ownerOnly ? deletedExpenses : firebase.firestore.FieldValue.delete(),
+                deletedPayroll: ownerOnly ? deletedPayroll : firebase.firestore.FieldValue.delete(),
                 settings: JSON.parse(localStorage.getItem('cl-settings') || '{}'),
                 migrationVersion: MIGRATION_VERSION,
                 lastSync: firebase.firestore.FieldValue.serverTimestamp(),
@@ -640,6 +665,13 @@ const CL_FIREBASE = (function() {
         return snap.docs.map(d => d.data());
     }
 
+    async function _fetchOwnerOnlyCollection(collName) {
+        const role = (userProfile && userProfile.role) || 'worker';
+        if (role !== 'owner') return [];
+        const snap = await db.collection(collName).get();
+        return snap.docs.map(d => d.data());
+    }
+
     // Sync data from cloud. Pulls the per-user state doc plus the
     // role-appropriate set of jobs + all customers. Merge path into
     // CL_DATA is unchanged, so the rest of the app sees local arrays.
@@ -651,10 +683,12 @@ const CL_FIREBASE = (function() {
             await _runMigrationIfNeeded();
 
             const userRef = db.collection('users').doc(currentUser.uid);
-            const [userSnap, customers, jobs] = await Promise.all([
+            const [userSnap, customers, jobs, expenses, payroll] = await Promise.all([
                 userRef.get(),
                 _fetchAllCustomers(),
-                _fetchJobsForRole()
+                _fetchJobsForRole(),
+                _fetchOwnerOnlyCollection('expenses'),
+                _fetchOwnerOnlyCollection('payroll')
             ]);
 
             if (!userSnap.exists) {
@@ -669,8 +703,12 @@ const CL_FIREBASE = (function() {
                 version: 3,
                 customers,
                 jobs,
+                expenses,
+                payroll,
                 deletedCustomers: userData.deletedCustomers || [],
-                deletedJobs: userData.deletedJobs || []
+                deletedJobs: userData.deletedJobs || [],
+                deletedExpenses: userData.deletedExpenses || [],
+                deletedPayroll: userData.deletedPayroll || []
             });
 
             if (userData.settings) {

@@ -11,9 +11,13 @@
 var CL_DATA = {
     CUSTOMERS_KEY: 'cl-customers',
     JOBS_KEY: 'cl-jobs',
+    EXPENSES_KEY: 'cl-expenses',
+    PAYROLL_KEY: 'cl-payroll',
     MIGRATED_KEY: 'cl-data-migrated-v2',
     DELETED_CUSTOMERS_KEY: 'cl-deleted-customers',
     DELETED_JOBS_KEY: 'cl-deleted-jobs',
+    DELETED_EXPENSES_KEY: 'cl-deleted-expenses',
+    DELETED_PAYROLL_KEY: 'cl-deleted-payroll',
     
 
     // Diagnostics helpers
@@ -94,6 +98,16 @@ var CL_DATA = {
     getJobs() {
         return this.safeParse(this.JOBS_KEY, []);
     },
+
+    // Get all expenses
+    getExpenses() {
+        return this.safeParse(this.EXPENSES_KEY, []);
+    },
+
+    // Get all payroll entries
+    getPayroll() {
+        return this.safeParse(this.PAYROLL_KEY, []);
+    },
     
     // Central cloud-sync trigger. Every write sink calls this so updates,
     // deletes, document attachments, and photo edits — not just adds — reach
@@ -141,6 +155,18 @@ var CL_DATA = {
         this._maybeSync(opts);
     },
 
+    // Save expenses
+    saveExpenses(expenses, opts = {}) {
+        localStorage.setItem(this.EXPENSES_KEY, JSON.stringify(expenses));
+        this._maybeSync(opts);
+    },
+
+    // Save payroll entries
+    savePayroll(payrollEntries, opts = {}) {
+        localStorage.setItem(this.PAYROLL_KEY, JSON.stringify(payrollEntries));
+        this._maybeSync(opts);
+    },
+
     // Deleted tombstones
     getDeletedCustomers() {
         return this.safeParse(this.DELETED_CUSTOMERS_KEY, []);
@@ -148,12 +174,26 @@ var CL_DATA = {
     getDeletedJobs() {
         return this.safeParse(this.DELETED_JOBS_KEY, []);
     },
+    getDeletedExpenses() {
+        return this.safeParse(this.DELETED_EXPENSES_KEY, []);
+    },
+    getDeletedPayroll() {
+        return this.safeParse(this.DELETED_PAYROLL_KEY, []);
+    },
     saveDeletedCustomers(deleted, opts = {}) {
         localStorage.setItem(this.DELETED_CUSTOMERS_KEY, JSON.stringify(deleted));
         this._maybeSync(opts);
     },
     saveDeletedJobs(deleted, opts = {}) {
         localStorage.setItem(this.DELETED_JOBS_KEY, JSON.stringify(deleted));
+        this._maybeSync(opts);
+    },
+    saveDeletedExpenses(deleted, opts = {}) {
+        localStorage.setItem(this.DELETED_EXPENSES_KEY, JSON.stringify(deleted));
+        this._maybeSync(opts);
+    },
+    saveDeletedPayroll(deleted, opts = {}) {
+        localStorage.setItem(this.DELETED_PAYROLL_KEY, JSON.stringify(deleted));
         this._maybeSync(opts);
     },
     addTombstone(list, id) {
@@ -181,6 +221,20 @@ var CL_DATA = {
         this.saveJobs(jobs);
         return job;
     },
+
+    addExpense(expense) {
+        const expenses = this.getExpenses();
+        expenses.push(expense);
+        this.saveExpenses(expenses);
+        return expense;
+    },
+
+    addPayrollEntry(entry) {
+        const payroll = this.getPayroll();
+        payroll.push(entry);
+        this.savePayroll(payroll);
+        return entry;
+    },
     
     // Update a customer
     updateCustomer(id, updates) {
@@ -205,6 +259,28 @@ var CL_DATA = {
         }
         return null;
     },
+
+    updateExpense(id, updates) {
+        const expenses = this.getExpenses();
+        const index = expenses.findIndex(e => e.id === id);
+        if (index >= 0) {
+            expenses[index] = { ...expenses[index], ...updates, lastUpdated: new Date().toISOString() };
+            this.saveExpenses(expenses);
+            return expenses[index];
+        }
+        return null;
+    },
+
+    updatePayrollEntry(id, updates) {
+        const payroll = this.getPayroll();
+        const index = payroll.findIndex(e => e.id === id);
+        if (index >= 0) {
+            payroll[index] = { ...payroll[index], ...updates, lastUpdated: new Date().toISOString() };
+            this.savePayroll(payroll);
+            return payroll[index];
+        }
+        return null;
+    },
     
     // Delete a customer
     deleteCustomer(id) {
@@ -220,6 +296,20 @@ var CL_DATA = {
         this.saveJobs(jobs);
         const deleted = this.addTombstone(this.getDeletedJobs(), id);
         this.saveDeletedJobs(deleted);
+    },
+
+    deleteExpense(id) {
+        const expenses = this.getExpenses().filter(e => e.id !== id);
+        this.saveExpenses(expenses);
+        const deleted = this.addTombstone(this.getDeletedExpenses(), id);
+        this.saveDeletedExpenses(deleted);
+    },
+
+    deletePayrollEntry(id) {
+        const payroll = this.getPayroll().filter(e => e.id !== id);
+        this.savePayroll(payroll);
+        const deleted = this.addTombstone(this.getDeletedPayroll(), id);
+        this.saveDeletedPayroll(deleted);
     },
     
     // Find customer by ID
@@ -355,7 +445,13 @@ var CL_DATA = {
     clearAll() {
         localStorage.removeItem(this.CUSTOMERS_KEY);
         localStorage.removeItem(this.JOBS_KEY);
+        localStorage.removeItem(this.EXPENSES_KEY);
+        localStorage.removeItem(this.PAYROLL_KEY);
         localStorage.removeItem(this.MIGRATED_KEY);
+        localStorage.removeItem(this.DELETED_CUSTOMERS_KEY);
+        localStorage.removeItem(this.DELETED_JOBS_KEY);
+        localStorage.removeItem(this.DELETED_EXPENSES_KEY);
+        localStorage.removeItem(this.DELETED_PAYROLL_KEY);
     },
     
     // Export all data
@@ -365,8 +461,12 @@ var CL_DATA = {
             exportedAt: new Date().toISOString(),
             customers: this.getCustomers(),
             jobs: this.getJobs(),
+            expenses: this.getExpenses(),
+            payroll: this.getPayroll(),
             deletedCustomers: this.getDeletedCustomers(),
-            deletedJobs: this.getDeletedJobs()
+            deletedJobs: this.getDeletedJobs(),
+            deletedExpenses: this.getDeletedExpenses(),
+            deletedPayroll: this.getDeletedPayroll()
         };
     },
     
@@ -376,8 +476,12 @@ var CL_DATA = {
             // New format
             if (data.customers) this.saveCustomers(data.customers);
             if (data.jobs) this.saveJobs(data.jobs);
+            if (data.expenses) this.saveExpenses(data.expenses);
+            if (data.payroll) this.savePayroll(data.payroll);
             if (data.deletedCustomers) this.saveDeletedCustomers(data.deletedCustomers);
             if (data.deletedJobs) this.saveDeletedJobs(data.deletedJobs);
+            if (data.deletedExpenses) this.saveDeletedExpenses(data.deletedExpenses);
+            if (data.deletedPayroll) this.saveDeletedPayroll(data.deletedPayroll);
             localStorage.setItem(this.MIGRATED_KEY, 'true');
         } else {
             // Old format - save and run migration
@@ -392,11 +496,17 @@ var CL_DATA = {
         if (!data) return;
         const localCustomers = this.getCustomers();
         const localJobs = this.getJobs();
+        const localExpenses = this.getExpenses();
+        const localPayroll = this.getPayroll();
         const localDeletedCustomers = this.getDeletedCustomers();
         const localDeletedJobs = this.getDeletedJobs();
+        const localDeletedExpenses = this.getDeletedExpenses();
+        const localDeletedPayroll = this.getDeletedPayroll();
 
         const remoteDeletedCustomers = Array.isArray(data.deletedCustomers) ? data.deletedCustomers : [];
         const remoteDeletedJobs = Array.isArray(data.deletedJobs) ? data.deletedJobs : [];
+        const remoteDeletedExpenses = Array.isArray(data.deletedExpenses) ? data.deletedExpenses : [];
+        const remoteDeletedPayroll = Array.isArray(data.deletedPayroll) ? data.deletedPayroll : [];
 
         const mergeTombstones = (localList, remoteList) => {
             const map = new Map();
@@ -412,9 +522,13 @@ var CL_DATA = {
 
         const mergedDeletedCustomers = mergeTombstones(localDeletedCustomers, remoteDeletedCustomers);
         const mergedDeletedJobs = mergeTombstones(localDeletedJobs, remoteDeletedJobs);
+        const mergedDeletedExpenses = mergeTombstones(localDeletedExpenses, remoteDeletedExpenses);
+        const mergedDeletedPayroll = mergeTombstones(localDeletedPayroll, remoteDeletedPayroll);
 
         const deletedCustomerMap = new Map(mergedDeletedCustomers.map(d => [d.id, d.deletedAt || 0]));
         const deletedJobMap = new Map(mergedDeletedJobs.map(d => [d.id, d.deletedAt || 0]));
+        const deletedExpenseMap = new Map(mergedDeletedExpenses.map(d => [d.id, d.deletedAt || 0]));
+        const deletedPayrollMap = new Map(mergedDeletedPayroll.map(d => [d.id, d.deletedAt || 0]));
 
         const mergeRecords = (localList, remoteList, deletedMap) => {
             const map = new Map();
@@ -445,9 +559,13 @@ var CL_DATA = {
 
         const remoteCustomers = Array.isArray(data.customers) ? data.customers : [];
         const remoteJobs = Array.isArray(data.jobs) ? data.jobs : [];
+        const remoteExpenses = Array.isArray(data.expenses) ? data.expenses : [];
+        const remotePayroll = Array.isArray(data.payroll) ? data.payroll : [];
 
         const mergedCustomers = mergeRecords(localCustomers, remoteCustomers, deletedCustomerMap);
         const mergedJobs = mergeRecords(localJobs, remoteJobs, deletedJobMap);
+        const mergedExpenses = mergeRecords(localExpenses, remoteExpenses, deletedExpenseMap);
+        const mergedPayroll = mergeRecords(localPayroll, remotePayroll, deletedPayrollMap);
 
         // Avoid unnecessary localStorage writes + UI rerenders when the cloud
         // payload is identical to what we already have locally. Frequent pulls
@@ -472,21 +590,33 @@ var CL_DATA = {
         const before = [
             sigRecords(localCustomers),
             sigRecords(localJobs),
+            sigRecords(localExpenses),
+            sigRecords(localPayroll),
             sigTombstones(localDeletedCustomers),
-            sigTombstones(localDeletedJobs)
+            sigTombstones(localDeletedJobs),
+            sigTombstones(localDeletedExpenses),
+            sigTombstones(localDeletedPayroll)
         ].join('~~');
         const after = [
             sigRecords(mergedCustomers),
             sigRecords(mergedJobs),
+            sigRecords(mergedExpenses),
+            sigRecords(mergedPayroll),
             sigTombstones(mergedDeletedCustomers),
-            sigTombstones(mergedDeletedJobs)
+            sigTombstones(mergedDeletedJobs),
+            sigTombstones(mergedDeletedExpenses),
+            sigTombstones(mergedDeletedPayroll)
         ].join('~~');
 
         if (before !== after) {
             this.saveDeletedCustomers(mergedDeletedCustomers, { skipSync: true });
             this.saveDeletedJobs(mergedDeletedJobs, { skipSync: true });
+            this.saveDeletedExpenses(mergedDeletedExpenses, { skipSync: true });
+            this.saveDeletedPayroll(mergedDeletedPayroll, { skipSync: true });
             this.saveCustomers(mergedCustomers, { skipSync: true });
             this.saveJobs(mergedJobs, { skipSync: true });
+            this.saveExpenses(mergedExpenses, { skipSync: true });
+            this.savePayroll(mergedPayroll, { skipSync: true });
             localStorage.setItem(this.MIGRATED_KEY, 'true');
             if (typeof window !== 'undefined') {
                 try {

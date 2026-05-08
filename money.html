@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0b0e14">
+    <title>Money - Clearline</title>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script src="data-migration.js"></script>
+    <script src="firebase-sync.js?v=4"></script>
+    <link rel="stylesheet" href="app.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .money-tabs { display:flex; gap:8px; margin-bottom: 12px; }
+        .money-tab {
+            flex:1; padding:10px 12px; border-radius: 999px;
+            background: rgba(51,65,85,0.45); border: 1px solid rgba(255,255,255,0.10);
+            color:#cbd5e1; font-weight: 700; font-size: 12px;
+        }
+        .money-tab.active {
+            background: rgba(46,123,255,0.18);
+            border-color: rgba(46,123,255,0.55);
+            color:#93c5fd;
+        }
+        .money-row {
+            display:flex; align-items:center; gap:10px;
+            padding: 12px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            text-decoration:none; color: inherit;
+        }
+        .money-row:last-child { border-bottom: none; }
+        .money-dot { width: 10px; height: 10px; border-radius: 999px; background: rgba(148,163,184,0.45); }
+        .money-amt { margin-left:auto; font-weight: 800; color: #e2e8f0; }
+        .money-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+        .pill { font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; }
+        .pill.tax { background: rgba(251,191,36,0.14); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+        .pill.pay { background: rgba(167,139,250,0.14); color: #a78bfa; border: 1px solid rgba(167,139,250,0.25); }
+        .pill.exp { background: rgba(52,211,153,0.14); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
+        .form-grid { display:grid; gap:10px; }
+        .form-grid label { font-size: 12px; color:#94a3b8; display:block; margin-bottom:4px; }
+        .form-grid input, .form-grid select, .form-grid textarea {
+            width:100%; padding: 12px; border-radius: 12px;
+        }
+        .btn-primary {
+            width:100%; padding: 12px; border-radius: 14px;
+            background: linear-gradient(135deg, #2e7bff, #1d4ed8);
+            border:none; color:#fff; font-weight: 800;
+        }
+        .btn-muted {
+            width:100%; padding: 12px; border-radius: 14px;
+            background: rgba(51,65,85,0.45);
+            border: 1px solid rgba(255,255,255,0.10); color:#e2e8f0; font-weight: 800;
+        }
+        .danger {
+            background: rgba(239,68,68,0.15);
+            border: 1px solid rgba(239,68,68,0.25);
+            color: #fecaca;
+        }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <div class="app-header-inner" style="justify-content:space-between;">
+            <a href="more.html" class="header-btn header-btn-left" aria-label="Back"><i class="fas fa-chevron-left"></i></a>
+            <h1>Money</h1>
+            <button id="addBtn" class="header-icon-btn" style="color: var(--electric, #2e7bff);" aria-label="Add"><i class="fas fa-plus"></i></button>
+        </div>
+    </header>
+
+    <main class="app-content">
+        <div class="content-wrapper">
+            <div id="ownerOnlyBanner" class="glass-card rounded-xl p-3 text-sm text-gray-300 hidden" style="margin-bottom: 12px;">
+                <i class="fas fa-lock mr-1" style="color:#fbbf24;"></i> Money is owner-only.
+            </div>
+
+            <div class="money-tabs">
+                <button type="button" class="money-tab active" id="tabExpenses" onclick="setTab('expenses')">Expenses</button>
+                <button type="button" class="money-tab" id="tabPayroll" onclick="setTab('payroll')">Payroll</button>
+                <button type="button" class="money-tab" id="tabTaxes" onclick="setTab('taxes')">Taxes</button>
+                <button type="button" class="money-tab" id="tabReports" onclick="setTab('reports')">Reports</button>
+            </div>
+
+            <div id="statsRow" class="stats-grid stats-grid--4 mb-3"></div>
+            <div id="moneyBody"></div>
+        </div>
+    </main>
+
+    <div id="moneyModal" class="modal" hidden role="dialog" aria-modal="true">
+        <div class="modal-content glass-card" role="document" style="width:100%;max-width:500px;max-height:90vh;overflow-y:auto;">
+            <div class="modal-header" style="padding: 16px; display:flex; align-items:center; justify-content:space-between;">
+                <h2 id="moneyModalTitle" style="font-size:18px;font-weight:800;margin:0;">Add</h2>
+                <button class="modal-close-btn" onclick="closeModal('moneyModal')" aria-label="Close">&times;</button>
+            </div>
+            <div style="padding: 16px;">
+                <div id="moneyModalBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let myProfile = null;
+        let currentTab = 'expenses';
+        let editing = null; // { kind: 'expense'|'payroll', id }
+
+        const TAX_CATS = [
+            { id: 'advertising', label: 'Advertising' },
+            { id: 'car_truck', label: 'Car and truck (gas, maintenance)' },
+            { id: 'chemicals_supplies', label: 'Chemicals & supplies' },
+            { id: 'contract_labor', label: 'Contract labor' },
+            { id: 'depreciation', label: 'Depreciation' },
+            { id: 'insurance', label: 'Insurance' },
+            { id: 'interest', label: 'Interest' },
+            { id: 'legal_professional', label: 'Legal & professional' },
+            { id: 'office', label: 'Office expense' },
+            { id: 'rent', label: 'Rent/lease' },
+            { id: 'repairs', label: 'Repairs & maintenance' },
+            { id: 'meals', label: 'Meals (business)' },
+            { id: 'taxes_licenses', label: 'Taxes & licenses' },
+            { id: 'travel', label: 'Travel' },
+            { id: 'utilities', label: 'Utilities' },
+            { id: 'wages', label: 'Wages (payroll)' },
+            { id: 'other', label: 'Other' }
+        ];
+
+        function fmtMoney(n) {
+            const v = Number(n || 0);
+            if (!isFinite(v)) return '$0';
+            return '$' + v.toFixed(0);
+        }
+
+        function parseAmt(v) {
+            const n = parseFloat(String(v || '').replace(/[^0-9.\-]/g, ''));
+            return isNaN(n) ? 0 : n;
+        }
+
+        function ymdNow() {
+            return (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
+        }
+
+        function monthKey(ymd) {
+            return String(ymd || '').slice(0, 7);
+        }
+
+        function setTab(tab) {
+            currentTab = tab;
+            ['expenses','payroll','taxes','reports'].forEach(t => {
+                document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+            });
+            render();
+        }
+
+        function ensureOwner() {
+            if (!myProfile) return false;
+            return myProfile.role === 'owner';
+        }
+
+        function showOwnerOnlyUI() {
+            const banner = document.getElementById('ownerOnlyBanner');
+            const addBtn = document.getElementById('addBtn');
+            if (!ensureOwner()) {
+                banner.classList.remove('hidden');
+                addBtn.classList.add('hidden');
+            } else {
+                banner.classList.add('hidden');
+                addBtn.classList.remove('hidden');
+            }
+        }
+
+        function openAdd() {
+            if (!ensureOwner()) { showToast('Owner only', 'error'); return; }
+            editing = null;
+            if (currentTab === 'payroll') openPayrollModal();
+            else openExpenseModal();
+        }
+
+        function openExpenseModal(expense) {
+            const isEdit = !!expense;
+            document.getElementById('moneyModalTitle').textContent = isEdit ? 'Edit expense' : 'Add expense';
+            const opts = TAX_CATS.map(c => `<option value="${c.id}" ${expense && expense.taxCategory === c.id ? 'selected' : ''}>${c.label}</option>`).join('');
+            document.getElementById('moneyModalBody').innerHTML = `
+                <div class="form-grid">
+                    <div>
+                        <label>Date</label>
+                        <input id="expDate" type="date" value="${(expense && expense.date) || ymdNow()}">
+                    </div>
+                    <div>
+                        <label>Amount</label>
+                        <input id="expAmount" inputmode="decimal" placeholder="0" value="${expense ? String(expense.amount || '') : ''}">
+                    </div>
+                    <div>
+                        <label>Tax category</label>
+                        <select id="expCat">${opts}</select>
+                    </div>
+                    <div>
+                        <label>Vendor (optional)</label>
+                        <input id="expVendor" placeholder="Home Depot" value="${expense ? String(expense.vendor || '') : ''}">
+                    </div>
+                    <div>
+                        <label>Description</label>
+                        <input id="expDesc" placeholder="Gas, detergent, etc." value="${expense ? String(expense.description || '') : ''}">
+                    </div>
+                    <button class="btn-primary" type="button" onclick="saveExpense(${expense ? JSON.stringify(expense.id) : 'null'})">${isEdit ? 'Save changes' : 'Add expense'}</button>
+                    ${isEdit ? `<button class="btn-muted danger" type="button" onclick="deleteExpense(${JSON.stringify(expense.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
+                </div>
+            `;
+            openModal('moneyModal');
+        }
+
+        function saveExpense(id) {
+            const date = document.getElementById('expDate').value || ymdNow();
+            const amount = parseAmt(document.getElementById('expAmount').value);
+            const taxCategory = document.getElementById('expCat').value || 'other';
+            const vendor = document.getElementById('expVendor').value || '';
+            const description = document.getElementById('expDesc').value || '';
+            if (!amount || amount <= 0) { showToast('Enter an amount', 'error'); return; }
+            if (!date) { showToast('Pick a date', 'error'); return; }
+
+            if (id) {
+                CL_DATA.updateExpense(id, { date, amount, taxCategory, vendor, description });
+                showToast('Expense saved', 'success');
+            } else {
+                const nowIso = new Date().toISOString();
+                CL_DATA.addExpense({
+                    id: 'exp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8),
+                    date,
+                    amount,
+                    taxCategory,
+                    vendor,
+                    description,
+                    createdAt: nowIso,
+                    lastUpdated: nowIso
+                });
+                showToast('Expense added', 'success');
+            }
+            closeModal('moneyModal');
+            render();
+        }
+
+        function deleteExpense(id) {
+            if (!confirm('Delete this expense?')) return;
+            CL_DATA.deleteExpense(id);
+            closeModal('moneyModal');
+            showToast('Expense deleted', 'success');
+            render();
+        }
+
+        function openPayrollModal(entry) {
+            const isEdit = !!entry;
+            document.getElementById('moneyModalTitle').textContent = isEdit ? 'Edit payroll' : 'Add payroll';
+            document.getElementById('moneyModalBody').innerHTML = `
+                <div class="form-grid">
+                    <div>
+                        <label>Date</label>
+                        <input id="payDate" type="date" value="${(entry && entry.date) || ymdNow()}">
+                    </div>
+                    <div>
+                        <label>Worker name</label>
+                        <input id="payName" placeholder="Employee" value="${entry ? String(entry.workerName || '') : ''}">
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <div>
+                            <label>Hours</label>
+                            <input id="payHours" inputmode="decimal" placeholder="0" value="${entry ? String(entry.hours || '') : ''}">
+                        </div>
+                        <div>
+                            <label>Rate</label>
+                            <input id="payRate" inputmode="decimal" placeholder="0" value="${entry ? String(entry.rate || '') : ''}">
+                        </div>
+                    </div>
+                    <div>
+                        <label>Notes (optional)</label>
+                        <input id="payNotes" placeholder="Week ending..." value="${entry ? String(entry.notes || '') : ''}">
+                    </div>
+                    <button class="btn-primary" type="button" onclick="savePayroll(${entry ? JSON.stringify(entry.id) : 'null'})">${isEdit ? 'Save changes' : 'Add payroll'}</button>
+                    ${isEdit ? `<button class="btn-muted danger" type="button" onclick="deletePayroll(${JSON.stringify(entry.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
+                </div>
+            `;
+            openModal('moneyModal');
+        }
+
+        function savePayroll(id) {
+            const date = document.getElementById('payDate').value || ymdNow();
+            const workerName = document.getElementById('payName').value || '';
+            const hours = parseAmt(document.getElementById('payHours').value);
+            const rate = parseAmt(document.getElementById('payRate').value);
+            const notes = document.getElementById('payNotes').value || '';
+            const grossPay = Math.round(hours * rate * 100) / 100;
+            if (!hours || hours <= 0) { showToast('Enter hours', 'error'); return; }
+            if (!rate || rate <= 0) { showToast('Enter rate', 'error'); return; }
+
+            if (id) {
+                CL_DATA.updatePayrollEntry(id, { date, workerName, hours, rate, grossPay, notes });
+                showToast('Payroll saved', 'success');
+            } else {
+                const nowIso = new Date().toISOString();
+                CL_DATA.addPayrollEntry({
+                    id: 'pay_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8),
+                    date,
+                    workerName,
+                    hours,
+                    rate,
+                    grossPay,
+                    notes,
+                    createdAt: nowIso,
+                    lastUpdated: nowIso,
+                    taxCategory: 'wages'
+                });
+                showToast('Payroll added', 'success');
+            }
+            closeModal('moneyModal');
+            render();
+        }
+
+        function deletePayroll(id) {
+            if (!confirm('Delete this payroll entry?')) return;
+            CL_DATA.deletePayrollEntry(id);
+            closeModal('moneyModal');
+            showToast('Payroll deleted', 'success');
+            render();
+        }
+
+        function calcStats() {
+            const jobs = CL_DATA.getJobs();
+            const expenses = CL_DATA.getExpenses();
+            const payroll = CL_DATA.getPayroll();
+            const month = monthKey(ymdNow());
+
+            const revMonth = jobs
+                .filter(j => j.status === 'completed' && j.jobDate && monthKey(j.jobDate) === month)
+                .reduce((s, j) => s + (window.getJobDisplayTotal ? getJobDisplayTotal(j) : 0), 0);
+
+            const expMonth = expenses
+                .filter(e => e.date && monthKey(e.date) === month)
+                .reduce((s, e) => s + Number(e.amount || 0), 0);
+
+            const payMonth = payroll
+                .filter(p => p.date && monthKey(p.date) === month)
+                .reduce((s, p) => s + Number(p.grossPay || 0), 0);
+
+            return { month, revMonth, expMonth, payMonth, profitMonth: revMonth - expMonth - payMonth };
+        }
+
+        function renderStats() {
+            const st = calcStats();
+            const stats = document.getElementById('statsRow');
+            const cards = [
+                { label: 'Revenue (mo.)', value: fmtMoney(st.revMonth), color:'#34d399' },
+                { label: 'Expenses (mo.)', value: fmtMoney(st.expMonth), color:'#fbbf24' },
+                { label: 'Payroll (mo.)', value: fmtMoney(st.payMonth), color:'#a78bfa' },
+                { label: 'Profit (mo.)', value: fmtMoney(st.profitMonth), color:'#60a5fa' },
+            ];
+            stats.innerHTML = cards.map(c => `
+                <div class="stat-card">
+                    <p class="value" style="color:${c.color};">${c.value}</p>
+                    <p class="label">${c.label}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderExpenses() {
+            const expenses = CL_DATA.getExpenses().slice().sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')) || String(b.lastUpdated||'').localeCompare(String(a.lastUpdated||'')));
+            if (!expenses.length) {
+                return `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
+                    <i class="fas fa-receipt text-3xl mb-2"></i>
+                    <p>No expenses yet</p>
+                    <p class="text-xs text-gray-500 mt-1">Tap + to add your first expense.</p>
+                </div>`;
+            }
+            const catLabel = (id) => (TAX_CATS.find(c => c.id === id)?.label || 'Other');
+            return `<div class="glass-card" style="overflow:hidden;">
+                ${expenses.map(e => `
+                    <a href="#" class="money-row" onclick="event.preventDefault(); openExpenseModal(${JSON.stringify(e)});">
+                        <span class="money-dot" style="background: rgba(52,211,153,0.55);"></span>
+                        <div style="min-width:0;">
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <p style="font-weight:800; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 220px;">${esc(e.vendor || e.description || 'Expense')}</p>
+                                <span class="pill exp">Expense</span>
+                                <span class="pill tax">${esc(catLabel(e.taxCategory))}</span>
+                            </div>
+                            <p class="money-sub">${esc(e.date || '')}${e.description ? ` · ${esc(e.description)}` : ''}</p>
+                        </div>
+                        <div class="money-amt">${fmtMoney(e.amount)}</div>
+                    </a>
+                `).join('')}
+            </div>`;
+        }
+
+        function renderPayroll() {
+            const payroll = CL_DATA.getPayroll().slice().sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')) || String(b.lastUpdated||'').localeCompare(String(a.lastUpdated||'')));
+            if (!payroll.length) {
+                return `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
+                    <i class="fas fa-user-clock text-3xl mb-2"></i>
+                    <p>No payroll entries yet</p>
+                    <p class="text-xs text-gray-500 mt-1">Tap + to add hours and rate.</p>
+                </div>`;
+            }
+            return `<div class="glass-card" style="overflow:hidden;">
+                ${payroll.map(p => `
+                    <a href="#" class="money-row" onclick="event.preventDefault(); openPayrollModal(${JSON.stringify(p)});">
+                        <span class="money-dot" style="background: rgba(167,139,250,0.55);"></span>
+                        <div style="min-width:0;">
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <p style="font-weight:800; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 220px;">${esc(p.workerName || 'Payroll')}</p>
+                                <span class="pill pay">Payroll</span>
+                            </div>
+                            <p class="money-sub">${esc(p.date || '')} · ${Number(p.hours||0)}h @ ${fmtMoney(p.rate||0)}</p>
+                        </div>
+                        <div class="money-amt">${fmtMoney(p.grossPay || (Number(p.hours||0) * Number(p.rate||0)))}</div>
+                    </a>
+                `).join('')}
+            </div>`;
+        }
+
+        function rollupByMonth(list, getDate, getAmt) {
+            const m = new Map();
+            for (const it of list) {
+                const d = getDate(it);
+                if (!d) continue;
+                const k = monthKey(d);
+                m.set(k, (m.get(k) || 0) + Number(getAmt(it) || 0));
+            }
+            return Array.from(m.entries()).sort((a,b) => b[0].localeCompare(a[0]));
+        }
+
+        function quarterKey(ymd) {
+            const m = parseInt(String(ymd||'').slice(5,7), 10) || 0;
+            const q = m <= 3 ? 1 : m <= 6 ? 2 : m <= 9 ? 3 : 4;
+            return String(ymd||'').slice(0,4) + '-Q' + q;
+        }
+
+        function renderTaxes() {
+            const expenses = CL_DATA.getExpenses();
+            const payroll = CL_DATA.getPayroll();
+            const all = expenses
+                .map(e => ({ kind:'expense', date: e.date, taxCategory: e.taxCategory || 'other', amount: Number(e.amount||0) }))
+                .concat(payroll.map(p => ({ kind:'payroll', date: p.date, taxCategory: 'wages', amount: Number(p.grossPay||0) })));
+
+            if (!all.length) {
+                return `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
+                    <i class="fas fa-file-invoice text-3xl mb-2"></i>
+                    <p>No tax data yet</p>
+                    <p class="text-xs text-gray-500 mt-1">Add expenses or payroll to see category totals.</p>
+                </div>`;
+            }
+
+            const byCatMonth = {};
+            const byCatQuarter = {};
+            for (const it of all) {
+                const cat = it.taxCategory || 'other';
+                const mk = monthKey(it.date);
+                const qk = quarterKey(it.date);
+                byCatMonth[cat] = byCatMonth[cat] || {};
+                byCatMonth[cat][mk] = (byCatMonth[cat][mk] || 0) + it.amount;
+                byCatQuarter[cat] = byCatQuarter[cat] || {};
+                byCatQuarter[cat][qk] = (byCatQuarter[cat][qk] || 0) + it.amount;
+            }
+
+            const catLabel = (id) => (TAX_CATS.find(c => c.id === id)?.label || 'Other');
+            const cats = Object.keys(byCatMonth).sort();
+            const months = Array.from(new Set(all.map(it => monthKey(it.date)))).sort().reverse().slice(0, 6);
+            const quarters = Array.from(new Set(all.map(it => quarterKey(it.date)))).sort().reverse().slice(0, 6);
+
+            const rowsFor = (bucket, keys) => cats.map(cat => {
+                const total = keys.reduce((s,k) => s + Number((bucket[cat] && bucket[cat][k]) || 0), 0);
+                return { cat, total };
+            }).sort((a,b) => b.total - a.total);
+
+            const monthRows = rowsFor(byCatMonth, months);
+            const quarterRows = rowsFor(byCatQuarter, quarters);
+
+            const table = (title, keys, rows) => `
+                <p class="section-title" style="margin-top: 6px;">${title}</p>
+                <div class="glass-card" style="overflow:hidden;">
+                    ${rows.filter(r => r.total > 0).map(r => `
+                        <div class="money-row">
+                            <span class="money-dot" style="background: rgba(251,191,36,0.55);"></span>
+                            <div style="min-width:0;">
+                                <p style="font-weight:800;margin:0;">${esc(catLabel(r.cat))}</p>
+                                <p class="money-sub">${keys.join(' · ')}</p>
+                            </div>
+                            <div class="money-amt">${fmtMoney(r.total)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            return table('Monthly totals (latest)', months, monthRows) + table('Quarterly totals (latest)', quarters, quarterRows);
+        }
+
+        function renderReports() {
+            const jobs = CL_DATA.getJobs().filter(j => j.status === 'completed' && j.jobDate);
+            const expenses = CL_DATA.getExpenses().filter(e => e.date);
+            const payroll = CL_DATA.getPayroll().filter(p => p.date);
+
+            const revByMonth = rollupByMonth(jobs, j => j.jobDate, j => (window.getJobDisplayTotal ? getJobDisplayTotal(j) : 0));
+            const expByMonth = rollupByMonth(expenses, e => e.date, e => e.amount);
+            const payByMonth = rollupByMonth(payroll, p => p.date, p => (p.grossPay || (Number(p.hours||0)*Number(p.rate||0))));
+
+            const idx = (pairs) => new Map(pairs.map(([k,v]) => [k, v]));
+            const iRev = idx(revByMonth), iExp = idx(expByMonth), iPay = idx(payByMonth);
+            const months = Array.from(new Set([ ...iRev.keys(), ...iExp.keys(), ...iPay.keys() ])).sort().reverse().slice(0, 12);
+
+            if (!months.length) {
+                return `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
+                    <i class="fas fa-chart-line text-3xl mb-2"></i>
+                    <p>No report data yet</p>
+                    <p class="text-xs text-gray-500 mt-1">Complete a job and add an expense to see profit by month.</p>
+                </div>`;
+            }
+
+            return `<div class="glass-card" style="overflow:hidden;">
+                ${months.map(m => {
+                    const rev = iRev.get(m) || 0;
+                    const exp = iExp.get(m) || 0;
+                    const pay = iPay.get(m) || 0;
+                    const profit = rev - exp - pay;
+                    return `
+                        <div class="money-row">
+                            <span class="money-dot" style="background: rgba(96,165,250,0.55);"></span>
+                            <div style="min-width:0;">
+                                <p style="font-weight:900;margin:0;">${esc(m)}</p>
+                                <p class="money-sub">Rev ${fmtMoney(rev)} · Exp ${fmtMoney(exp)} · Pay ${fmtMoney(pay)}</p>
+                            </div>
+                            <div class="money-amt" style="color:${profit >= 0 ? '#34d399' : '#f87171'};">${fmtMoney(profit)}</div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>`;
+        }
+
+        function render() {
+            showOwnerOnlyUI();
+            renderStats();
+
+            const body = document.getElementById('moneyBody');
+            if (!ensureOwner()) {
+                body.innerHTML = `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
+                    <i class="fas fa-lock text-3xl mb-2"></i>
+                    <p>Owner only</p>
+                    <p class="text-xs text-gray-500 mt-1">Ask your owner for access to Money.</p>
+                </div>`;
+                return;
+            }
+
+            if (currentTab === 'expenses') body.innerHTML = renderExpenses();
+            else if (currentTab === 'payroll') body.innerHTML = renderPayroll();
+            else if (currentTab === 'taxes') body.innerHTML = renderTaxes();
+            else body.innerHTML = renderReports();
+        }
+
+        function start(profile) {
+            myProfile = profile;
+            render();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setActiveNav();
+            document.getElementById('addBtn').addEventListener('click', openAdd);
+            const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
+            if (p) start(p);
+        });
+        window.addEventListener('cl-profile-updated', (e) => start(e.detail && e.detail.profile));
+        window.addEventListener('cl-sync-updated', () => render());
+    </script>
+</body>
+</html>
+
