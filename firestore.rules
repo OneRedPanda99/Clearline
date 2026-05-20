@@ -1,0 +1,157 @@
+rules_version = '2';
+// Clearline static HTML app — publish in Firebase Console → Firestore → Rules
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+
+    function userRef() { return /databases/$(db)/documents/users/$(uid()); }
+    function hasUserDoc() { return signedIn() && exists(userRef()); }
+    function userDoc() { return get(userRef()); }
+
+    function role() {
+      return hasUserDoc() && userDoc().data.role is string ? userDoc().data.role : "worker";
+    }
+
+    function perms() {
+      return hasUserDoc() && userDoc().data.permissions is map ? userDoc().data.permissions : {};
+    }
+
+    function perm(flag) {
+      return role() == "owner" || (perms()[flag] == true);
+    }
+
+    function isOwner() { return signedIn() && role() == "owner"; }
+    function isManager() { return signedIn() && role() == "manager"; }
+    function isWorker() { return signedIn() && role() == "worker"; }
+
+    // Owner provisions workers/managers from manager-panel (Auth uid != doc id on create)
+    function ownerProvisioningUser() {
+      return isOwner()
+        && request.resource.data.createdBy == uid()
+        && request.resource.data.role is string
+        && request.resource.data.role in ["manager", "worker"];
+    }
+
+    // ── users/{uid} ─────────────────────────────
+    match /users/{userId} {
+      allow read: if signedIn() && (uid() == userId || isOwner() || isManager());
+      allow create: if signedIn() && (uid() == userId || ownerProvisioningUser());
+      allow update: if signedIn() && (uid() == userId || isOwner() || isManager());
+      allow delete: if false;
+    }
+
+    // ── settings/global ─────────────────────────
+    match /settings/global {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
+
+    // ── customers/{id} ──────────────────────────
+    match /customers/{id} {
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && perm("canCreateCustomers")
+        && request.resource.data.createdBy == uid();
+
+      allow update: if isOwner()
+        || (perm("canEditOwnCustomers")
+            && resource.data.createdBy == uid()
+            && request.resource.data.createdBy == resource.data.createdBy);
+
+      allow delete: if isOwner();
+    }
+
+    // ── jobs/{id} ───────────────────────────────
+    match /jobs/{id} {
+      allow read: if isOwner()
+        || (isManager() && (
+              resource.data.assignedManager == uid()
+              || resource.data.createdBy == uid()
+           ))
+        || (isWorker() && (
+              resource.data.assignedTo == uid()
+              || resource.data.createdBy == uid()
+           ));
+
+      allow create: if signedIn()
+        && (isOwner() || isManager() || perm("canCreateJobs"))
+        && request.resource.data.createdBy == uid();
+
+      allow update: if isOwner()
+        || (isManager()
+            && perm("canEditOwnJobs")
+            && resource.data.assignedManager == uid()
+            && request.resource.data.createdBy == resource.data.createdBy)
+        || (isWorker()
+            && perm("canEditOwnJobs")
+            && resource.data.createdBy == uid()
+            && request.resource.data.createdBy == resource.data.createdBy);
+
+      allow delete: if isOwner();
+    }
+
+    // ── estimates/{id} ──────────────────────────
+    match /estimates/{id} {
+
+      function jobSnap(jobId) {
+        return get(/databases/$(db)/documents/jobs/$(jobId));
+      }
+
+      function estLinkedToMyTeam() {
+        return (resource.data.jobId is string)
+          && exists(/databases/$(db)/documents/jobs/$(resource.data.jobId))
+          && jobSnap(resource.data.jobId).data.assignedManager == uid();
+      }
+
+      function estCreatorIsMyWorker() {
+        return !(resource.data.jobId is string)
+          && (resource.data.createdBy is string)
+          && exists(/databases/$(db)/documents/users/$(resource.data.createdBy))
+          && get(/databases/$(db)/documents/users/$(resource.data.createdBy)).data.assignedManager == uid();
+      }
+
+      allow read: if isOwner()
+        || resource.data.createdBy == uid()
+        || resource.data.userId == uid()
+        || (isManager() && (estLinkedToMyTeam() || estCreatorIsMyWorker()));
+
+      allow create: if signedIn()
+        && perm("canUseEstimateForm")
+        && request.resource.data.createdBy == uid();
+
+      allow update: if isOwner()
+        || resource.data.createdBy == uid()
+        || (isManager() && perm("canUseEstimateForm") && (estLinkedToMyTeam() || estCreatorIsMyWorker()));
+
+      allow delete: if isOwner();
+    }
+
+    // ── invoices/{id} ───────────────────────────
+    match /invoices/{id} {
+      allow read: if isOwner()
+        || resource.data.createdBy == uid()
+        || resource.data.userId == uid();
+
+      allow create: if signedIn()
+        && (isOwner() || perm("canUseEstimateForm"))
+        && request.resource.data.createdBy == uid();
+
+      allow update: if isOwner()
+        || resource.data.createdBy == uid()
+        || resource.data.userId == uid();
+
+      allow delete: if isOwner();
+    }
+
+    // ── expenses / payroll (Money page, owner-only) ──
+    match /expenses/{id} {
+      allow read, write: if isOwner();
+    }
+    match /payroll/{id} {
+      allow read, write: if isOwner();
+    }
+  }
+}

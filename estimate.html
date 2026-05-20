@@ -1163,7 +1163,7 @@
         const SURFACE_PROFILES = {
             siding:       { label: 'Vinyl Siding (Flat Panels)', shCoverage: 4000, sqftPerHr: 1250, defaultPrice: 0.20 },
             vinylFence:   { label: 'Vinyl Fence',                shCoverage: 3000, sqftPerHr:  650, defaultPrice: 0.25 },
-            concrete:     { label: 'Concrete / Flatwork',        shCoverage: 4000, sqftPerHr: 1750, defaultPrice: 0.30 },
+            concrete:     { label: 'Concrete / Flatwork',        shCoverage: 4000, sqftPerHr:  600, defaultPrice: 0.30 },
             roof:         { label: 'Roof',                       shCoverage: 1250, sqftPerHr:  600, defaultPrice: 0.45 },
             fence:        { label: 'Wood Fence',                 shCoverage: 2500, sqftPerHr:  650, defaultPrice: 0.35 },
             other:        { label: 'Other / Mixed',              shCoverage: 3000, sqftPerHr: 1000, defaultPrice: 0.30 }
@@ -1184,26 +1184,27 @@
         const FUEL_RATE_GAL_PER_HR = 0.675; // 13HP Loncin, moderate load
         const INTERNAL_LABOR_RATE  = 25;    // effective hourly cost — update here if it changes
 
+        function getDirtMultiplier(dirtLevel, surfaceType) {
+            let m;
+            if      (dirtLevel <= 1.0) m = 0.50;
+            else if (dirtLevel <= 2.0) m = 0.70;
+            else if (dirtLevel <= 3.0) m = 0.85;
+            else if (dirtLevel <= 3.5) m = 1.00;
+            else if (dirtLevel <= 4.0) m = 1.25;
+            else                       m = 1.60;
+            // Flatwork: cap speed-up on "easy" dirt (field ~8h/5000 sq ft at avg dirt)
+            if (surfaceType === 'concrete') m = Math.max(m, 0.85);
+            return m;
+        }
+
         function calculateTimeFromDirtLevel(squareFootage, dirtLevel, numWorkers, surfaceType) {
             const profile = getSurfaceProfile(surfaceType);
-
-            // Dirt multiplier — divides production rate (more dirt = slower output)
-            let dirtMultiplier;
-            if      (dirtLevel <= 1.0) dirtMultiplier = 0.50;
-            else if (dirtLevel <= 2.0) dirtMultiplier = 0.70;
-            else if (dirtLevel <= 3.0) dirtMultiplier = 0.85;
-            else if (dirtLevel <= 3.5) dirtMultiplier = 1.00;
-            else if (dirtLevel <= 4.0) dirtMultiplier = 1.25;
-            else                       dirtMultiplier = 1.60;
-
-            // Effective rate after dirt penalty
-            const effectiveSqftPerHr = profile.sqftPerHr / dirtMultiplier;
-
+            const effectiveSqftPerHr = profile.sqftPerHr / getDirtMultiplier(dirtLevel, surfaceType);
             let hours = squareFootage / effectiveSqftPerHr;
-
-            // Two workers: faster overall but not perfectly linear
-            if (numWorkers === 2) hours *= 0.60;
-
+            // Second machine helps; flatwork rarely cuts wall-clock in half
+            if (numWorkers === 2) {
+                hours *= surfaceType === 'concrete' ? 0.90 : 0.75;
+            }
             return hours;
         }
         

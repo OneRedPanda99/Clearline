@@ -431,7 +431,12 @@
                 await loadUsers();
             } catch (err) {
                 console.error(err);
-                showToast('Error: ' + (err.code || err.message || 'unknown'), 'error');
+                const code = err.code || '';
+                if (code === 'permission-denied' && mode === 'create') {
+                    showToast('Firestore blocked creating the user profile. In Firebase Console → Firestore Rules, allow owners to create users/{uid} (see firestore.rules in repo).', 'error');
+                } else {
+                    showToast('Error: ' + (code || err.message || 'unknown'), 'error');
+                }
             }
         }
 
