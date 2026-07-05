@@ -1,0 +1,52 @@
+name: Security Scan
+
+# Runs secret detection (Gitleaks) and static analysis (Semgrep) on every
+# push and pull request, plus a weekly scheduled sweep. All findings appear
+# under the repo's Actions tab; Semgrep also uploads SARIF to the Security
+# tab (Code scanning) when Advanced Security is available.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  gitleaks:
+    name: Secret detection (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so past commits are scanned too
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  semgrep:
+    name: Static analysis (Semgrep)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Semgrep
+        run: semgrep ci --sarif --output=semgrep.sarif || true
+        env:
+          # Ruleset covers XSS, injection, and general JS/security smells.
+          SEMGREP_RULES: >-
+            p/default
+            p/xss
+            p/javascript
+            p/secrets
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif

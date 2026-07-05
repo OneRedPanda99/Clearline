@@ -13,17 +13,6 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .money-tabs { display:flex; gap:8px; margin-bottom: 12px; }
-        .money-tab {
-            flex:1; padding:10px 12px; border-radius: 999px;
-            background: rgba(51,65,85,0.45); border: 1px solid rgba(255,255,255,0.10);
-            color:#cbd5e1; font-weight: 700; font-size: 12px;
-        }
-        .money-tab.active {
-            background: rgba(46,123,255,0.18);
-            border-color: rgba(46,123,255,0.55);
-            color:#93c5fd;
-        }
         .money-row {
             display:flex; align-items:center; gap:10px;
             padding: 12px 10px;
@@ -62,10 +51,14 @@
 </head>
 <body>
     <header class="app-header">
-        <div class="app-header-inner" style="justify-content:space-between;">
-            <a href="more.html" class="header-btn header-btn-left" aria-label="Back"><i class="fas fa-chevron-left"></i></a>
-            <h1>Money</h1>
-            <button id="addBtn" class="header-icon-btn" style="color: var(--electric, #2e7bff);" aria-label="Add"><i class="fas fa-plus"></i></button>
+        <div class="app-header-inner app-header-inner--split">
+            <div class="app-header-wing">
+                <a href="more.html" class="header-tool-btn" aria-label="Back"><i class="fas fa-chevron-left"></i></a>
+            </div>
+            <div class="app-header-center"><h1>Money</h1></div>
+            <div class="app-header-wing app-header-wing--end">
+                <button id="addBtn" class="header-action-btn" aria-label="Add"><i class="fas fa-plus"></i></button>
+            </div>
         </div>
     </header>
 
@@ -75,11 +68,11 @@
                 <i class="fas fa-lock mr-1" style="color:#fbbf24;"></i> Money is owner-only.
             </div>
 
-            <div class="money-tabs">
-                <button type="button" class="money-tab active" id="tabExpenses" onclick="setTab('expenses')">Expenses</button>
-                <button type="button" class="money-tab" id="tabPayroll" onclick="setTab('payroll')">Payroll</button>
-                <button type="button" class="money-tab" id="tabTaxes" onclick="setTab('taxes')">Taxes</button>
-                <button type="button" class="money-tab" id="tabReports" onclick="setTab('reports')">Reports</button>
+            <div class="page-tabs page-tabs--pills">
+                <button type="button" class="page-tab active" id="tabExpenses" onclick="setTab('expenses')">Expenses</button>
+                <button type="button" class="page-tab" id="tabPayroll" onclick="setTab('payroll')">Payroll</button>
+                <button type="button" class="page-tab" id="tabTaxes" onclick="setTab('taxes')">Taxes</button>
+                <button type="button" class="page-tab" id="tabReports" onclick="setTab('reports')">Reports</button>
             </div>
 
             <div id="statsRow" class="stats-grid stats-grid--4 mb-3"></div>

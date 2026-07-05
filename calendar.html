@@ -10,29 +10,12 @@
     <title>Calendar - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
-    <script>
-        window.tailwind = {
-            config: {
-                theme: {
-                    extend: {
-                        colors: {
-                            primary: '#0ea5e9',
-                            secondary: '#38bdf8',
-                            dark: '#0f172a',
-                            darker: '#020617',
-                            accent: '#06b6d4',
-                        }
-                    }
-                }
-            }
-        };
-    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="app.css">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="data-migration.js"></script>
-    <script src="firebase-sync.js?v=3"></script>
+    <script src="firebase-sync.js?v=4"></script>
     <style>
         .calendar-day {
             aspect-ratio: 1;
@@ -50,18 +33,18 @@
             opacity: 0.8;
         }
         .calendar-day.today {
-            border: 2px solid #0ea5e9;
-            box-shadow: 0 0 8px rgba(14, 165, 233, 0.3);
+            border: 2px solid var(--electric, #2e7bff);
+            box-shadow: 0 0 8px rgba(46, 123, 255, 0.3);
         }
         .calendar-day.has-jobs {
-            background: rgba(139, 92, 246, 0.2);
+            background: rgba(46, 123, 255, 0.18);
         }
         .job-dot {
             width: 5px;
             height: 5px;
             border-radius: 50%;
         }
-        .job-dot.scheduled { background: #8b5cf6; }
+        .job-dot.scheduled { background: #2e7bff; }
         .job-dot.completed { background: #10b981; }
         .job-dot.followup { background: #f59e0b; }
         .job-dot.new { background: #3b82f6; }
@@ -107,7 +90,7 @@
         .status-new { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
         .status-followup,
         .status-quoted { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-        .status-scheduled { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+        .status-scheduled { background: rgba(46, 123, 255, 0.2); color: #7fb0ff; }
         .status-completed { background: rgba(16, 185, 129, 0.2); color: #34d399; }
         .section-title {
             font-size: 11px;
@@ -115,18 +98,6 @@
             letter-spacing: 0.02em;
             text-transform: uppercase;
             color: #64748b;
-        }
-        .view-btn {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .view-btn:hover:not(.active) {
-            background: rgba(255,255,255,0.05);
-            color: #cbd5e1;
-        }
-        .view-btn.active {
-            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-            color: white;
-            box-shadow: 0 2px 10px rgba(139, 92, 246, 0.35);
         }
         .week-day-header {
             text-align: center;
@@ -158,8 +129,8 @@
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            background: rgba(124,58,237,0.25);
-            color: #c4b5fd;
+            background: rgba(46,123,255,0.22);
+            color: #93c5fd;
         }
         .cal-item.lead .cal-item-icon {
             background: rgba(245,158,11,0.25);
@@ -201,7 +172,7 @@
             line-height: 1.25;
         }
         .day-action-btn.scheduled {
-            background: linear-gradient(135deg, rgba(99,102,241,0.65), rgba(124,58,237,0.75));
+            background: linear-gradient(135deg, rgba(46,123,255,0.65), rgba(29,78,216,0.75));
         }
         .day-action-btn.lead {
             background: linear-gradient(135deg, rgba(245,158,11,0.65), rgba(217,119,6,0.75));
@@ -230,7 +201,7 @@
             color: #fff;
         }
         .day-job-btn.call { background: linear-gradient(135deg, #16a34a, #15803d); }
-        .day-job-btn.nav { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .day-job-btn.nav { background: linear-gradient(135deg, #2e7bff, #1d4ed8); }
         .day-job-btn.view { background: rgba(51,65,85,0.7); color: #e2e8f0; }
         .day-job-btn.estimate { background: linear-gradient(135deg, #f59e0b, #d97706); }
         .day-job-btn.google {
@@ -268,22 +239,19 @@
 <body>
     <!-- Header -->
     <header class="app-header">
-        <div class="app-header-inner" style="justify-content:space-between;max-width:500px;padding-left:10px;padding-right:10px;">
-            <h1 style="margin:0;">Calendar</h1>
-            <div style="display:flex;gap:8px;">
-                <button type="button" class="header-icon-btn" onclick="goToToday()" aria-label="Jump to today"><i class="fas fa-search"></i></button>
-                <button type="button" class="header-icon-btn" onclick="goToToday()" aria-label="Today"><i class="fas fa-calendar-day"></i></button>
-            </div>
+        <div class="app-header-inner">
+            <h1>Calendar</h1>
+            <button type="button" class="header-btn header-btn-right" onclick="goToToday()" aria-label="Jump to today"><i class="fas fa-calendar-day"></i></button>
         </div>
     </header>
 
     <main class="app-content">
       <div class="content-wrapper">
         <!-- View Tabs -->
-        <div class="flex gap-1 mb-3 bg-slate-800/60 p-1 rounded-xl">
-            <button onclick="setView('month')" data-view="month" class="view-btn flex-1 py-2 rounded-lg text-xs font-semibold text-gray-400 active">Month</button>
-            <button onclick="setView('week')" data-view="week" class="view-btn flex-1 py-2 rounded-lg text-xs font-semibold text-gray-400">Week</button>
-            <button onclick="setView('day')" data-view="day" class="view-btn flex-1 py-2 rounded-lg text-xs font-semibold text-gray-400">Day</button>
+        <div class="page-tabs page-tabs--segmented">
+            <button onclick="setView('month')" data-view="month" class="page-tab active">Month</button>
+            <button onclick="setView('week')" data-view="week" class="page-tab">Week</button>
+            <button onclick="setView('day')" data-view="day" class="page-tab">Day</button>
         </div>
 
         <!-- Navigation -->
@@ -450,7 +418,7 @@ let currentView = safeGet('cl-calendar-view', null) || localStorage.getItem('cl-
         function setView(view) {
             currentView = view;
 localStorage.setItem('cl-calendar-view', view);
-            document.querySelectorAll('.view-btn').forEach(btn => {
+            document.querySelectorAll('.page-tab[data-view]').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.view === view);
             });
             renderView();
@@ -639,7 +607,7 @@ localStorage.setItem('cl-calendar-view', view);
                             <div class="space-y-1">
                                 ${dayJobs.slice(0, 3).map(j => `
                                     <div class="text-xs flex items-center gap-2 py-1">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-${j.status === 'scheduled' ? 'purple' : j.status === 'completed' ? 'green' : 'yellow'}-500"></span>
+                                        <span class="w-1.5 h-1.5 rounded-full bg-${j.status === 'scheduled' ? 'blue' : j.status === 'completed' ? 'green' : 'yellow'}-500"></span>
                                         <span class="truncate">${j.customerName}</span>
                                         ${j.jobTime ? `<span class="text-gray-500 ml-auto">${j.jobTime}</span>` : ''}
                                     </div>
@@ -722,7 +690,7 @@ localStorage.setItem('cl-calendar-view', view);
                                             <p class="text-xs text-gray-500">${job.serviceType || (job.type === 'followup' ? 'Estimate visit' : 'Service')}</p>
                                         </div>
                                         <div class="text-right">
-                                            ${job.jobTime ? `<p class="text-purple-400 text-xs">${job.jobTime}</p>` : ''}
+                                            ${job.jobTime ? `<p class="text-blue-400 text-xs">${job.jobTime}</p>` : ''}
                                             ${(() => {
                                                 const total = (window.getJobDisplayTotal ? getJobDisplayTotal(job) : 0);
                                                 return total > 0 ? `<p class="text-green-400 font-semibold text-xs">$${Number(total || 0).toFixed(0)}</p>` : '';
@@ -785,7 +753,7 @@ localStorage.setItem('cl-calendar-view', view);
                             <div class="min-w-0">
                                 <h4 class="font-bold text-[17px] leading-tight truncate">${escHtml(job.name)}</h4>
                                 <p class="text-sm text-gray-400 mt-0.5">${escHtml(job.serviceType || 'Service')}</p>
-                                <p class="text-xs text-purple-300 mt-1.5">
+                                <p class="text-xs text-blue-300 mt-1.5">
                                     ${job.jobTime ? `<i class="fas fa-clock mr-1"></i>${escHtml(job.jobTime)}${job.jobDuration ? ` (${escHtml(job.jobDuration)})` : ''}` : '<i class="fas fa-clock mr-1"></i>Time not set'}
                                     ${job.address ? ` &nbsp;•&nbsp; <i class="fas fa-location-dot mr-1"></i>${escHtml(job.address)}` : ''}
                                 </p>
@@ -1043,7 +1011,7 @@ localStorage.setItem('cl-calendar-view', view);
                                 <p style="font-size:12px;color:${job.kind === 'lead' ? '#fbbf24' : '#94a3b8'};">${job.kind === 'lead' ? 'Estimate visit' : (job.serviceType || 'Service')}</p>
                             </div>
                             <div style="text-align:right;white-space:nowrap;">
-                                <p style="font-size:12px;color:#a78bfa;">${job.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}${job.jobTime ? ` · ${job.jobTime}` : ''}</p>
+                                <p style="font-size:12px;color:#7fb0ff;">${job.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}${job.jobTime ? ` · ${job.jobTime}` : ''}</p>
                                 ${job.customerPhone ? `<a href="tel:${job.customerPhone}" style="font-size:12px;color:#e2e8f0;"><i class="fas fa-phone mr-1"></i>${job.customerPhone}</a>` : ''}
                             </div>
                             <i class="fas fa-chevron-right text-gray-500 ml-1"></i>
@@ -1073,7 +1041,7 @@ localStorage.setItem('cl-calendar-view', view);
                             <div style="min-width:0;flex:1;">
                                 <p style="font-weight:700;line-height:1.2;">${job.customerName || job.name || 'Lead'}</p>
                                 <p style="font-size:12px;color:#94a3b8;">${job.serviceType || (job.type === 'followup' ? 'Estimate visit' : 'Service')}</p>
-                                ${job.jobTime ? `<p style="font-size:12px;color:#a78bfa;"><i class="far fa-clock mr-1"></i>${job.jobTime}</p>` : ''}
+                                ${job.jobTime ? `<p style="font-size:12px;color:#7fb0ff;"><i class="far fa-clock mr-1"></i>${job.jobTime}</p>` : ''}
                             </div>
                             ${(() => {
                                 const total = (window.getJobDisplayTotal ? getJobDisplayTotal(job) : 0);

@@ -1,6 +1,49 @@
 // ─── Clearline — Shared Utilities ───────────────────────────────────
 'use strict';
 
+/** Unified Tailwind tokens — load utils.js before cdn.tailwindcss.com */
+window.tailwind = window.tailwind || {
+  config: {
+    theme: {
+      extend: {
+        colors: {
+          primary:   '#2e7bff',
+          secondary: '#4f8cff',
+          dark:      '#0f172a',
+          darker:    '#0b0e14',
+          accent:    '#4f8cff',
+        }
+      }
+    }
+  }
+};
+
+/**
+ * Escape a value for safe interpolation into innerHTML. Neutralizes the
+ * five characters that can break out of text/attribute context, so
+ * customer-supplied data (names, notes, addresses, etc.) can never inject
+ * markup or script. ALWAYS run user data through this before innerHTML.
+ *
+ * Usage inside a template literal:
+ *   el.innerHTML = `<h3>${escapeHtml(customer.name)}</h3>`;
+ */
+window.escapeHtml = function(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
+/**
+ * Escape a value for use inside a URL query/attribute (tel:, mailto:, href).
+ * Runs escapeHtml first (attribute-safe) then strips characters that could
+ * break out of the URL. Use for phone/email/address in href attributes.
+ */
+window.escapeAttr = window.escapeHtml;
+
 /**
  * Safe localStorage read with JSON parsing.
  * Returns `defaultValue` if key is missing, null, or corrupt JSON.
@@ -97,6 +140,84 @@ window.showToast = function(message, type = 'success') {
     if (n) n.remove();
   }, 5000);
 };
+
+/**
+ * Global sync-status badge. Renders a single small pill in the top-right that
+ * reflects cloud sync state, so the user always knows their data is safe —
+ * the #1 trust signal. Driven by the `cl-sync-state` events firebase-sync.js
+ * emits ('saving' | 'saved' | 'offline' | 'error'). Auto-mounts on every page
+ * that loads utils.js; no per-page markup required.
+ */
+(function initSyncBadge() {
+  if (typeof window === 'undefined') return;
+
+  const STATES = {
+    saving:  { icon: 'fa-arrows-rotate fa-spin', text: 'Saving…',  color: '#38bdf8', bg: 'rgba(56,189,248,0.14)', border: 'rgba(56,189,248,0.4)' },
+    saved:   { icon: 'fa-circle-check',           text: 'Saved',    color: '#34d399', bg: 'rgba(16,185,129,0.14)', border: 'rgba(16,185,129,0.4)' },
+    offline: { icon: 'fa-cloud-slash',            text: 'Offline',  color: '#fbbf24', bg: 'rgba(251,191,36,0.14)', border: 'rgba(251,191,36,0.4)' },
+    error:   { icon: 'fa-triangle-exclamation',   text: 'Sync failed', color: '#f87171', bg: 'rgba(248,113,113,0.14)', border: 'rgba(248,113,113,0.4)' }
+  };
+
+  let badge = null;
+  let hideTimer = null;
+
+  function ensureBadge() {
+    if (badge) return badge;
+    badge = document.createElement('div');
+    badge.id = 'cl-sync-badge';
+    badge.setAttribute('role', 'status');
+    badge.setAttribute('aria-live', 'polite');
+    Object.assign(badge.style, {
+      position: 'fixed',
+      bottom: 'calc(70px + env(safe-area-inset-bottom, 0px) + 10px)',
+      left: '12px',
+      display: 'none',
+      alignItems: 'center',
+      gap: '6px',
+      padding: '5px 10px',
+      borderRadius: '999px',
+      fontSize: '12px',
+      fontWeight: '600',
+      zIndex: '9998',
+      pointerEvents: 'none',
+      transition: 'opacity 0.25s ease',
+      backdropFilter: 'blur(8px)',
+      WebkitBackdropFilter: 'blur(8px)'
+    });
+    document.body.appendChild(badge);
+    return badge;
+  }
+
+  function show(state) {
+    const cfg = STATES[state];
+    if (!cfg) return;
+    const el = ensureBadge();
+    el.style.background = cfg.bg;
+    el.style.border = `1px solid ${cfg.border}`;
+    el.style.color = cfg.color;
+    el.innerHTML = `<i class="fas ${cfg.icon}"></i><span>${cfg.text}</span>`;
+    el.style.display = 'inline-flex';
+    el.style.opacity = '1';
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    // 'saved' is a transient confirmation; the rest stay until state changes.
+    if (state === 'saved') {
+      hideTimer = setTimeout(() => {
+        el.style.opacity = '0';
+        setTimeout(() => { el.style.display = 'none'; }, 260);
+      }, 1600);
+    }
+  }
+
+  window.addEventListener('cl-sync-state', (e) => {
+    const state = e.detail && e.detail.state;
+    if (state) show(state);
+  });
+
+  // Reflect a starting offline state immediately.
+  window.addEventListener('DOMContentLoaded', () => {
+    if (navigator && navigator.onLine === false) show('offline');
+  });
+})();
 
 /**
  * Active nav tab highlighter — call on every page.
@@ -317,9 +438,10 @@ window.CL_CONFIG = (function() {
       phoneDisplay: s.businessPhone || '',
       email:        s.businessEmail || '',
       name:         s.businessName  || 'Clearline',
-      address:      s.businessAddress || ''
+      address:      s.businessAddress || '',
+      reviewUrl:    s.reviewUrl || ''
     };
   } catch (e) {
-    return { phone: '', phoneDisplay: '', email: '', name: 'Clearline', address: '' };
+    return { phone: '', phoneDisplay: '', email: '', name: 'Clearline', address: '', reviewUrl: '' };
   }
 })();

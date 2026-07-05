@@ -33,6 +33,21 @@ const CL_FIREBASE = (function() {
     let profileLoaded = false;
     let realtimeListenersActive = false;
 
+    // Broadcast a coarse sync state so any page can show a single, consistent
+    // status indicator (see the sync badge in utils.js). States:
+    //   'saving'  — a local change is being pushed to the cloud
+    //   'saved'   — the push succeeded (transient confirmation)
+    //   'offline' — no network; changes are safe on-device
+    //   'error'   — a push/pull failed; user can retry
+    function emitSyncState(state, detail) {
+        if (typeof window === 'undefined') return;
+        try {
+            window.dispatchEvent(new CustomEvent('cl-sync-state', {
+                detail: Object.assign({ state }, detail || {})
+            }));
+        } catch (_) {}
+    }
+
     // Manager/Worker accounts use a bare username (no email). Firebase
     // Auth still needs an email-shaped string, so we suffix the username
     // with an IANA-reserved TLD that cannot collide with a real domain.
@@ -575,6 +590,7 @@ const CL_FIREBASE = (function() {
         }
 
         pushInProgress = true;
+        emitSyncState('saving');
         try {
             await _runMigrationIfNeeded();
 
@@ -612,13 +628,13 @@ const CL_FIREBASE = (function() {
             }, { merge: true });
 
             console.log('Data synced to cloud');
-            showToast('Synced to cloud ✓', 'success');
+            emitSyncState('saved');
             return true;
         } catch (err) {
             const code = err && (err.code || err.name) || 'unknown';
             const msg = err && err.message || String(err);
             console.error('[CL_FIREBASE] syncToCloud failed:', code, msg, err);
-            showToast('Sync failed: ' + code, 'error');
+            emitSyncState(navigator.onLine ? 'error' : 'offline', { code });
             if (typeof window !== 'undefined' && typeof showToast === 'function') {
                 try { showToast('Cloud sync failed: ' + code, 'error'); } catch (_) {}
             }
@@ -773,6 +789,7 @@ const CL_FIREBASE = (function() {
             syncToCloud();
         }
     });
+    window.addEventListener('offline', () => emitSyncState('offline'));
 
     // Auto-sync periodically when signed in.
     // Realtime listeners already pull on changes; this interval is only a

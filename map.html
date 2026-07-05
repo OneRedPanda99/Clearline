@@ -5,15 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#020617">
+    <meta name="theme-color" content="#0b0e14">
     <title>Job Map - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
     <script src="data-migration.js"></script>
-    <script src="firebase-sync.js?v=3"></script>
-    <script>
-        window.tailwind = { config: { theme: { extend: { colors: { primary: '#0ea5e9', dark: '#0f172a', darker: '#020617' } } } } };
-    </script>
+    <script src="firebase-sync.js?v=4"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="app.css">
     <link rel="manifest" href="manifest.json">
@@ -52,11 +49,11 @@
 
     <main class="app-content">
         <div class="bg-darker px-4 py-2 border-b border-slate-700">
-            <div class="max-w-lg mx-auto flex gap-2 overflow-x-auto">
-                <button onclick="setFilter('allJobs')" data-filter="allJobs" class="filter-btn px-4 py-2 rounded-lg text-sm bg-primary text-white">All Jobs</button>
-                <button onclick="setFilter('today')" data-filter="today" class="filter-btn px-4 py-2 rounded-lg text-sm bg-slate-700 text-gray-300">Today</button>
-                <button onclick="setFilter('week')" data-filter="week" class="filter-btn px-4 py-2 rounded-lg text-sm bg-slate-700 text-gray-300">This Week</button>
-                <button onclick="setFilter('all')" data-filter="all" class="filter-btn px-4 py-2 rounded-lg text-sm bg-slate-700 text-gray-300">Upcoming</button>
+            <div class="max-w-lg mx-auto flex gap-2 overflow-x-auto jobs-filter-scroll" style="margin-bottom:0;">
+                <button onclick="setFilter('allJobs')" data-filter="allJobs" class="jobs-filter-pill active">All Jobs</button>
+                <button onclick="setFilter('today')" data-filter="today" class="jobs-filter-pill">Today</button>
+                <button onclick="setFilter('week')" data-filter="week" class="jobs-filter-pill">This Week</button>
+                <button onclick="setFilter('all')" data-filter="all" class="jobs-filter-pill">Upcoming</button>
             </div>
         </div>
         <!-- Route controls -->
@@ -162,7 +159,7 @@
 
         function setFilter(filter) {
             currentFilter = filter;
-            document.querySelectorAll('.filter-btn').forEach(btn => {
+            document.querySelectorAll('.jobs-filter-pill').forEach(btn => {
                 btn.classList.remove('bg-primary', 'text-white');
                 btn.classList.add('bg-slate-700', 'text-gray-300');
                 if (btn.dataset.filter === filter) { btn.classList.remove('bg-slate-700', 'text-gray-300'); btn.classList.add('bg-primary', 'text-white'); }

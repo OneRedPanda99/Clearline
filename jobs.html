@@ -6,48 +6,17 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="theme-color" content="#020617">
+    <meta name="theme-color" content="#0b0e14">
     <title>Jobs - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
     <script src="data-migration.js"></script>
-    <script src="firebase-sync.js?v=3"></script>
-    <script>
-        window.tailwind = {
-            config: {
-                theme: {
-                    extend: {
-                        colors: {
-                            primary: '#0ea5e9',
-                            secondary: '#38bdf8',
-                            dark: '#0f172a',
-                            darker: '#020617',
-                            accent: '#06b6d4',
-                        }
-                    }
-                }
-            }
-        };
-    </script>
+    <script src="firebase-sync.js?v=4"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="app.css">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .tab-btn {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            color: #94a3b8;
-            background: transparent;
-        }
-        .tab-btn:hover:not(.active) {
-            background: rgba(255,255,255,0.05);
-            color: #cbd5e1;
-        }
-        .tab-btn.active {
-            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
-            color: white !important;
-            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
-        }
         .job-card {
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
@@ -135,94 +104,6 @@
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        /* Balanced header: centered title + lead/map in the trailing wing */
-        .jobs-head-inner.app-header-inner {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-            max-width: 500px;
-        }
-        .jobs-head-wing {
-            width: 96px;
-            flex-shrink: 0;
-        }
-        .jobs-head-wing-actions {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 8px;
-        }
-        .jobs-head-center {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-width: 0;
-            text-align: center;
-        }
-        .jobs-head-center h1 {
-            margin: 0;
-            line-height: 1.2;
-        }
-        .jobs-sync-pill {
-            font-size: 10px;
-            font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 999px;
-            background: #334155;
-            color: #cbd5e1;
-            margin-top: 4px;
-        }
-        .jobs-lead-chip {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 36px;
-            padding: 0;
-            border-radius: 10px;
-            border: none;
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: white;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
-        }
-        .jobs-lead-chip i {
-            font-size: 15px;
-        }
-        .jobs-map-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 10px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: #0ea5e9;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            text-decoration: none;
-            transition: background 0.2s ease, transform 0.15s ease;
-        }
-        .jobs-map-btn:active {
-            transform: scale(0.94);
-        }
-        .jobs-add-circle {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #2e7bff 0%, #1d4ed8 100%);
-            color: #fff;
-            cursor: pointer;
-            box-shadow: 0 4px 14px rgba(46, 123, 255, 0.4);
-        }
-        .jobs-add-circle i { font-size: 16px; }
-        .jobs-add-circle:active { transform: scale(0.94); }
         .quick-actions-row {
             scrollbar-width: none;
             -ms-overflow-style: none;
@@ -288,13 +169,13 @@
         <div id="jobsList" style="margin-bottom: 16px;"></div>
 
         <!-- Empty State -->
-        <div id="emptyState" class="hidden" style="text-align: center; padding: 48px 0;">
-            <i class="fas fa-calendar-check" style="font-size: 40px; color: #475569; margin-bottom: 12px;"></i>
-            <p style="color: #64748b; font-size: 14px;">No jobs in this view</p>
-            <button type="button" onclick="openAddLeadModal()" class="btn-primary" style="display: inline-block; margin-top: 16px; width: auto; padding: 12px 24px; border: none; cursor: pointer;">
-                <i class="fas fa-user-plus" style="margin-right: 6px;"></i>Add lead (estimate visit)
+        <div id="emptyState" class="empty-state hidden">
+            <i class="fas fa-calendar-check empty-icon" style="color:#475569;"></i>
+            <p class="empty-title" style="font-size:16px;font-weight:600;">No jobs in this view</p>
+            <button type="button" onclick="openAddLeadModal()" class="btn-primary btn-sm" style="margin-top:8px;width:auto;padding:12px 24px;">
+                <i class="fas fa-user-plus" style="margin-right:6px;"></i>Add lead (estimate visit)
             </button>
-            <p style="margin-top: 12px; font-size: 12px; color: #94a3b8;">Booked work? Use <a href="calendar.html" style="color: #38bdf8;">Calendar</a> → Add scheduled job, or open <a href="estimate.html" style="color: #38bdf8;">Estimate</a>.</p>
+            <p class="empty-sub" style="margin-top:12px;">Booked work? Use <a href="calendar.html" class="text-accent">Calendar</a> → Add scheduled job, or open <a href="estimate.html" class="text-accent">Estimate</a>.</p>
         </div>
       </div>
     </main>
@@ -1167,7 +1048,10 @@
             const tomorrow = (window.localYmd ? localYmd(tomorrowD) : tomorrowD.toISOString().split('T')[0]);
 
             let filtered = [];
-            if (currentTab === 'all') filtered = jobs.slice();
+            // Lost leads are archived: kept in data (reversible) but hidden from
+            // every active view. They resurface only in the Leads tab's dimmed
+            // "Lost" section below.
+            if (currentTab === 'all') filtered = jobs.filter(j => j.status !== 'lost');
             else if (currentTab === 'booked') filtered = jobs.filter(j => j.status === 'scheduled');
             else if (currentTab === 'estimate') filtered = jobs.filter(j => j.status === 'new');
             else if (currentTab === 'overdue') filtered = jobs.filter(isOverdueJob);
@@ -1185,13 +1069,27 @@
             const container = document.getElementById('jobsList');
             const emptyState = document.getElementById('emptyState');
 
-            if (filtered.length === 0) {
+            // Lost leads are shown as a dimmed, reversible section at the bottom
+            // of the Leads (estimate) tab only.
+            const lostLeads = currentTab === 'estimate' ? jobs.filter(j => j.status === 'lost') : [];
+            const lostSection = lostLeads.length ? `
+                <div class="mb-4 mt-2">
+                    <h3 class="text-sm font-bold text-gray-500 mb-2"><i class="fas fa-ban mr-1"></i>Lost leads (${lostLeads.length})</h3>
+                    <div class="space-y-2" style="opacity:0.6;">${lostLeads.map(renderJobCard).join('')}</div>
+                </div>` : '';
+
+            if (filtered.length === 0 && !lostSection) {
                 container.innerHTML = '';
                 emptyState.classList.remove('hidden');
                 return;
             }
 
             emptyState.classList.add('hidden');
+
+            if (filtered.length === 0 && lostSection) {
+                container.innerHTML = lostSection;
+                return;
+            }
 
             if (currentTab === 'completed') {
                 filtered.sort((a, b) => new Date(b.lastUpdated || b.dateAdded || 0) - new Date(a.lastUpdated || a.dateAdded || 0));
@@ -1251,6 +1149,8 @@
 
             pushSection('Unscheduled', unscheduled);
 
+            html += lostSection;
+
             if (donePool.length) {
                 donePool.sort((a, b) => new Date(b.lastUpdated || b.dateAdded || 0) - new Date(a.lastUpdated || a.dateAdded || 0));
                 html += `
@@ -1267,22 +1167,95 @@
             renderJobsList();
         }
 
+        // ── Payments (Jobber-style balance tracking) ───────────────
+        // Owner-only: getJobDisplayTotal() already returns 0 for other roles.
+        function isOwnerRole() {
+            try { return (typeof CL_FIREBASE !== 'undefined' && CL_FIREBASE.role) === 'owner'; } catch (_) { return false; }
+        }
+        function jobPaymentInfo(job) {
+            const total = getJobDisplayTotal(job);
+            const paid = Math.max(0, parseFloat(job.amountPaid) || 0);
+            const balance = Math.max(0, total - paid);
+            let status = job.paymentStatus || 'unpaid';
+            // When we know the total, derive status from what's been paid so the
+            // badge can never contradict the numbers.
+            if (total > 0) {
+                if (paid <= 0) status = 'unpaid';
+                else if (paid >= total) status = 'paid';
+                else status = 'partial';
+            }
+            return { total, paid, balance, status };
+        }
+        function paymentPill(status) {
+            const map = {
+                paid:    ['Paid',    'rgba(34,197,94,0.15)',  '#4ade80'],
+                partial: ['Partial', 'rgba(251,191,36,0.15)', '#fbbf24'],
+                unpaid:  ['Unpaid',  'rgba(248,113,113,0.15)','#f87171']
+            };
+            const [label, bg, fg] = map[status] || map.unpaid;
+            return `<span class="tag-pill" style="background:${bg};color:${fg};">${label}</span>`;
+        }
+
+        // Follow-up context for a lead: how long it's been waiting and whether
+        // the scheduled follow-up date has passed (a "cold" lead needing action).
+        function leadFollowUpMeta(job) {
+            const today = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
+            if (job.followUpDate) {
+                const overdue = job.followUpDate < today;
+                const d = new Date(job.followUpDate + 'T12:00:00');
+                const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                return overdue
+                    ? `<span style="color:#fca5a5;"><i class="fas fa-triangle-exclamation"></i> Follow-up overdue · ${label}</span>`
+                    : `<span style="color:#94a3b8;"><i class="fas fa-bell"></i> Follow up ${label}</span>`;
+            }
+            // No follow-up set: show how long since the lead was created.
+            const created = job.dateAdded ? new Date(job.dateAdded) : null;
+            if (created) {
+                const days = Math.floor((Date.now() - created.getTime()) / 86400000);
+                return `<span style="color:${days >= 3 ? '#fca5a5' : '#94a3b8'};"><i class="fas fa-hourglass-half"></i> ${days === 0 ? 'New today' : days + 'd waiting'} · no follow-up set</span>`;
+            }
+            return '';
+        }
+
         function renderJobCard(job) {
             const isDone = job.status === 'completed';
+            const isLost = job.status === 'lost';
             const isEst = job.status === 'new';
             const isOverdue = isOverdueJob(job);
-            const stripe = isDone ? 'job-card-v2__stripe--done' : isEst ? 'job-card-v2__stripe--estimate' : 'job-card-v2__stripe--booked';
-            const pill = isDone ? '<span class="tag-pill" style="background:rgba(34,197,94,0.15);color:#4ade80;">Completed</span>'
+            const stripe = isDone ? 'job-card-v2__stripe--done' : (isEst || isLost) ? 'job-card-v2__stripe--estimate' : 'job-card-v2__stripe--booked';
+            const pill = isLost ? '<span class="tag-pill" style="background:rgba(148,163,184,0.18);color:#cbd5e1;">Lost</span>'
+                : isDone ? '<span class="tag-pill" style="background:rgba(34,197,94,0.15);color:#4ade80;">Completed</span>'
                 : isOverdue ? '<span class="tag-pill" style="background:rgba(239,68,68,0.18);color:#fca5a5;">Overdue</span>'
-                : isEst ? '<span class="tag-pill tag-pill--estimate">Estimate</span>'
+                : isEst ? '<span class="tag-pill tag-pill--estimate">Lead</span>'
                 : '<span class="tag-pill tag-pill--booked">Booked</span>';
             const total = getJobDisplayTotal(job);
             const money = total > 0 ? `<span style="color:#34d399;font-weight:700;font-size:14px;">$${total.toFixed(0)}</span>` : '';
+            // Payment badge on the card (owner only, and only when there's a total).
+            const pay = total > 0 && isOwnerRole() ? jobPaymentInfo(job) : null;
+            const payPill = pay ? paymentPill(pay.status) : '';
             const startHref = isEst
                 ? `estimate.html?jobId=${encodeURIComponent(job.id)}`
                 : (isOverdue ? `jobs.html?highlight=${encodeURIComponent(job.id)}&edit=1` : `jobs.html?highlight=${encodeURIComponent(job.id)}&start=1`);
             const maps = job.address ? `https://maps.google.com/?q=${encodeURIComponent(job.address)}` : '';
             const startLabel = isOverdue ? 'Mark done' : 'Start';
+
+            // Leads and lost leads get pipeline-specific action rows.
+            let actionsRow;
+            if (isLost) {
+                actionsRow = `
+                    <button type="button" class="jc-start" onclick="reopenLead('${job.id}')"><i class="fas fa-rotate-left"></i> Reopen</button>
+                    ${job.customerPhone ? `<a class="jc-call" href="tel:${encodeURIComponent(job.customerPhone)}"><i class="fas fa-phone"></i> Call</a>` : ''}`;
+            } else if (isEst) {
+                actionsRow = `
+                    <button type="button" class="jc-start" onclick="bookLead('${job.id}')"><i class="fas fa-calendar-check"></i> Book</button>
+                    ${job.customerPhone ? `<a class="jc-call" href="tel:${encodeURIComponent(job.customerPhone)}"><i class="fas fa-phone"></i> Call</a>` : '<span class="jc-call" style="opacity:0.35;"><i class="fas fa-phone"></i> Call</span>'}
+                    <button type="button" class="jc-nav" onclick="markLost('${job.id}')"><i class="fas fa-ban"></i> Lost</button>`;
+            } else {
+                actionsRow = `
+                    ${isDone ? '' : `<a class="jc-start" href="${startHref}"><i class="fas ${isOverdue ? 'fa-check-circle' : 'fa-play'}"></i> ${startLabel}</a>`}
+                    ${job.customerPhone ? `<a class="jc-call" href="tel:${encodeURIComponent(job.customerPhone)}"><i class="fas fa-phone"></i> Call</a>` : '<span class="jc-call" style="opacity:0.35;"><i class="fas fa-phone"></i> Call</span>'}
+                    ${maps ? `<a class="jc-nav" target="_blank" rel="noopener" href="${maps}"><i class="fas fa-location-arrow"></i> Nav</a>` : '<span class="jc-nav" style="opacity:0.35;"><i class="fas fa-location-arrow"></i> Nav</span>'}`;
+            }
 
             return `
                 <div class="job-card-v2 glass-card animate-in" onclick="openJobModal('${job.id}')">
@@ -1291,17 +1264,15 @@
                         <div class="job-card-v2__content">
                             <div class="flex justify-between items-start gap-2">
                                 <div class="min-w-0">
-                                    <p class="font-bold text-sm truncate" style="margin:0;">${(job.customerName || 'No name').replace(/</g, '&lt;')}</p>
-                                    <div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${pill}</div>
-                                    ${job.jobTime ? `<p style="font-size:12px;color:#94a3b8;margin:6px 0 0;"><i class="fas fa-clock"></i> ${job.jobTime}</p>` : ''}
+                                    <p class="font-bold text-sm truncate" style="margin:0;">${escapeHtml(job.customerName || 'No name')}</p>
+                                    <div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${pill}${payPill}</div>
+                                    ${isEst ? `<p style="font-size:12px;margin:6px 0 0;">${leadFollowUpMeta(job)}</p>` : (job.jobTime ? `<p style="font-size:12px;color:#94a3b8;margin:6px 0 0;"><i class="fas fa-clock"></i> ${job.jobTime}</p>` : '')}
                                 </div>
                                 ${money}
                             </div>
-                            ${job.address ? `<p class="text-xs text-gray-500 mt-1 truncate"><i class="fas fa-map-marker-alt mr-1"></i>${job.address.replace(/</g, '&lt;')}</p>` : ''}
+                            ${job.address ? `<p class="text-xs text-gray-500 mt-1 truncate"><i class="fas fa-map-marker-alt mr-1"></i>${escapeHtml(job.address)}</p>` : ''}
                             <div class="job-card-v2__actions" onclick="event.stopPropagation()">
-                                ${isDone ? '' : `<a class="jc-start" href="${startHref}"><i class="fas ${isOverdue ? 'fa-check-circle' : 'fa-play'}"></i> ${startLabel}</a>`}
-                                ${job.customerPhone ? `<a class="jc-call" href="tel:${job.customerPhone}"><i class="fas fa-phone"></i> Call</a>` : '<span class="jc-call" style="opacity:0.35;"><i class="fas fa-phone"></i> Call</span>'}
-                                ${maps ? `<a class="jc-nav" target="_blank" rel="noopener" href="${maps}"><i class="fas fa-location-arrow"></i> Nav</a>` : '<span class="jc-nav" style="opacity:0.35;"><i class="fas fa-location-arrow"></i> Nav</span>'}
+                                ${actionsRow}
                             </div>
                         </div>
                     </div>
@@ -1412,6 +1383,52 @@
             const timerText = fmtElapsed(timerMs);
             const timerBtnText = timerState.isRunning ? 'Pause' : 'Start';
             const amount = getJobDisplayTotal(job);
+            // Owner-only payment summary block (Total / Paid / Balance + actions).
+            const payInfo = (amount > 0 && isOwnerRole()) ? jobPaymentInfo(job) : null;
+            // Review request (opt-in): only when a review link is configured in
+            // Settings and the job is completed. Uses a QR image service so the
+            // customer can scan on the spot, plus a text-link fallback.
+            const reviewUrl = getReviewUrl();
+            const reviewCard = (job.status === 'completed' && reviewUrl) ? `
+                <div class="glass-card rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="section-title" style="margin:0;padding:0;">Ask for a review</p>
+                        <i class="fas fa-star" style="color:#fbbf24;"></i>
+                    </div>
+                    <div class="flex gap-3 items-center">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=0&data=${encodeURIComponent(reviewUrl)}"
+                             alt="Scan to leave a review" width="96" height="96"
+                             style="width:96px;height:96px;border-radius:10px;background:#fff;padding:6px;flex-shrink:0;">
+                        <div class="min-w-0">
+                            <p class="text-sm text-gray-300">Have the customer scan this, or send the link:</p>
+                            <div class="flex flex-wrap gap-2 mt-2">
+                                ${job.customerPhone ? `<button type="button" onclick="sendReviewLink('${job.id}')" class="bg-amber-500 text-slate-900 px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-comment-dots mr-1"></i>Text link</button>` : ''}
+                                <a href="${escapeHtml(reviewUrl)}" target="_blank" rel="noopener" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-up-right-from-square mr-1"></i>Open</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ` : '';
+            const paymentCard = payInfo ? `
+                <div class="glass-card rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="section-title" style="margin:0;padding:0;">Payment</p>
+                        ${paymentPill(payInfo.status)}
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div><p class="text-xs text-gray-400 mb-1">Total</p><p class="font-bold text-base">$${payInfo.total.toFixed(2)}</p></div>
+                        <div><p class="text-xs text-gray-400 mb-1">Paid</p><p class="font-bold text-base text-green-400">$${payInfo.paid.toFixed(2)}</p></div>
+                        <div><p class="text-xs text-gray-400 mb-1">Balance</p><p class="font-bold text-base ${payInfo.balance > 0 ? 'text-amber-400' : 'text-gray-400'}">$${payInfo.balance.toFixed(2)}</p></div>
+                    </div>
+                    ${payInfo.balance > 0 ? `
+                        <div class="grid grid-cols-2 gap-2 mt-3">
+                            <button type="button" onclick="recordPayment('${job.id}')" class="bg-green-600 text-white py-3 rounded-xl font-semibold"><i class="fas fa-dollar-sign mr-1"></i>Record payment</button>
+                            <button type="button" onclick="markPaidInFull('${job.id}')" class="bg-slate-700 text-white py-3 rounded-xl font-semibold"><i class="fas fa-check mr-1"></i>Paid in full</button>
+                        </div>
+                        ${job.customerPhone ? `<button type="button" onclick="sendPaymentReminder('${job.id}')" class="w-full mt-2 bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl font-semibold text-sm"><i class="fas fa-comment-sms mr-1"></i>Text balance reminder</button>` : ''}
+                    ` : `<p class="text-center text-xs text-green-400 mt-3"><i class="fas fa-circle-check mr-1"></i>Paid in full</p>`}
+                </div>
+            ` : '';
             const statusPill = job.status === 'completed'
                 ? 'bg-green-900/30 text-green-400'
                 : job.status === 'scheduled'
@@ -1433,15 +1450,15 @@
                             <div class="flex items-start gap-3 min-w-0">
                                 <div class="w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl text-slate-200 flex-shrink-0" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.14);">${firstLetter || 'J'}</div>
                                 <div class="min-w-0">
-                                    <p class="text-2xl font-bold truncate">${job.customerName || 'Customer'}</p>
+                                    <p class="text-2xl font-bold truncate">${escapeHtml(job.customerName || 'Customer')}</p>
                                     <span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${statusPill}">${statusLabel}</span>
                                 </div>
                             </div>
                             ${amount > 0 ? `<div class="text-right"><p class="text-3xl font-bold text-green-400">$${amount.toFixed(2)}</p><p class="text-xs text-gray-400 -mt-1">Job total</p></div>` : ''}
                         </div>
                         <div class="mt-3 text-sm text-gray-300 flex flex-wrap gap-x-3 gap-y-1">
-                            ${job.customerPhone ? `<a href="tel:${job.customerPhone}" class="text-gray-300 hover:text-white"><i class="fas fa-phone mr-1"></i>${job.customerPhone}</a>` : ''}
-                            ${job.address ? `<span><i class="fas fa-map-marker-alt mr-1 text-blue-400"></i>${job.address}</span>` : ''}
+                            ${job.customerPhone ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="text-gray-300 hover:text-white"><i class="fas fa-phone mr-1"></i>${escapeHtml(job.customerPhone)}</a>` : ''}
+                            ${job.address ? `<span><i class="fas fa-map-marker-alt mr-1 text-blue-400"></i>${escapeHtml(job.address)}</span>` : ''}
                         </div>
                         <div class="mt-3 pt-3 border-t border-slate-700 grid grid-cols-2 gap-3 text-sm">
                             <div>
@@ -1452,16 +1469,20 @@
                             <div class="border-l border-slate-700 pl-3">
                                 <p class="text-xs text-gray-400 mb-1">Job ID</p>
                                 <p class="font-semibold">${jobIdShort}</p>
-                                ${(assignedManagerName || assignedWorkerName) ? `<p class="text-xs text-gray-300 mt-1">${assignedManagerName ? `Mgr: ${assignedManagerName}` : ''}${assignedManagerName && assignedWorkerName ? ' · ' : ''}${assignedWorkerName ? `Wrk: ${assignedWorkerName}` : ''}</p>` : ''}
+                                ${(assignedManagerName || assignedWorkerName) ? `<p class="text-xs text-gray-300 mt-1">${assignedManagerName ? `Mgr: ${escapeHtml(assignedManagerName)}` : ''}${assignedManagerName && assignedWorkerName ? ' · ' : ''}${assignedWorkerName ? `Wrk: ${escapeHtml(assignedWorkerName)}` : ''}</p>` : ''}
                             </div>
                         </div>
                     </div>
 
                     ${(job.address || job.customerPhone) ? `
                     <div class="grid grid-cols-1 gap-2">
-                        ${job.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="bg-blue-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-location-arrow mr-2"></i>Navigate</a>` : (job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-green-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-phone mr-2"></i>Call customer</a>` : `<span class="bg-slate-700/40 text-slate-500 py-3 rounded-xl text-center font-semibold">No navigation target</span>`)}
+                        ${job.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="bg-blue-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-location-arrow mr-2"></i>Navigate</a>` : (job.customerPhone ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="bg-green-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-phone mr-2"></i>Call customer</a>` : `<span class="bg-slate-700/40 text-slate-500 py-3 rounded-xl text-center font-semibold">No navigation target</span>`)}
                     </div>
                     ` : ''}
+
+                    ${paymentCard}
+
+                    ${reviewCard}
 
                     <div class="glass-card rounded-xl p-3 border border-sky-500/30">
                         <div class="flex justify-between items-center gap-3">
@@ -1483,7 +1504,7 @@
                             <i class="fas fa-screwdriver-wrench text-blue-400 mr-3"></i>
                             <div class="flex-1 min-w-0">
                                 <p class="text-xs text-gray-400">Service</p>
-                                <p class="font-semibold">${job.serviceType || 'No service details — tap Edit Job to add'}</p>
+                                <p class="font-semibold">${escapeHtml(job.serviceType || 'No service details — tap Edit Job to add')}</p>
                             </div>
                             <i class="fas fa-chevron-right text-gray-500"></i>
                         </div>
@@ -1491,7 +1512,7 @@
                             <i class="fas fa-map-marker-alt text-green-400 mr-3"></i>
                             <div class="flex-1 min-w-0">
                                 <p class="text-xs text-gray-400">Address</p>
-                                <p class="font-semibold">${job.address || '-'}</p>
+                                <p class="font-semibold">${escapeHtml(job.address || '-')}</p>
                             </div>
                             <i class="fas fa-chevron-right text-gray-500"></i>
                         </div>
@@ -1515,8 +1536,9 @@
                                 <button onclick="openDocumentForm('invoice', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-invoice-dollar mr-1"></i>Add Invoice</button>
                                 <button onclick="openDocumentForm('waiver', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-signature mr-1"></i>Add Waiver</button>
                                 <button onclick="addToGoogleCalendar('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fab fa-google mr-1"></i>Add to GCal</button>
-                                <button onclick="createCustomerFromJob('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">${job.customerId ? `<i class="fas fa-user-check mr-1"></i>${(job.customerName || 'Customer')}` : '<i class="fas fa-user-plus mr-1"></i>Link Customer'}</button>
-                                ${job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-phone mr-1"></i>Call</a>` : '<span class="bg-slate-800/50 border border-slate-700 text-slate-500 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">No phone</span>'}
+                                <button onclick="createCustomerFromJob('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">${job.customerId ? `<i class="fas fa-user-check mr-1"></i>${escapeHtml(job.customerName || 'Customer')}` : '<i class="fas fa-user-plus mr-1"></i>Link Customer'}</button>
+                                ${job.customerPhone ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-phone mr-1"></i>Call</a>` : '<span class="bg-slate-800/50 border border-slate-700 text-slate-500 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">No phone</span>'}
+                                ${job.customerPhone ? `<a href="sms:${encodeURIComponent(job.customerPhone)}" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-comment-dots mr-1"></i>Text</a>` : ''}
                             </div>
                             <button type="button" onclick="scrollJobQuickActions(1)" class="hidden md:inline-flex bg-slate-800 border border-slate-700 text-slate-200 px-2 py-2 rounded-lg text-xs" aria-label="Scroll actions right"><i class="fas fa-chevron-right"></i></button>
                         </div>
@@ -1529,7 +1551,7 @@
                         <div class="space-y-2">
                             ${(job.documents.estimates || []).map((doc, i) => `
                                 <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded-lg">
-                                    <span class="text-sm text-cyan-300 truncate"><i class="fas fa-file-invoice mr-1"></i>${(doc.summary && (doc.summary.number || doc.summary.customerName)) || `Estimate ${i + 1}`}</span>
+                                    <span class="text-sm text-cyan-300 truncate"><i class="fas fa-file-invoice mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || `Estimate ${i + 1}`)}</span>
                                     <div class="flex items-center gap-1">
                                         <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-cyan-600/20 border border-cyan-500/40 text-cyan-200 px-2 py-1 rounded">Edit</a>
                                         <button type="button" onclick="deleteJobDocument('${job.id}', 'estimates', '${doc.id}')" class="text-xs bg-red-600/20 border border-red-500/40 text-red-200 px-2 py-1 rounded">Delete</button>
@@ -1538,7 +1560,7 @@
                             `).join('')}
                             ${(job.documents.invoices || []).map((doc, i) => `
                                 <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded-lg">
-                                    <span class="text-sm text-amber-300 truncate"><i class="fas fa-file-invoice-dollar mr-1"></i>${(doc.summary && (doc.summary.number || doc.summary.customerName)) || `Invoice ${i + 1}`}</span>
+                                    <span class="text-sm text-amber-300 truncate"><i class="fas fa-file-invoice-dollar mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || `Invoice ${i + 1}`)}</span>
                                     <a href="invoice.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-amber-600/20 border border-amber-500/40 text-amber-200 px-2 py-1 rounded">Edit</a>
                                 </div>
                             `).join('')}
@@ -1556,7 +1578,7 @@
                         <div>
                             <p class="section-title mb-2">Notes</p>
                             <div class="glass-card rounded-xl p-3 text-sm">
-                                <p>${job.notes}</p>
+                                <p style="white-space:pre-wrap;">${escapeHtml(job.notes)}</p>
                                 <p class="text-xs text-gray-400 mt-2">Added by you</p>
                             </div>
                         </div>
@@ -1655,6 +1677,7 @@
                                     <option value="new" ${job.status === 'new' ? 'selected' : ''}>New / Lead</option>
                                     <option value="scheduled" ${job.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
                                     <option value="completed" ${job.status === 'completed' ? 'selected' : ''}>Completed</option>
+                                    <option value="lost" ${job.status === 'lost' ? 'selected' : ''}>Lost</option>
                                 </select>
                             </div>
                         </div>
@@ -1841,6 +1864,78 @@
             window.location.href = 'invoice.html';
         }
 
+        // ── Record / update payments ───────────────────────────
+        // Persist a payment, re-derive paymentStatus from paid-vs-total, sync,
+        // and refresh the modal so the balance updates in place.
+        function applyPayment(id, newPaid) {
+            const job = CL_DATA.findJob(id);
+            if (!job) return;
+            const total = getJobDisplayTotal(job);
+            const paid = Math.max(0, newPaid);
+            let status = 'unpaid';
+            if (total > 0) status = paid <= 0 ? 'unpaid' : (paid >= total ? 'paid' : 'partial');
+            else if (paid > 0) status = 'paid';
+            CL_DATA.updateJob(id, { amountPaid: paid, paymentStatus: status });
+            if (CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
+            loadData();
+            updateStats();
+            renderJobs();
+            openJobModal(id);
+        }
+
+        function recordPayment(id) {
+            const job = CL_DATA.findJob(id);
+            if (!job) return;
+            const info = jobPaymentInfo(job);
+            const raw = prompt(`Record a payment.\n\nBalance due: $${info.balance.toFixed(2)}\nEnter amount received:`, info.balance.toFixed(2));
+            if (raw === null) return;
+            const amt = parseFloat(String(raw).replace(/[^0-9.]/g, ''));
+            if (isNaN(amt) || amt <= 0) { showToast('Enter a valid amount', 'error'); return; }
+            applyPayment(id, info.paid + amt);
+            showToast('Payment recorded ✓');
+        }
+
+        function markPaidInFull(id) {
+            const job = CL_DATA.findJob(id);
+            if (!job) return;
+            applyPayment(id, getJobDisplayTotal(job));
+            showToast('Marked paid in full ✓');
+        }
+
+        // Review link configured by the Owner in Settings (empty = feature off).
+        function getReviewUrl() {
+            try {
+                const s = safeGet('cl-settings', {});
+                return (s.reviewUrl || '').trim();
+            } catch (_) { return ''; }
+        }
+
+        // Text the customer a link to leave a review (only offered when a review
+        // URL is set and the customer has a phone).
+        function sendReviewLink(id) {
+            const job = CL_DATA.findJob(id);
+            const url = getReviewUrl();
+            if (!job || !job.customerPhone || !url) return;
+            const biz = (window.CL_CONFIG && CL_CONFIG.name) || 'us';
+            const name = (job.customerName || '').split(/\s+/)[0] || 'there';
+            const body = `Hi ${name}, thanks for choosing ${biz}! If you were happy with the work, we'd really appreciate a quick review: ${url}`;
+            const num = String(job.customerPhone).replace(/[^0-9+]/g, '');
+            window.location.href = `sms:${num}?&body=${encodeURIComponent(body)}`;
+        }
+
+        // Prefill an SMS to the customer with the outstanding balance. Uses the
+        // device's messaging app (sms:) so it works without a paid SMS gateway.
+        function sendPaymentReminder(id) {
+            const job = CL_DATA.findJob(id);
+            if (!job || !job.customerPhone) return;
+            const info = jobPaymentInfo(job);
+            const biz = (window.CL_CONFIG && CL_CONFIG.name) || 'us';
+            const name = (job.customerName || '').split(/\s+/)[0] || 'there';
+            const body = `Hi ${name}, a friendly reminder from ${biz}: your balance of $${info.balance.toFixed(2)} for ${job.serviceType || 'your service'} is due. Thank you!`;
+            const num = String(job.customerPhone).replace(/[^0-9+]/g, '');
+            window.location.href = `sms:${num}?&body=${encodeURIComponent(body)}`;
+        }
+
         function markComplete(id) {
             CL_DATA.updateJob(id, { status: 'completed' });
             if (CL_FIREBASE && CL_FIREBASE.isSignedIn) {
@@ -1869,6 +1964,58 @@
             updateStats();
             renderJobs();
             syncJobToCalendarIfEnabled(id);
+        }
+
+        // ── Leads pipeline ─────────────────────────────────────────
+        function persistJobChange(id) {
+            if (CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.syncToCloud();
+            } else {
+                setTimeout(() => {
+                    if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
+                }, 3000);
+            }
+            loadData();
+            updateStats();
+            renderJobs();
+            syncJobToCalendarIfEnabled(id);
+        }
+
+        // Convert a lead into a booked job. Asks for a date (defaults to today)
+        // and moves it into the Scheduled pipeline + calendar.
+        function bookLead(id) {
+            const job = CL_DATA.findJob(id);
+            if (!job) return;
+            const today = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
+            const raw = prompt('Book this lead as a scheduled job.\n\nJob date (YYYY-MM-DD):', job.jobDate || today);
+            if (raw === null) return;
+            const date = String(raw).trim();
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { showToast('Enter a date like 2026-07-10', 'error'); return; }
+            CL_DATA.updateJob(id, { status: 'scheduled', jobDate: date });
+            persistJobChange(id);
+            setTab('booked');
+            showToast('Lead booked ✓');
+        }
+
+        // Archive a lead as lost (reversible). Optional reason is stored for context.
+        function markLost(id) {
+            const job = CL_DATA.findJob(id);
+            if (!job) return;
+            const reason = prompt('Mark this lead as lost (you can reopen it later).\n\nReason (optional):', job.lostReason || '');
+            if (reason === null) return;
+            CL_DATA.updateJob(id, { status: 'lost', lostReason: reason.trim(), lostAt: new Date().toISOString() });
+            persistJobChange(id);
+            showToast('Lead marked lost');
+        }
+
+        // Bring a lost lead back into the active pipeline.
+        function reopenLead(id) {
+            const job = CL_DATA.findJob(id);
+            if (!job) return;
+            CL_DATA.updateJob(id, { status: 'new' });
+            persistJobChange(id);
+            setTab('estimate');
+            showToast('Lead reopened ✓');
         }
         
         // Soft delete with a 6-second Undo toast. (#13) Restore re-creates

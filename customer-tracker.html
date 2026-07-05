@@ -10,48 +10,13 @@
     <title>Customers - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
-    <script>
-        window.tailwind = {
-            config: {
-                theme: {
-                    extend: {
-                        colors: {
-                            primary: '#0ea5e9',
-                            secondary: '#38bdf8',
-                            dark: '#0f172a',
-                            darker: '#020617',
-                            accent: '#06b6d4',
-                        }
-                    }
-                }
-            }
-        };
-    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="app.css">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="data-migration.js"></script>
-    <script src="firebase-sync.js?v=3"></script>
+    <script src="firebase-sync.js?v=4"></script>
     <style>
-        .customer-card {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            border-left: 4px solid transparent;
-            cursor: pointer;
-            border-radius: 10px !important;
-        }
-        .customer-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.25);
-            border-color: rgba(255,255,255,0.15);
-        }
-        .customer-card:active {
-            transform: scale(0.98) translateY(0);
-        }
-        .customer-card.new { border-left-color: #3b82f6; }
-        .customer-card.quoted { border-left-color: #f59e0b; }
-        .customer-card.scheduled { border-left-color: #8b5cf6; }
-        .customer-card.completed { border-left-color: #10b981; }
         .status-badge {
             padding: 4px 12px;
             border-radius: 20px;
@@ -59,144 +24,40 @@
             font-weight: 600;
             text-transform: uppercase;
         }
-        .status-new { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .status-new { background: rgba(46, 123, 255, 0.2); color: #93c5fd; }
         .status-quoted { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
         .status-scheduled { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
         .status-completed { background: rgba(16, 185, 129, 0.2); color: #34d399; }
         .filter-btn { transition: all 0.2s; }
-        .filter-btn.active { transform: scale(1.05); box-shadow: 0 0 15px rgba(14, 165, 233, 0.4); }
-        .action-btn {
-            min-width: 44px;
-            min-height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .customer-card-actions {
-            margin-top: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .customer-est-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            width: 100%;
-            min-height: 38px;
-            border-radius: 7px;
-            background: rgba(255, 255, 255, 0.03);
-            color: #d1d5db;
-            font-weight: 600;
-            font-size: 13px;
-            text-decoration: none;
-            border: 1px solid rgba(255, 255, 255, 0.14);
-        }
-        .customer-est-btn:active { transform: scale(0.98); }
-        .customer-icon-row {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-        }
-        .customer-icon-btn {
-            min-height: 44px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            font-size: 16px;
-            cursor: pointer;
-            text-decoration: none;
-        }
-        .customer-icon-btn.phone { background: rgba(22, 163, 74, 0.22); color: #4ade80; }
-        .customer-icon-btn.sms { background: rgba(37, 99, 235, 0.22); color: #93c5fd; }
-        .customer-icon-btn.edit { background: rgba(71, 85, 105, 0.55); color: #e2e8f0; }
-        .customer-icon-btn.ghost {
-            opacity: 0.22;
-            cursor: default;
-            pointer-events: none;
-            background: rgba(51, 65, 85, 0.35);
-            color: #94a3b8;
-        }
+        .filter-btn.active { background: rgba(46, 123, 255, 0.18); border-color: rgba(46, 123, 255, 0.55); color: #93c5fd; }
         .reminder-urgent { animation: pulse 2s infinite; }
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.6; }
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 200;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            animation: modalFadeIn 0.2s ease;
-        }
-        .modal.show,
-        .modal.modal-open,
-        .modal:not([hidden]) { display: flex !important; }
-        .modal .modal-content {
-            animation: modalSlideUp 0.25s ease;
-        }
-        @keyframes modalFadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes modalSlideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .modal-content {
-            background: #1e293b;
-            border-radius: 10px;
-            width: 100%;
-            max-width: 500px;
-            max-height: 90vh;
-            overflow-y: auto;
-            overflow-x: hidden;
-        }
-        input, select, textarea {
-            background: #0f172a;
-            border: 1px solid rgba(56, 189, 248, 0.3);
-            color: white;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        input:hover, select:hover, textarea:hover {
-            border-color: rgba(56, 189, 248, 0.5);
-            background: rgba(15, 23, 42, 0.9);
-        }
-        input:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: #0ea5e9;
-            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
         }
     </style>
 </head>
 <body>
     <!-- Header -->
     <header class="app-header">
-        <div class="app-header-inner" style="display:flex;align-items:center;justify-content:space-between;max-width:500px;margin:0 auto;padding-left:8px;padding-right:8px;">
-            <button type="button" id="customerSearchToggle" class="header-icon-btn" aria-label="Search" aria-pressed="false"><i class="fas fa-search"></i></button>
-            <h1 style="flex:1;text-align:center;margin:0;font-size:17px;font-weight:600;">Customers</h1>
-            <button id="newCustomerBtn" onclick="openAddModal()" class="header-icon-btn hidden" style="color: var(--electric, #2e7bff);" aria-label="Add customer">
-                <i class="fas fa-plus"></i>
-            </button>
+        <div class="app-header-inner app-header-inner--split">
+            <div class="app-header-wing">
+                <button type="button" id="customerSearchToggle" class="header-tool-btn" aria-label="Search" aria-pressed="false"><i class="fas fa-search"></i></button>
+            </div>
+            <div class="app-header-center"><h1>Customers</h1></div>
+            <div class="app-header-wing app-header-wing--end">
+                <button id="newCustomerBtn" onclick="openAddModal()" class="header-action-btn hidden" aria-label="Add customer">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
         </div>
     </header>
 
     <main class="app-content">
       <div class="content-wrapper">
-        <div id="customerSearchWrap" class="hidden mb-3">
-            <div class="relative">
-                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                <input type="text" id="searchInput" placeholder="Search customers..." 
-                       class="w-full pl-12 pr-4 py-3 rounded-xl text-base"
-                       oninput="filterCustomers()">
-            </div>
+        <div id="customerSearchWrap" class="hidden search-field-wrap">
+            <i class="fas fa-search search-field-icon"></i>
+            <input type="text" id="searchInput" placeholder="Search customers..." class="search-field" oninput="filterCustomers()">
         </div>
 
         <div class="stats-grid stats-grid--4 mb-4">
@@ -218,9 +79,9 @@
             </div>
         </div>
 
-        <div class="ct-tab-row">
-            <button type="button" class="ct-tab active" id="ctTabAll" onclick="setCustomerListTab('all')">All customers</button>
-            <button type="button" class="ct-tab" id="ctTabRecent" onclick="setCustomerListTab('recent')">Recent</button>
+        <div class="page-tabs">
+            <button type="button" class="page-tab active" id="ctTabAll" onclick="setCustomerListTab('all')">All customers</button>
+            <button type="button" class="page-tab" id="ctTabRecent" onclick="setCustomerListTab('recent')">Recent</button>
         </div>
 
         <div class="mb-3 flex items-center justify-between text-sm">
@@ -621,14 +482,14 @@
                             ${ini}
                         </div>
                         <div class="flex-1 min-w-0">
-                            <h3 class="font-bold text-base m-0 truncate">${c.name}</h3>
-                            <p class="text-gray-500 text-xs mt-1 truncate">${c.phone || 'No phone'} · ${c.email || 'No email'}</p>
+                            <h3 class="font-bold text-base m-0 truncate">${escapeHtml(c.name)}</h3>
+                            <p class="text-gray-500 text-xs mt-1 truncate">${escapeHtml(c.phone || 'No phone')} · ${escapeHtml(c.email || 'No email')}</p>
                             <p class="text-gray-400 text-xs mt-1">${jobCount} job${jobCount !== 1 ? 's' : ''}${revPart}</p>
                         </div>
                     </div>
                     ${scheduledJob ? `
                         <div class="text-gray-300 text-xs mb-3">
-                            <i class="fas fa-calendar mr-1"></i>Next: ${new Date(scheduledJob.jobDate + 'T12:00:00').toLocaleDateString()} · ${scheduledJob.serviceType || 'Service'}
+                            <i class="fas fa-calendar mr-1"></i>Next: ${new Date(scheduledJob.jobDate + 'T12:00:00').toLocaleDateString()} · ${escapeHtml(scheduledJob.serviceType || 'Service')}
                         </div>
                     ` : ''}
 
@@ -638,7 +499,7 @@
                         </a>
                         <div class="customer-icon-row">
                             ${c.phone ? `
-                            <a href="tel:${c.phone}" class="customer-icon-btn phone" aria-label="Call"><i class="fas fa-phone"></i><span style="font-size:11px;margin-left:6px;">Call</span></a>
+                            <a href="tel:${encodeURIComponent(c.phone)}" class="customer-icon-btn phone" aria-label="Call"><i class="fas fa-phone"></i><span style="font-size:11px;margin-left:6px;">Call</span></a>
                             <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-ban"></i><span style="font-size:11px;margin-left:6px;">Text</span></span>
                             ` : `
                             <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-phone"></i><span style="font-size:11px;margin-left:6px;">Call</span></span>
@@ -724,8 +585,8 @@
                             ${g.jobs.map(j => `
                                 <div class="bg-slate-800 p-3 rounded-lg">
                                     <div class="flex justify-between items-center">
-                                        <span class="font-semibold">${j.serviceType || 'Service'}</span>
-                                        <span class="status-badge status-${j.status} text-xs">${j.status}</span>
+                                        <span class="font-semibold">${escapeHtml(j.serviceType || 'Service')}</span>
+                                        <span class="status-badge status-${escapeHtml(j.status)} text-xs">${escapeHtml(j.status)}</span>
                                     </div>
                                     <div class="text-sm text-gray-400 mt-1">
                                         ${j.jobDate ? new Date(j.jobDate + 'T12:00:00').toLocaleDateString() : 'No date'}
@@ -762,13 +623,13 @@
                         ${c.phone ? `
                         <div>
                             <p class="text-gray-400 text-sm">Phone</p>
-                            <a href="tel:${c.phone}" class="text-primary">${c.phone}</a>
+                            <a href="tel:${encodeURIComponent(c.phone)}" class="text-primary">${escapeHtml(c.phone)}</a>
                         </div>
                         ` : ''}
                         ${c.email ? `
                             <div>
                                 <p class="text-gray-400 text-sm">Email</p>
-                                <a href="mailto:${c.email}" class="text-primary">${c.email}</a>
+                                <a href="mailto:${encodeURIComponent(c.email)}" class="text-primary">${escapeHtml(c.email)}</a>
                             </div>
                         ` : ''}
                     </div>
@@ -777,7 +638,7 @@
                         <div>
                             <p class="text-gray-400 text-sm">Address</p>
                             <a href="https://maps.google.com/?q=${encodeURIComponent(c.address)}" target="_blank" class="text-primary">
-                                <i class="fas fa-map-marker-alt mr-1"></i>${c.address}
+                                <i class="fas fa-map-marker-alt mr-1"></i>${escapeHtml(c.address)}
                             </a>
                         </div>
                     ` : ''}
@@ -785,7 +646,7 @@
                     ${c.notes ? `
                         <div>
                             <p class="text-gray-400 text-sm">Notes</p>
-                            <p class="bg-slate-800 p-3 rounded-lg whitespace-pre-wrap">${c.notes}</p>
+                            <p class="bg-slate-800 p-3 rounded-lg whitespace-pre-wrap">${escapeHtml(c.notes)}</p>
                         </div>
                     ` : ''}
                     
@@ -800,7 +661,7 @@
                     
                     ${c.phone ? `
                     <div class="flex gap-3 pt-4 border-t border-slate-700">
-                        <a href="tel:${c.phone}" class="flex-1 bg-green-600 text-white py-3 rounded-xl text-center font-semibold">
+                        <a href="tel:${encodeURIComponent(c.phone)}" class="flex-1 bg-green-600 text-white py-3 rounded-xl text-center font-semibold">
                             <i class="fas fa-phone mr-2"></i>Call
                         </a>
                     </div>

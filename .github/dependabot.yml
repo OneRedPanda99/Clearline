@@ -1,0 +1,8 @@
+version: 2
+updates:
+  # Keep the GitHub Actions used in workflows patched (the only dependency
+  # surface in this static app — everything else loads from CDNs at runtime).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

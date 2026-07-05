@@ -34,11 +34,34 @@ service cloud.firestore {
         && request.resource.data.role in ["manager", "worker"];
     }
 
+    // Privileged fields on a user doc that must never be changed by the
+    // account holder themselves (only the Owner may grant/revoke roles and
+    // permissions). Comparing request vs resource covers merge-writes: the
+    // post-write state must equal the stored value for each locked field.
+    function roleUnchanged()   { return request.resource.data.role == resource.data.role; }
+    function permsUnchanged()  { return request.resource.data.permissions == resource.data.permissions; }
+    function mgrUnchanged()    { return request.resource.data.assignedManager == resource.data.assignedManager; }
+    function activeUnchanged() { return request.resource.data.active == resource.data.active; }
+
     // ── users/{uid} ─────────────────────────────
     match /users/{userId} {
       allow read: if signedIn() && (uid() == userId || isOwner() || isManager());
       allow create: if signedIn() && (uid() == userId || ownerProvisioningUser());
-      allow update: if signedIn() && (uid() == userId || isOwner() || isManager());
+
+      // Update matrix:
+      //   Owner   -> may change anything on any user doc.
+      //   Self    -> may update own doc (settings, sync state, displayName)
+      //              but NOT role/permissions/assignedManager/active.
+      //   Manager -> may update only their OWN workers, and may toggle
+      //              `active` (deactivate) but never role/permissions/
+      //              assignedManager. Cannot touch the Owner or peers.
+      allow update: if isOwner()
+        || (uid() == userId
+            && roleUnchanged() && permsUnchanged() && mgrUnchanged() && activeUnchanged())
+        || (isManager()
+            && resource.data.assignedManager == uid()
+            && roleUnchanged() && permsUnchanged() && mgrUnchanged());
+
       allow delete: if false;
     }
 
