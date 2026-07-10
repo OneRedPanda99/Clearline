@@ -41,7 +41,7 @@ jobs:
           EOF
 
       - name: Verify config.js exists
-        run: ls -la ${{ github.workspace }}/config.js && cat ${{ github.workspace }}/config.js
+        run: test -f ${{ github.workspace }}/config.js && echo "config.js generated successfully"
 
       - uses: actions/configure-pages@v5
 

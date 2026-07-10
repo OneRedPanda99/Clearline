@@ -671,8 +671,8 @@
                         <a href="#" onclick="prefillEstimate('${c.id}'); return false;" class="flex-1 bg-purple-600 text-white py-3 rounded-xl text-center font-semibold">
                             <i class="fas fa-plus mr-2"></i>Estimate
                         </a>
-                        <button onclick="prefillEstimate('${c.id}')" class="flex-1 bg-cyan-600/80 text-white py-3 rounded-xl font-semibold">
-                            <i class="fas fa-file-invoice mr-2"></i>Estimate
+                        <button onclick="prefillScheduleJob('${c.id}')" class="flex-1 bg-cyan-600/80 text-white py-3 rounded-xl font-semibold">
+                            <i class="fas fa-calendar mr-2"></i>Schedule Job
                         </button>
                         <button onclick="prefillInvoice('${c.id}')" class="flex-1 bg-amber-600/80 text-white py-3 rounded-xl font-semibold">
                             <i class="fas fa-receipt mr-2"></i>Invoice
@@ -911,6 +911,36 @@
             });
             closeDetailModal();
             window.location.href = 'invoice.html';
+        }
+
+        function prefillScheduleJob(id) {
+            const c = customers.find(c => c.id === id);
+            if (!c) return;
+            const today = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
+            const jobId = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+            const nowIso = new Date().toISOString();
+            CL_DATA.addJob({
+                id: jobId,
+                customerId: c.id,
+                customerName: c.name || '',
+                customerPhone: c.phone || '',
+                customerEmail: c.email || '',
+                address: c.address || '',
+                serviceType: '',
+                jobCategory: '',
+                jobDate: today,
+                jobTime: '',
+                jobDuration: '',
+                quoteAmount: '',
+                squareFootage: '',
+                status: 'scheduled',
+                notes: '',
+                paymentStatus: 'unpaid',
+                dateAdded: nowIso,
+                documents: { estimates: [], invoices: [], waivers: [] }
+            });
+            closeDetailModal();
+            window.location.href = `jobs.html?highlight=${encodeURIComponent(jobId)}&edit=1&tab=booked`;
         }
 
         let placeAcBox = null;
