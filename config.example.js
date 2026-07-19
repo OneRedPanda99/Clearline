@@ -14,6 +14,8 @@ window.CL_SECRETS = {
         measurementId: "YOUR_MEASUREMENT_ID"
     },
     mapsApiKey: "YOUR_GOOGLE_MAPS_API_KEY",
+    // Region for Cloud Functions (setUserPassword, etc.). No secrets here.
+    functionsRegion: "us-central1",
     // Optional: hard-code the Owner's Firebase Auth uid. When set, the app
     // will only auto-bootstrap a `users/{uid}` doc with role='owner' if
     // the signed-in Google account matches this uid. Leave blank on a
