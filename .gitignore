@@ -3,6 +3,8 @@ config.js
 sw.js
 .env
 .env.*
+!.env.example
+!functions/.env.example
 
 # Dependencies
 node_modules/

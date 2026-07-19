@@ -15,7 +15,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="data-migration.js"></script>
-    <script src="firebase-sync.js?v=4"></script>
+    <script src="firebase-sync.js?v=5"></script>
 </head>
 <body>
     <header class="app-header">
@@ -110,6 +110,38 @@
                         <p class="text-xs text-gray-400">Calendar event reminders</p>
                     </div>
                     <div id="toggleReminders" class="toggle on" onclick="toggleSetting('reminders')"></div>
+                </div>
+            </div>
+
+            <!-- Customer SMS (Twilio + Hermes) — owner-facing; secrets stay in Cloud Functions -->
+            <p class="section-title mb-2 px-1">Customer SMS</p>
+            <div class="glass-card rounded-2xl overflow-hidden mb-4">
+                <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
+                    <div>
+                        <p>Hermes reply mode</p>
+                        <p class="text-xs text-gray-400">Approve drafts before send, or auto-reply</p>
+                    </div>
+                    <select id="smsReplyMode" class="bg-slate-700 rounded-lg p-2 text-sm">
+                        <option value="approve" selected>Approve</option>
+                        <option value="auto">Auto</option>
+                    </select>
+                </div>
+                <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
+                    <div>
+                        <p>Automatic SMS reminders</p>
+                        <p class="text-xs text-gray-400">Day-before, quote follow-up, payment nudge</p>
+                    </div>
+                    <div id="toggleSmsReminders" class="toggle on" onclick="toggleSetting('smsReminders')"></div>
+                </div>
+                <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
+                    <div>
+                        <p>Quote follow-up (days)</p>
+                        <p class="text-xs text-gray-400">Wait this many days after a quote</p>
+                    </div>
+                    <input type="number" id="quoteFollowUpDays" value="3" min="1" max="30" class="w-20 bg-slate-700 rounded-lg p-2 text-right text-sm">
+                </div>
+                <div class="p-4">
+                    <p class="text-[11px] text-gray-500">Twilio + OpenRouter (Nous Hermes) keys are configured in Firebase Cloud Functions — see <code>FUNCTIONS.md</code>. Never put SMS/AI secrets in this page or <code>config.js</code>.</p>
                 </div>
             </div>
 
@@ -240,6 +272,9 @@
             if (settings.defaultDuration) document.getElementById('defaultDuration').value = settings.defaultDuration;
             if (settings.calendarView) document.getElementById('calendarView').value = settings.calendarView;
             if (settings.reminders === false) document.getElementById('toggleReminders').classList.remove('on');
+            if (settings.smsRemindersEnabled === false) document.getElementById('toggleSmsReminders').classList.remove('on');
+            if (settings.smsReplyMode) document.getElementById('smsReplyMode').value = settings.smsReplyMode;
+            if (settings.quoteFollowUpDays != null) document.getElementById('quoteFollowUpDays').value = settings.quoteFollowUpDays;
 
             // Load service types and categories
             document.getElementById('serviceTypes').value = settings.serviceTypes || DEFAULT_SERVICES;
@@ -259,12 +294,31 @@
             // Listen for auth changes
             window.addEventListener('cl-auth-change', (e) => updateSyncUI(e.detail.user));
 
+            // Pull SMS prefs from settings/global when signed in as owner
+            loadCloudSmsSettings();
+            window.addEventListener('cl-profile-updated', () => loadCloudSmsSettings());
+
             setActiveNav();
         });
+
+        async function loadCloudSmsSettings() {
+            if (!window.CL_FIREBASE || !CL_FIREBASE.isSignedIn) return;
+            try {
+                const g = await CL_FIREBASE.getGlobalSettings();
+                if (!g) return;
+                if (g.smsReplyMode) document.getElementById('smsReplyMode').value = g.smsReplyMode;
+                if (g.smsRemindersEnabled === false) document.getElementById('toggleSmsReminders').classList.remove('on');
+                if (g.smsRemindersEnabled === true) document.getElementById('toggleSmsReminders').classList.add('on');
+                if (g.quoteFollowUpDays != null) document.getElementById('quoteFollowUpDays').value = g.quoteFollowUpDays;
+            } catch (_) {}
+        }
 
         function saveSettings() {
             const existing = JSON.parse(localStorage.getItem('cl-settings') || '{}');
             const businessName = document.getElementById('businessName').value;
+            const smsReplyMode = document.getElementById('smsReplyMode').value || 'approve';
+            const smsRemindersEnabled = document.getElementById('toggleSmsReminders').classList.contains('on');
+            const quoteFollowUpDays = parseInt(document.getElementById('quoteFollowUpDays').value, 10) || 3;
             const settings = {
                 ...existing,
                 businessName: businessName,
@@ -278,6 +332,9 @@
                 defaultDuration: document.getElementById('defaultDuration').value,
                 calendarView: document.getElementById('calendarView').value,
                 reminders: document.getElementById('toggleReminders').classList.contains('on'),
+                smsReplyMode,
+                smsRemindersEnabled,
+                quoteFollowUpDays,
                 serviceTypes: document.getElementById('serviceTypes').value,
                 jobCategories: document.getElementById('jobCategories').value
             };
@@ -285,6 +342,15 @@
 
             if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
                 CL_FIREBASE.syncToCloud();
+                // Owner: mirror SMS prefs to settings/global for Cloud Functions
+                if (CL_FIREBASE.role === 'owner' && CL_FIREBASE.updateGlobalSettings) {
+                    CL_FIREBASE.updateGlobalSettings({
+                        businessName,
+                        smsReplyMode,
+                        smsRemindersEnabled,
+                        quoteFollowUpDays
+                    });
+                }
             }
             // Update About section
             if (businessName) {

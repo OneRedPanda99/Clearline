@@ -36,7 +36,8 @@ jobs:
               appId: "${{ secrets.FIREBASE_APP_ID }}",
               measurementId: "${{ secrets.FIREBASE_MEASUREMENT_ID }}"
             },
-            mapsApiKey: "${{ secrets.MAPS_API_KEY }}"
+            mapsApiKey: "${{ secrets.MAPS_API_KEY }}",
+            functionsRegion: "us-central1"
           };
           EOF
 

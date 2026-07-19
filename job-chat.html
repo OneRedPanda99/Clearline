@@ -8,7 +8,7 @@
     <script src="config.js"></script>
     <script src="utils.js"></script>
     <script src="data-migration.js"></script>
-    <script src="firebase-sync.js?v=4"></script>
+    <script src="firebase-sync.js?v=5"></script>
     <link rel="stylesheet" href="app.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -43,7 +43,22 @@
             align-self: flex-start; background: rgba(51, 65, 85, 0.65); color: #e2e8f0;
             border-bottom-left-radius: 4px;
         }
+        .chat-bubble.draft {
+            align-self: flex-end;
+            background: rgba(251, 191, 36, 0.12);
+            border: 1px solid rgba(251, 191, 36, 0.35);
+            color: #fde68a;
+            border-bottom-right-radius: 4px;
+        }
         .chat-meta { font-size: 10px; opacity: 0.75; margin-top: 4px; }
+        .draft-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+        .draft-actions button {
+            flex: 1; min-width: 90px; padding: 8px 10px; border-radius: 10px; border: none;
+            font-size: 12px; font-weight: 800; cursor: pointer;
+        }
+        .draft-actions .approve { background: #1d4ed8; color: #fff; }
+        .draft-actions .edit { background: rgba(51,65,85,0.7); color: #e2e8f0; }
+        .draft-actions .regen { background: rgba(251,191,36,0.18); color: #fde68a; }
         .quick-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
         .quick-pill {
             padding: 8px 12px; border-radius: 999px; border: 1px solid rgba(46, 123, 255, 0.35);
@@ -56,15 +71,18 @@
             border-top: 1px solid rgba(255,255,255,0.08);
             margin-top: auto;
         }
-        .chat-input-row input {
-            flex: 1; margin: 0;
-        }
+        .chat-input-row input { flex: 1; margin: 0; }
         .chat-icon-btn {
             width: 40px; height: 40px; border-radius: 10px; border: none;
             background: rgba(255,255,255,0.08); color: #94a3b8; cursor: pointer;
         }
         .chat-hint {
-            font-size: 11px; color: #64748b; text-align: center; padding: 8px 12px 0;
+            font-size: 11px; color: #64748b; text-align: center; padding: 0 12px 8px;
+        }
+        .mode-pill {
+            display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
+            text-transform: uppercase; padding: 3px 8px; border-radius: 999px;
+            background: rgba(46,123,255,0.15); color: #93c5fd; margin-left: 6px;
         }
     </style>
 </head>
@@ -85,13 +103,16 @@
     <main class="app-content" style="display:flex;flex-direction:column;">
         <div class="content-wrapper chat-wrap">
             <a id="chatViewJob" href="#" class="chat-view-job"><i class="fas fa-briefcase mr-2"></i>View job details</a>
-            <p class="chat-hint">Quick SMS templates open your messenger. Notes below are saved on this device only.</p>
+            <p class="chat-hint" id="chatHint">
+                Twilio sends real texts when configured. Otherwise quick replies open your phone messenger.
+                Hermes drafts appear here for approval.
+            </p>
             <div class="quick-row" id="quickReplies"></div>
             <div class="chat-stream" id="chatStream"></div>
             <div class="chat-input-row">
-                <button type="button" class="chat-icon-btn" id="btnSmsTemplate" title="Insert template" aria-label="Templates"><i class="fas fa-plus"></i></button>
-                <input type="text" id="chatInput" placeholder="Type a note (saved locally)…" autocomplete="off">
-                <button type="button" class="chat-icon-btn" id="btnSendLocal" style="color:#2e7bff;" aria-label="Save note"><i class="fas fa-paper-plane"></i></button>
+                <button type="button" class="chat-icon-btn" id="btnSmsTemplate" title="Device SMS" aria-label="Device SMS"><i class="fas fa-mobile-alt"></i></button>
+                <input type="text" id="chatInput" placeholder="Type a text…" autocomplete="off">
+                <button type="button" class="chat-icon-btn" id="btnSend" style="color:#2e7bff;" aria-label="Send"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
     </main>
@@ -113,13 +134,26 @@
         const params = new URLSearchParams(window.location.search);
         const jobId = params.get('jobId');
         let job = null;
+        let thread = null;
+        let threadId = '';
+        let unsubThread = null;
+        let twilioReady = false;
+        let smsReplyMode = 'approve';
+
+        function esc(v) {
+            return String(v ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
 
         function storageKey() { return 'cl-job-chat-' + (jobId || 'unknown'); }
 
-        function loadMessages() {
+        function loadLocalMessages() {
             return safeGet(storageKey(), []);
         }
-        function saveMessages(arr) {
+        function saveLocalMessages(arr) {
             safeSet(storageKey(), arr);
         }
 
@@ -131,30 +165,62 @@
             return when.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + t;
         }
 
-        function render() {
-            const stream = document.getElementById('chatStream');
-            const msgs = loadMessages();
-            if (!msgs.length) {
-                stream.innerHTML = '<p style="text-align:center;color:#64748b;font-size:13px;padding:20px;">No saved notes yet. Use quick replies to text the customer, or save a private note below.</p>';
-                return;
+        function mergeDisplayMessages() {
+            const cloud = (thread && Array.isArray(thread.messages)) ? thread.messages : [];
+            if (cloud.length) {
+                return cloud.map(m => ({
+                    from: m.direction === 'inbound' ? 'them' : 'me',
+                    text: m.body || m.text || '',
+                    ts: m.ts ? Date.parse(m.ts) || m.ts : 0,
+                    source: m.source || m.via || ''
+                }));
             }
-            stream.innerHTML = msgs.map(m => {
-                const side = m.from === 'me' ? 'me' : 'them';
-                const body = (m.text || '').replace(/</g, '&lt;');
-                const time = m.ts ? new Date(m.ts).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
-                return `<div class="chat-bubble ${side}">${body}<div class="chat-meta">${time}${m.from === 'me' ? ' · saved here' : ''}</div></div>`;
-            }).join('');
-            stream.scrollTop = stream.scrollHeight;
+            return loadLocalMessages();
         }
 
-        function pushLocalNote(text) {
-            const t = text.trim();
-            if (!t) return;
-            const msgs = loadMessages();
-            msgs.push({ from: 'me', text: t, ts: Date.now() });
-            saveMessages(msgs);
-            document.getElementById('chatInput').value = '';
-            render();
+        function render() {
+            const stream = document.getElementById('chatStream');
+            const msgs = mergeDisplayMessages();
+            let html = '';
+            if (!msgs.length && !(thread && thread.draft && thread.draft.text)) {
+                html = '<p style="text-align:center;color:#64748b;font-size:13px;padding:20px;">No messages yet. Use a quick reply or type below.</p>';
+            } else {
+                html = msgs.map(m => {
+                    const side = m.from === 'me' ? 'me' : 'them';
+                    const body = esc(m.text || '');
+                    const time = m.ts ? new Date(m.ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+                    const meta = time + (m.source ? ' · ' + esc(m.source) : (side === 'me' && !thread ? ' · saved here' : ''));
+                    return `<div class="chat-bubble ${side}">${body}<div class="chat-meta">${meta}</div></div>`;
+                }).join('');
+            }
+            if (thread && thread.draft && (thread.draft.text || thread.draft.error)) {
+                const draftText = thread.draft.text
+                    ? esc(thread.draft.text)
+                    : ('<em>' + esc(thread.draft.error || 'Draft error') + '</em>');
+                html += `<div class="chat-bubble draft">
+                    <div style="font-size:11px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:4px;">Hermes draft</div>
+                    ${draftText}
+                    <div class="chat-meta">${thread.draft.model ? esc(thread.draft.model) : 'nousresearch/hermes-4-70b'}</div>
+                    ${thread.draft.text ? `<div class="draft-actions">
+                        <button type="button" class="approve" onclick="approveDraft()">Approve &amp; send</button>
+                        <button type="button" class="edit" onclick="editDraft()">Edit</button>
+                        <button type="button" class="regen" onclick="regenDraft()">Regenerate</button>
+                    </div>` : `<div class="draft-actions">
+                        <button type="button" class="regen" onclick="regenDraft()">Try again</button>
+                    </div>`}
+                </div>`;
+            }
+            stream.innerHTML = html;
+            stream.scrollTop = stream.scrollHeight;
+
+            const hint = document.getElementById('chatHint');
+            if (hint) {
+                const modeLabel = smsReplyMode === 'auto' ? 'Auto-reply on' : 'Approve mode';
+                hint.innerHTML = (twilioReady
+                    ? 'Twilio SMS connected. Hermes drafts sync to this thread.'
+                    : 'Twilio not configured yet — quick replies open your phone messenger. Notes still save.') +
+                    ' <span class="mode-pill">' + modeLabel + '</span>';
+            }
         }
 
         window.openJobChatSms = function(body) {
@@ -165,6 +231,98 @@
             }
             window.location.href = 'sms:' + phone + (body ? '?body=' + encodeURIComponent(body) : '');
         };
+
+        async function sendText(text) {
+            const t = String(text || '').trim();
+            if (!t) return;
+            if (!job || !job.customerPhone) {
+                showToast('No phone on file for this job.', 'error');
+                return;
+            }
+
+            // Prefer Twilio callable when signed in + thread ready
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn && threadId) {
+                showToast('Sending…', 'success');
+                const res = await CL_FIREBASE.sendSmsMessage({ threadId, body: t, jobId });
+                if (res && res.ok) {
+                    document.getElementById('chatInput').value = '';
+                    showToast('Sent', 'success');
+                    return;
+                }
+                // Fall back to device SMS if Functions/Twilio not ready
+                if (res && (res.code === 'functions-unavailable' || /twilio|unconfigured|internal/i.test(res.message || ''))) {
+                    twilioReady = false;
+                } else if (res && !res.ok) {
+                    showToast(res.message || 'Send failed', 'error');
+                    return;
+                }
+            }
+
+            // Device SMS + local note fallback
+            const msgs = loadLocalMessages();
+            msgs.push({ from: 'me', text: t, ts: Date.now() });
+            saveLocalMessages(msgs);
+            document.getElementById('chatInput').value = '';
+            render();
+            window.openJobChatSms(t);
+        }
+
+        window.approveDraft = async function() {
+            if (!threadId || !window.CL_FIREBASE) return;
+            const res = await CL_FIREBASE.approveSmsDraft(threadId);
+            if (res && res.ok) showToast('Draft sent', 'success');
+            else showToast((res && res.message) || 'Could not send draft', 'error');
+        };
+
+        window.editDraft = function() {
+            if (!thread || !thread.draft || !thread.draft.text) return;
+            document.getElementById('chatInput').value = thread.draft.text;
+            document.getElementById('chatInput').focus();
+        };
+
+        window.regenDraft = async function() {
+            if (!threadId || !window.CL_FIREBASE) return;
+            showToast('Asking Hermes…', 'success');
+            const res = await CL_FIREBASE.requestHermesDraft(threadId);
+            if (res && res.ok) showToast('Draft ready', 'success');
+            else showToast((res && res.message) || 'Hermes unavailable', 'error');
+        };
+
+        async function initCloudThread() {
+            if (!job || !job.customerPhone || !window.CL_FIREBASE || !CL_FIREBASE.isSignedIn) {
+                render();
+                return;
+            }
+            try {
+                const settings = await CL_FIREBASE.getGlobalSettings();
+                if (settings) {
+                    smsReplyMode = (settings.smsReplyMode || 'approve').toLowerCase();
+                    twilioReady = settings.twilioConfigured === true || !!settings.smsEnabled;
+                }
+            } catch (_) {}
+
+            const ensured = await CL_FIREBASE.ensureSmsThread({
+                phone: job.customerPhone,
+                customerName: job.customerName || '',
+                customerId: job.customerId || '',
+                jobId: job.id
+            });
+            if (!ensured || !ensured.ok) {
+                render();
+                return;
+            }
+            thread = ensured.thread;
+            threadId = ensured.thread.id;
+            if (unsubThread) try { unsubThread(); } catch (_) {}
+            unsubThread = CL_FIREBASE.listenSmsThread(threadId, (t) => {
+                thread = t;
+                if (t && Array.isArray(t.messages) && t.messages.length) {
+                    // Cloud is source of truth — clear stale local-only duplicates quietly
+                }
+                render();
+            });
+            render();
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             setActiveNav();
@@ -194,22 +352,31 @@
                 { label: 'See you soon', body: 'See you soon!' }
             ];
             document.getElementById('quickReplies').innerHTML = quick.map(q =>
-                `<button type="button" class="quick-pill" onclick="openJobChatSms(${JSON.stringify(q.body)})">${q.label}</button>`
+                `<button type="button" class="quick-pill" onclick="sendText(${JSON.stringify(q.body)})">${q.label}</button>`
             ).join('');
 
-            document.getElementById('btnSendLocal').addEventListener('click', () => {
-                pushLocalNote(document.getElementById('chatInput').value);
+            document.getElementById('btnSend').addEventListener('click', () => {
+                sendText(document.getElementById('chatInput').value);
             });
             document.getElementById('chatInput').addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') { e.preventDefault(); pushLocalNote(document.getElementById('chatInput').value); }
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    sendText(document.getElementById('chatInput').value);
+                }
             });
             document.getElementById('btnSmsTemplate').addEventListener('click', () => {
                 const input = document.getElementById('chatInput');
                 const body = (input.value || '').trim() || 'Hi - quick update on your job.';
                 window.openJobChatSms(body);
             });
+
             render();
+            if (CL_FIREBASE.getProfile && CL_FIREBASE.getProfile()) {
+                initCloudThread();
+            }
         });
+
+        window.addEventListener('cl-profile-updated', () => initCloudThread());
     </script>
 </body>
 </html>

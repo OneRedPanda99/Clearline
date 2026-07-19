@@ -13,6 +13,8 @@ const CL_FIREBASE = (function() {
     let app = null;
     let auth = null;
     let db = null;
+    let storage = null;
+    let functions = null;
     let currentUser = null;
     let calendarAccessToken = null;
     let calendarTokenExpiry = 0;
@@ -105,6 +107,20 @@ const CL_FIREBASE = (function() {
 
             auth = firebase.auth();
             db = firebase.firestore();
+            try {
+                storage = firebase.storage();
+            } catch (err) {
+                console.warn('Firebase Storage unavailable:', err && err.message);
+                storage = null;
+            }
+            try {
+                // Prefer us-central1; override with CL_SECRETS.functionsRegion if set.
+                const region = (window.CL_SECRETS && window.CL_SECRETS.functionsRegion) || 'us-central1';
+                functions = firebase.app().functions(region);
+            } catch (err) {
+                console.warn('Firebase Functions unavailable:', err && err.message);
+                functions = null;
+            }
 
             // Use SESSION persistence so auth state lives in sessionStorage
             // (same-origin, not blocked by Edge/Firefox tracking prevention).
@@ -167,8 +183,151 @@ const CL_FIREBASE = (function() {
         await loadScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
         await Promise.all([
             loadScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js'),
-            loadScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js')
+            loadScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js'),
+            loadScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js'),
+            loadScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js')
         ]);
+    }
+
+    function getStorage() {
+        return storage;
+    }
+
+    function getFunctions() {
+        return functions;
+    }
+
+    /** Call a deployed HTTPS callable Cloud Function. */
+    async function callFunction(name, data) {
+        if (!functions) {
+            return { ok: false, code: 'functions-unavailable', message: 'Cloud Functions SDK not loaded' };
+        }
+        try {
+            const callable = functions.httpsCallable(name);
+            const result = await callable(data || {});
+            return { ok: true, data: result && result.data };
+        } catch (err) {
+            console.error('[CL_FIREBASE] callFunction failed:', name, err);
+            return {
+                ok: false,
+                code: (err && err.code) || 'unknown',
+                message: (err && err.message) || 'Callable failed'
+            };
+        }
+    }
+
+    /**
+     * Upload a receipt JPEG Blob/File to Firebase Storage.
+     * Path: receipts/{uid}/{expenseId}.jpg
+     */
+    async function uploadReceiptImage(expenseId, blobOrFile, contentType) {
+        if (!storage || !currentUser) {
+            return { ok: false, code: 'storage-unavailable' };
+        }
+        const path = 'receipts/' + currentUser.uid + '/' + expenseId + '.jpg';
+        try {
+            const ref = storage.ref().child(path);
+            const metadata = { contentType: contentType || 'image/jpeg' };
+            await ref.put(blobOrFile, metadata);
+            let downloadURL = '';
+            try { downloadURL = await ref.getDownloadURL(); } catch (_) {}
+            return { ok: true, storagePath: path, downloadURL };
+        } catch (err) {
+            console.error('[CL_FIREBASE] uploadReceiptImage failed:', err);
+            return { ok: false, code: (err && err.code) || 'upload-failed', message: err && err.message };
+        }
+    }
+
+    /** Ask the parseReceipt Cloud Function to OCR a stored receipt. */
+    async function parseReceipt(storagePath) {
+        return callFunction('parseReceipt', { storagePath });
+    }
+
+    function normalizePhoneDigits(phone) {
+        const digits = String(phone || '').replace(/\D/g, '');
+        if (!digits) return '';
+        if (digits.length === 10) return '1' + digits;
+        return digits;
+    }
+
+    function smsThreadIdForPhone(phone) {
+        const d = normalizePhoneDigits(phone);
+        return d ? ('phone_' + d) : '';
+    }
+
+    async function getSmsThread(threadId) {
+        if (!db || !threadId) return null;
+        try {
+            const snap = await db.collection('smsThreads').doc(threadId).get();
+            return snap.exists ? Object.assign({ id: snap.id }, snap.data()) : null;
+        } catch (err) {
+            console.warn('[CL_FIREBASE] getSmsThread failed:', err);
+            return null;
+        }
+    }
+
+    async function ensureSmsThread({ phone, customerName, customerId, jobId }) {
+        if (!db || !currentUser) return { ok: false, code: 'not-signed-in' };
+        const threadId = smsThreadIdForPhone(phone);
+        if (!threadId) return { ok: false, code: 'no-phone' };
+        const ref = db.collection('smsThreads').doc(threadId);
+        try {
+            const snap = await ref.get();
+            const now = new Date().toISOString();
+            if (!snap.exists) {
+                const doc = {
+                    phoneDigits: normalizePhoneDigits(phone),
+                    customerName: customerName || '',
+                    customerId: customerId || '',
+                    jobId: jobId || '',
+                    messages: [],
+                    draft: null,
+                    createdAt: now,
+                    lastUpdated: now,
+                    createdBy: currentUser.uid
+                };
+                await ref.set(doc);
+                return { ok: true, thread: Object.assign({ id: threadId }, doc) };
+            }
+            const patch = { lastUpdated: now };
+            if (jobId) patch.jobId = jobId;
+            if (customerId) patch.customerId = customerId;
+            if (customerName) patch.customerName = customerName;
+            await ref.set(patch, { merge: true });
+            const data = Object.assign({}, snap.data(), patch, { id: threadId });
+            return { ok: true, thread: data };
+        } catch (err) {
+            console.error('[CL_FIREBASE] ensureSmsThread failed:', err);
+            return { ok: false, code: err.code || 'unknown', message: err.message };
+        }
+    }
+
+    function listenSmsThread(threadId, onChange) {
+        if (!db || !threadId || typeof onChange !== 'function') return () => {};
+        return db.collection('smsThreads').doc(threadId).onSnapshot(
+            (snap) => {
+                if (!snap.exists) {
+                    onChange(null);
+                    return;
+                }
+                onChange(Object.assign({ id: snap.id }, snap.data()));
+            },
+            (err) => {
+                console.warn('[CL_FIREBASE] smsThread listener error:', err);
+            }
+        );
+    }
+
+    async function sendSmsMessage({ threadId, body, jobId }) {
+        return callFunction('sendSms', { threadId, body, jobId });
+    }
+
+    async function approveSmsDraft(threadId) {
+        return callFunction('approveDraft', { threadId });
+    }
+
+    async function requestHermesDraft(threadId) {
+        return callFunction('generateHermesDraft', { threadId });
     }
 
     // Handle auth state changes. Orchestrates profile load, the Owner
@@ -859,6 +1018,19 @@ const CL_FIREBASE = (function() {
         getUserInfo,
         getCurrentUser,
         getFirestore,
+        getStorage,
+        getFunctions,
+        callFunction,
+        uploadReceiptImage,
+        parseReceipt,
+        normalizePhoneDigits,
+        smsThreadIdForPhone,
+        getSmsThread,
+        ensureSmsThread,
+        listenSmsThread,
+        sendSmsMessage,
+        approveSmsDraft,
+        requestHermesDraft,
         syncToCloud,
         syncFromCloud,
         getCalendarToken,

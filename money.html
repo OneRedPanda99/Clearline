@@ -8,7 +8,7 @@
     <script src="config.js"></script>
     <script src="utils.js"></script>
     <script src="data-migration.js"></script>
-    <script src="firebase-sync.js?v=4"></script>
+    <script src="firebase-sync.js?v=5"></script>
     <link rel="stylesheet" href="app.css">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -27,6 +27,7 @@
         .pill.tax { background: rgba(251,191,36,0.14); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
         .pill.pay { background: rgba(167,139,250,0.14); color: #a78bfa; border: 1px solid rgba(167,139,250,0.25); }
         .pill.exp { background: rgba(52,211,153,0.14); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
+        .pill.ocr { background: rgba(96,165,250,0.14); color: #60a5fa; border: 1px solid rgba(96,165,250,0.25); }
         .form-grid { display:grid; gap:10px; }
         .form-grid label { font-size: 12px; color:#94a3b8; display:block; margin-bottom:4px; }
         .form-grid input, .form-grid select, .form-grid textarea {
@@ -47,6 +48,52 @@
             border: 1px solid rgba(239,68,68,0.25);
             color: #fecaca;
         }
+        .scan-bar {
+            display:flex; gap:8px; margin-bottom:12px;
+        }
+        .scan-bar button, .scan-bar label {
+            flex:1; padding: 12px; border-radius: 14px; font-weight: 800; font-size: 13px;
+            text-align:center; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+        }
+        .scan-bar .scan-primary {
+            background: linear-gradient(135deg, #2e7bff, #1d4ed8);
+            border:none; color:#fff;
+        }
+        .scan-bar .scan-secondary {
+            background: rgba(51,65,85,0.45);
+            border: 1px solid rgba(255,255,255,0.10); color:#e2e8f0;
+        }
+        .receipt-queue { display:grid; gap:10px; margin-bottom:14px; }
+        .receipt-card {
+            display:grid; grid-template-columns: 72px 1fr; gap:10px;
+            padding: 12px; border-radius: 14px;
+            background: rgba(15,23,42,0.55);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .receipt-card img {
+            width:72px; height:72px; object-fit:cover; border-radius:10px;
+            background: rgba(255,255,255,0.06);
+        }
+        .receipt-card .status {
+            font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+            color: #93c5fd; margin-bottom: 4px;
+        }
+        .receipt-card .status.err { color: #fca5a5; }
+        .receipt-card .status.ok { color: #6ee7b7; }
+        .receipt-card .mini-grid { display:grid; gap:6px; margin-top:8px; }
+        .receipt-card input, .receipt-card select {
+            width:100%; padding: 8px 10px; border-radius: 10px; font-size: 13px;
+        }
+        .receipt-actions { display:flex; gap:6px; margin-top:8px; }
+        .receipt-actions button {
+            flex:1; padding: 8px; border-radius: 10px; font-size: 12px; font-weight: 800; border:none; cursor:pointer;
+        }
+        .receipt-actions .save { background: #1d4ed8; color:#fff; }
+        .receipt-actions .skip { background: rgba(51,65,85,0.6); color:#e2e8f0; }
+        .thumb-inline {
+            width: 36px; height: 36px; border-radius: 8px; object-fit: cover;
+            background: rgba(255,255,255,0.06); flex-shrink: 0;
+        }
     </style>
 </head>
 <body>
@@ -61,6 +108,8 @@
             </div>
         </div>
     </header>
+    <input type="file" id="receiptFileInput" accept="image/*" multiple class="hidden" style="display:none;">
+    <input type="file" id="receiptCameraInput" accept="image/*" capture="environment" class="hidden" style="display:none;">
 
     <main class="app-content">
         <div class="content-wrapper">
@@ -96,6 +145,11 @@
         let myProfile = null;
         let currentTab = 'expenses';
         let editing = null; // { kind: 'expense'|'payroll', id }
+        /** @type {Array<{localId:string, status:string, fileName:string, thumbDataUrl:string, blob:Blob|null, expenseId:string, storagePath:string, downloadURL:string, date:string, amount:string, taxCategory:string, vendor:string, description:string, ocrConfidence:number|null, error:string}>} */
+        let receiptQueue = [];
+
+        const RECEIPT_MAX_EDGE = 1600;
+        const RECEIPT_JPEG_QUALITY = 0.82;
 
         const TAX_CATS = [
             { id: 'advertising', label: 'Advertising' },
@@ -178,10 +232,19 @@
             else openExpenseModal();
         }
 
+        function openExpenseById(id) {
+            const expense = CL_DATA.getExpenses().find(e => e.id === id);
+            if (!expense) { showToast('Expense not found', 'error'); return; }
+            openExpenseModal(expense);
+        }
+
         function openExpenseModal(expense) {
             const isEdit = !!expense;
             document.getElementById('moneyModalTitle').textContent = isEdit ? 'Edit expense' : 'Add expense';
             const opts = TAX_CATS.map(c => `<option value="${c.id}" ${expense && expense.taxCategory === c.id ? 'selected' : ''}>${c.label}</option>`).join('');
+            const thumb = expense && expense.receiptThumb
+                ? `<div><label>Receipt</label><img src="${esc(expense.receiptThumb)}" alt="Receipt" style="max-width:100%;border-radius:12px;margin-top:4px;"></div>`
+                : '';
             document.getElementById('moneyModalBody').innerHTML = `
                 <div class="form-grid">
                     <div>
@@ -204,6 +267,7 @@
                         <label>Description</label>
                         <input id="expDesc" placeholder="Gas, detergent, etc." value="${expense ? String(expense.description || '') : ''}">
                     </div>
+                    ${thumb}
                     <button class="btn-primary" type="button" onclick="saveExpense(${expense ? JSON.stringify(expense.id) : 'null'})">${isEdit ? 'Save changes' : 'Add expense'}</button>
                     ${isEdit ? `<button class="btn-muted danger" type="button" onclick="deleteExpense(${JSON.stringify(expense.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
                 </div>
@@ -232,6 +296,7 @@
                     taxCategory,
                     vendor,
                     description,
+                    source: 'manual',
                     createdAt: nowIso,
                     lastUpdated: nowIso
                 });
@@ -239,6 +304,240 @@
             }
             closeModal('moneyModal');
             render();
+        }
+
+        function dataUrlToBlob(dataUrl) {
+            const parts = String(dataUrl || '').split(',');
+            if (parts.length < 2) return null;
+            const mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/jpeg';
+            const bin = atob(parts[1]);
+            const arr = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            return new Blob([arr], { type: mime });
+        }
+
+        function compressReceiptFile(file) {
+            return new Promise((resolve) => {
+                if (!file || !String(file.type || '').startsWith('image/')) {
+                    resolve({ thumbDataUrl: '', blob: file || null, skipped: true });
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const ratio = Math.min(1, RECEIPT_MAX_EDGE / Math.max(img.width, img.height));
+                        const w = Math.max(1, Math.round(img.width * ratio));
+                        const h = Math.max(1, Math.round(img.height * ratio));
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w;
+                        canvas.height = h;
+                        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                        let dataUrl = '';
+                        try {
+                            dataUrl = canvas.toDataURL('image/jpeg', RECEIPT_JPEG_QUALITY);
+                        } catch (e) {
+                            dataUrl = reader.result;
+                        }
+                        // Smaller thumb for list UI
+                        const tw = 160, th = Math.max(1, Math.round(160 * (h / w)));
+                        const tCanvas = document.createElement('canvas');
+                        tCanvas.width = tw;
+                        tCanvas.height = th;
+                        tCanvas.getContext('2d').drawImage(img, 0, 0, tw, th);
+                        let thumb = dataUrl;
+                        try { thumb = tCanvas.toDataURL('image/jpeg', 0.7); } catch (_) {}
+                        resolve({
+                            thumbDataUrl: thumb,
+                            blob: dataUrlToBlob(dataUrl),
+                            skipped: false
+                        });
+                    };
+                    img.onerror = () => resolve({ thumbDataUrl: '', blob: file, skipped: true });
+                    img.src = reader.result;
+                };
+                reader.onerror = () => resolve({ thumbDataUrl: '', blob: file, skipped: true });
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function statusLabel(status) {
+            if (status === 'uploading') return 'Uploading…';
+            if (status === 'reading') return 'Reading receipt…';
+            if (status === 'needs_review') return 'Needs review';
+            if (status === 'saved') return 'Saved';
+            if (status === 'error') return 'Error';
+            return status || 'Queued';
+        }
+
+        function pickReceipts(useCamera) {
+            if (!ensureOwner()) { showToast('Owner only', 'error'); return; }
+            const input = document.getElementById(useCamera ? 'receiptCameraInput' : 'receiptFileInput');
+            if (input) input.click();
+        }
+
+        async function handleReceiptFiles(fileList) {
+            const files = Array.from(fileList || []).filter(Boolean);
+            if (!files.length) return;
+            for (const file of files) {
+                const localId = 'rq_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
+                const expenseId = 'exp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
+                const compressed = await compressReceiptFile(file);
+                const item = {
+                    localId,
+                    status: 'uploading',
+                    fileName: file.name || 'receipt.jpg',
+                    thumbDataUrl: compressed.thumbDataUrl || '',
+                    blob: compressed.blob,
+                    expenseId,
+                    storagePath: '',
+                    downloadURL: '',
+                    date: ymdNow(),
+                    amount: '',
+                    taxCategory: 'other',
+                    vendor: '',
+                    description: '',
+                    ocrConfidence: null,
+                    error: ''
+                };
+                receiptQueue.unshift(item);
+                render();
+                processReceiptItem(item.localId);
+            }
+        }
+
+        async function processReceiptItem(localId) {
+            const item = receiptQueue.find(r => r.localId === localId);
+            if (!item) return;
+            item.status = 'uploading';
+            item.error = '';
+            render();
+
+            let storagePath = '';
+            let downloadURL = '';
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn && item.blob) {
+                const up = await CL_FIREBASE.uploadReceiptImage(item.expenseId, item.blob, 'image/jpeg');
+                if (up && up.ok) {
+                    storagePath = up.storagePath || '';
+                    downloadURL = up.downloadURL || '';
+                } else if (up && up.code === 'storage-unavailable') {
+                    // Offline / Storage not ready — still allow manual review with local thumb
+                } else if (up && !up.ok) {
+                    item.status = 'error';
+                    item.error = up.message || 'Upload failed';
+                    render();
+                    return;
+                }
+            }
+            item.storagePath = storagePath;
+            item.downloadURL = downloadURL;
+            item.status = 'reading';
+            render();
+
+            let parsed = null;
+            if (storagePath && window.CL_FIREBASE && CL_FIREBASE.parseReceipt) {
+                const res = await CL_FIREBASE.parseReceipt(storagePath);
+                if (res && res.ok && res.data) {
+                    parsed = res.data;
+                } else if (res && !res.ok && res.code !== 'functions-unavailable' && res.code !== 'not-found') {
+                    // Soft-fail into manual review with a hint
+                    item.error = res.message || 'OCR unavailable — fill in manually';
+                }
+            }
+
+            if (parsed) {
+                if (parsed.date) item.date = String(parsed.date).slice(0, 10);
+                if (parsed.amount != null && parsed.amount !== '') item.amount = String(parsed.amount);
+                if (parsed.vendor) item.vendor = String(parsed.vendor);
+                if (parsed.taxCategoryHint && TAX_CATS.some(c => c.id === parsed.taxCategoryHint)) {
+                    item.taxCategory = parsed.taxCategoryHint;
+                } else if (parsed.taxCategory && TAX_CATS.some(c => c.id === parsed.taxCategory)) {
+                    item.taxCategory = parsed.taxCategory;
+                }
+                if (parsed.description) item.description = String(parsed.description);
+                if (parsed.confidence != null) item.ocrConfidence = Number(parsed.confidence);
+            }
+            item.status = 'needs_review';
+            render();
+        }
+
+        function updateQueueField(localId, field, value) {
+            const item = receiptQueue.find(r => r.localId === localId);
+            if (!item) return;
+            item[field] = value;
+        }
+
+        function dismissReceipt(localId) {
+            receiptQueue = receiptQueue.filter(r => r.localId !== localId);
+            render();
+        }
+
+        function confirmReceipt(localId) {
+            const item = receiptQueue.find(r => r.localId === localId);
+            if (!item) return;
+            const amount = parseAmt(item.amount);
+            const date = item.date || ymdNow();
+            if (!amount || amount <= 0) { showToast('Enter an amount', 'error'); return; }
+            const nowIso = new Date().toISOString();
+            CL_DATA.addExpense({
+                id: item.expenseId,
+                date,
+                amount,
+                taxCategory: item.taxCategory || 'other',
+                vendor: item.vendor || '',
+                description: item.description || item.fileName || '',
+                receiptStoragePath: item.storagePath || '',
+                receiptThumb: item.thumbDataUrl || '',
+                receiptUrl: item.downloadURL || '',
+                ocrConfidence: item.ocrConfidence,
+                source: 'receipt',
+                createdAt: nowIso,
+                lastUpdated: nowIso
+            });
+            item.status = 'saved';
+            showToast('Receipt saved as expense', 'success');
+            // Drop from queue shortly so the list stays clean
+            setTimeout(() => dismissReceipt(localId), 400);
+            render();
+        }
+
+        function renderReceiptQueue() {
+            if (!receiptQueue.length) return '';
+            const optsFor = (selected) => TAX_CATS.map(c =>
+                `<option value="${c.id}" ${selected === c.id ? 'selected' : ''}>${esc(c.label)}</option>`
+            ).join('');
+            return `<div class="receipt-queue">
+                ${receiptQueue.map(r => {
+                    const stClass = r.status === 'error' ? 'err' : (r.status === 'needs_review' || r.status === 'saved' ? 'ok' : '');
+                    const reviewing = r.status === 'needs_review' || r.status === 'error';
+                    return `<div class="receipt-card" data-local="${esc(r.localId)}">
+                        ${r.thumbDataUrl
+                            ? `<img src="${esc(r.thumbDataUrl)}" alt="Receipt preview">`
+                            : `<div style="width:72px;height:72px;border-radius:10px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;color:#64748b;"><i class="fas fa-receipt"></i></div>`}
+                        <div style="min-width:0;">
+                            <div class="status ${stClass}">${esc(statusLabel(r.status))}</div>
+                            <p style="margin:0;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.vendor || r.fileName)}</p>
+                            ${r.error ? `<p class="money-sub" style="color:#fca5a5;">${esc(r.error)}</p>` : ''}
+                            ${reviewing ? `
+                                <div class="mini-grid">
+                                    <input type="date" value="${esc(r.date || '')}" onchange="updateQueueField('${r.localId}','date',this.value)">
+                                    <input inputmode="decimal" placeholder="Amount" value="${esc(r.amount || '')}" onchange="updateQueueField('${r.localId}','amount',this.value)">
+                                    <input placeholder="Vendor" value="${esc(r.vendor || '')}" onchange="updateQueueField('${r.localId}','vendor',this.value)">
+                                    <select onchange="updateQueueField('${r.localId}','taxCategory',this.value)">${optsFor(r.taxCategory)}</select>
+                                    <input placeholder="Description" value="${esc(r.description || '')}" onchange="updateQueueField('${r.localId}','description',this.value)">
+                                </div>
+                                <div class="receipt-actions">
+                                    <button type="button" class="save" onclick="confirmReceipt('${r.localId}')">Save expense</button>
+                                    <button type="button" class="skip" onclick="dismissReceipt('${r.localId}')">Discard</button>
+                                </div>
+                            ` : `
+                                <p class="money-sub">${esc(r.fileName)}</p>
+                                ${r.status === 'error' ? `<div class="receipt-actions"><button type="button" class="skip" onclick="dismissReceipt('${r.localId}')">Dismiss</button></div>` : ''}
+                            `}
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>`;
         }
 
         function deleteExpense(id) {
@@ -363,23 +662,31 @@
         }
 
         function renderExpenses() {
+            const scanBar = `<div class="scan-bar">
+                <button type="button" class="scan-primary" onclick="pickReceipts(true)"><i class="fas fa-camera"></i> Scan receipts</button>
+                <button type="button" class="scan-secondary" onclick="pickReceipts(false)"><i class="fas fa-images"></i> Upload batch</button>
+            </div>`;
+            const queueHtml = renderReceiptQueue();
             const expenses = CL_DATA.getExpenses().slice().sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')) || String(b.lastUpdated||'').localeCompare(String(a.lastUpdated||'')));
-            if (!expenses.length) {
-                return `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
+            if (!expenses.length && !receiptQueue.length) {
+                return scanBar + `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
                     <i class="fas fa-receipt text-3xl mb-2"></i>
                     <p>No expenses yet</p>
-                    <p class="text-xs text-gray-500 mt-1">Tap + to add your first expense.</p>
+                    <p class="text-xs text-gray-500 mt-1">Scan a stack of receipts or tap + to add one manually.</p>
                 </div>`;
             }
             const catLabel = (id) => (TAX_CATS.find(c => c.id === id)?.label || 'Other');
-            return `<div class="glass-card" style="overflow:hidden;">
+            const list = expenses.length ? `<div class="glass-card" style="overflow:hidden;">
                 ${expenses.map(e => `
-                    <a href="#" class="money-row" onclick="event.preventDefault(); openExpenseModal(${JSON.stringify(e)});">
-                        <span class="money-dot" style="background: rgba(52,211,153,0.55);"></span>
+                    <a href="#" class="money-row" onclick="event.preventDefault(); openExpenseById(${JSON.stringify(e.id)});">
+                        ${e.receiptThumb
+                            ? `<img class="thumb-inline" src="${esc(e.receiptThumb)}" alt="">`
+                            : `<span class="money-dot" style="background: rgba(52,211,153,0.55);"></span>`}
                         <div style="min-width:0;">
                             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                                 <p style="font-weight:800; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 220px;">${esc(e.vendor || e.description || 'Expense')}</p>
                                 <span class="pill exp">Expense</span>
+                                ${e.source === 'receipt' ? `<span class="pill ocr">Receipt</span>` : ''}
                                 <span class="pill tax">${esc(catLabel(e.taxCategory))}</span>
                             </div>
                             <p class="money-sub">${esc(e.date || '')}${e.description ? ` · ${esc(e.description)}` : ''}</p>
@@ -387,7 +694,8 @@
                         <div class="money-amt">${fmtMoney(e.amount)}</div>
                     </a>
                 `).join('')}
-            </div>`;
+            </div>` : '';
+            return scanBar + queueHtml + list;
         }
 
         function renderPayroll() {
@@ -561,6 +869,14 @@
         document.addEventListener('DOMContentLoaded', () => {
             setActiveNav();
             document.getElementById('addBtn').addEventListener('click', openAdd);
+            ['receiptFileInput', 'receiptCameraInput'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener('change', (e) => {
+                    handleReceiptFiles(e.target.files);
+                    e.target.value = '';
+                });
+            });
             const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
             if (p) start(p);
         });
