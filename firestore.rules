@@ -176,5 +176,33 @@ service cloud.firestore {
     match /payroll/{id} {
       allow read, write: if isOwner();
     }
+
+    // ── smsThreads/{id} — Twilio + Hermes conversation threads ──
+    // Owner/manager full access. Workers may read threads tied to a job
+    // assigned to them (jobId present + matching jobs.assignedTo).
+    match /smsThreads/{id} {
+      function smsJob() {
+        return (resource.data.jobId is string)
+          && exists(/databases/$(db)/documents/jobs/$(resource.data.jobId))
+          ? get(/databases/$(db)/documents/jobs/$(resource.data.jobId)).data
+          : null;
+      }
+
+      function workerCanReadSms() {
+        return isWorker()
+          && resource.data.jobId is string
+          && smsJob() != null
+          && smsJob().assignedTo == uid();
+      }
+
+      allow read: if isOwner() || isManager() || workerCanReadSms();
+
+      allow create: if (isOwner() || isManager())
+        && request.resource.data.createdBy == uid();
+
+      allow update: if isOwner() || isManager();
+
+      allow delete: if isOwner();
+    }
   }
 }

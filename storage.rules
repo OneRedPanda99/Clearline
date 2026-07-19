@@ -1,0 +1,36 @@
+rules_version = '2';
+// Clearline — Firebase Storage rules
+// Publish: Firebase Console → Storage → Rules  (or `firebase deploy --only storage`)
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+
+    function userDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(uid()));
+    }
+
+    function isOwner() {
+      return signedIn()
+        && userDoc() != null
+        && userDoc().data.role == 'owner';
+    }
+
+    // Receipt originals — owner only, under their own uid folder
+    match /receipts/{userId}/{fileName} {
+      allow read: if isOwner() && uid() == userId;
+
+      allow create, update: if isOwner()
+        && uid() == userId
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+
+      allow delete: if isOwner() && uid() == userId;
+    }
+
+    // Deny everything else by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
