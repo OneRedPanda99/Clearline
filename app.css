@@ -2084,6 +2084,33 @@ input::placeholder, textarea::placeholder {
     outline-offset: 2px;
 }
 
+.job-schedule-toggle {
+    width: 100%;
+    min-height: var(--md-tap-target);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: var(--md-radius-md);
+    font-size: 14px;
+    font-weight: 650;
+    border: none;
+    text-decoration: none;
+}
+
+.job-schedule-panel input[type="date"],
+.job-schedule-panel input[type="time"] {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #e2e8f0;
+}
+
+.job-schedule-panel input[type="date"]:focus,
+.job-schedule-panel input[type="time"]:focus {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 1px;
+}
+
 .m3-filled {
     background: var(--md-sys-color-primary);
     color: var(--md-sys-color-on-primary);

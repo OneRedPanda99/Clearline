@@ -13,7 +13,7 @@
     <script src="data-migration.js"></script>
     <script src="firebase-sync.js?v=4"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="app.css?v=8">
+    <link rel="stylesheet" href="app.css?v=9">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -885,11 +885,11 @@
             document.getElementById('count-completed').textContent = jobs.filter(j => j.status === 'completed').length;
         }
 
+        // Only real job dates drive day sections. Lead follow-up dates are not
+        // a schedule, so leads without a jobDate land in Unscheduled.
         function effectiveJobDate(job) {
-            if (job.status === 'scheduled' && job.jobDate) return job.jobDate;
-            if (job.status === 'new' && job.followUpDate) return job.followUpDate;
+            if (job.status === 'new' || job.status === 'lost') return null;
             if (job.jobDate) return job.jobDate;
-            if (job.followUpDate) return job.followUpDate;
             return null;
         }
 
@@ -1083,27 +1083,6 @@
             return s;
         }
 
-        // Follow-up context for a lead: how long it's been waiting and whether
-        // the scheduled follow-up date has passed (a "cold" lead needing action).
-        function leadFollowUpMeta(job) {
-            const today = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
-            if (job.followUpDate) {
-                const overdue = job.followUpDate < today;
-                const d = new Date(job.followUpDate + 'T12:00:00');
-                const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                return overdue
-                    ? `<span style="color:#fca5a5;"><i class="fas fa-triangle-exclamation"></i> Follow-up overdue · ${label}</span>`
-                    : `<span style="color:#94a3b8;"><i class="fas fa-bell"></i> Follow up ${label}</span>`;
-            }
-            // No follow-up set: show how long since the lead was created.
-            const created = job.dateAdded ? new Date(job.dateAdded) : null;
-            if (created) {
-                const days = Math.floor((Date.now() - created.getTime()) / 86400000);
-                return `<span style="color:${days >= 3 ? '#fca5a5' : '#94a3b8'};"><i class="fas fa-hourglass-half"></i> ${days === 0 ? 'New today' : days + 'd waiting'} · no follow-up set</span>`;
-            }
-            return '';
-        }
-
         function renderJobCard(job) {
             const isDone = job.status === 'completed';
             const isLost = job.status === 'lost';
@@ -1120,29 +1099,25 @@
             // Payment badge on the card (owner only, and only when there's a total).
             const pay = total > 0 && isOwnerRole() ? jobPaymentInfo(job) : null;
             const payPill = pay ? paymentPill(pay.status) : '';
-            const startHref = isEst
-                ? `estimate.html?jobId=${encodeURIComponent(job.id)}`
-                : (isOverdue ? `jobs.html?highlight=${encodeURIComponent(job.id)}&edit=1` : `jobs.html?highlight=${encodeURIComponent(job.id)}&start=1`);
+            const startHref = isOverdue
+                ? `jobs.html?highlight=${encodeURIComponent(job.id)}&edit=1`
+                : `jobs.html?highlight=${encodeURIComponent(job.id)}&start=1`;
             const startLabel = isOverdue ? 'Mark done' : 'Start';
             const time12 = formatJobTime12(job.jobTime);
             const street = shortJobAddress(job.address);
             const metaBits = [];
             if (!isEst && time12) metaBits.push(time12);
             if (!isDone && !isLost && street) metaBits.push(street);
-            const metaLine = isEst
-                ? leadFollowUpMeta(job)
-                : (metaBits.length
-                    ? `<p class="job-card-v2__meta">${metaBits.map(b => escapeHtml(b)).join(' · ')}</p>`
-                    : '');
+            const metaLine = metaBits.length
+                ? `<p class="job-card-v2__meta">${metaBits.map(b => escapeHtml(b)).join(' · ')}</p>`
+                : '';
 
-            // Keep list cards quiet. Call/Nav live in the job detail sheet.
-            // Only show a single primary action when the job still needs one.
+            // Keep list cards quiet. Scheduling lives in the job detail sheet.
+            // Only show a primary action for lost leads or booked jobs to start.
             let actionsRow = '';
             if (isLost) {
                 actionsRow = `<button type="button" class="jc-start" onclick="reopenLead('${job.id}')"><i class="fas fa-rotate-left"></i> Reopen</button>`;
-            } else if (isEst) {
-                actionsRow = `<button type="button" class="jc-start" onclick="bookLead('${job.id}')"><i class="fas fa-calendar-check"></i> Book</button>`;
-            } else if (!isDone) {
+            } else if (!isEst && !isDone) {
                 actionsRow = `<a class="jc-start" href="${startHref}" data-cl-nav><i class="fas ${isOverdue ? 'fa-check-circle' : 'fa-play'}"></i> ${startLabel}</a>`;
             }
 
@@ -1334,8 +1309,15 @@
             const waiverCount = (job.documents && job.documents.waivers) ? job.documents.waivers.length : 0;
             const hasDocs = estCount + invCount + waiverCount > 0;
             const serviceLine = escapeHtml(job.serviceType || 'Service TBD');
-            const whenLine = `${formattedDate}${job.jobTime ? ' · ' + formatJobTime12(job.jobTime) : ''}`;
+            const whenLine = job.jobDate
+                ? `${formattedDate}${job.jobTime ? ' · ' + formatJobTime12(job.jobTime) : ''}`
+                : 'Not scheduled';
             const assigneeLine = [assignedManagerName && ('Mgr ' + assignedManagerName), assignedWorkerName && ('Wrk ' + assignedWorkerName)].filter(Boolean).join(' · ');
+            const todayYmd = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
+            const scheduleDateDefault = job.jobDate || todayYmd;
+            const scheduleTimeDefault = job.jobTime || '09:00';
+            const canSchedule = job.status !== 'completed' && job.status !== 'lost';
+            const scheduleBtnLabel = job.jobDate ? 'Reschedule' : 'Schedule Job';
 
             const docsHtml = hasDocs ? `
                 <div class="glass-card rounded-xl p-3">
@@ -1422,6 +1404,33 @@
                         <button type="button" onclick="editJob('${job.id}')"><i class="fas fa-pen mr-1"></i>Edit job</button>
                     </div>
 
+                    ${canSchedule ? `
+                    <button type="button" onclick="toggleJobDetailSection('scheduleSection')" class="m3-filled job-schedule-toggle">
+                        <i class="fas fa-calendar-check"></i>${scheduleBtnLabel}
+                    </button>
+                    <div id="scheduleSection" class="hidden">
+                        <div class="job-schedule-panel glass-card rounded-xl p-4">
+                            <p class="text-sm font-semibold text-slate-100 mb-3">Pick the job date and time</p>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1" for="scheduleJobDate">Date</label>
+                                    <input type="date" id="scheduleJobDate" value="${escapeHtml(scheduleDateDefault)}" class="w-full p-3 rounded-lg">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1" for="scheduleJobTime">Time</label>
+                                    <input type="time" id="scheduleJobTime" value="${escapeHtml(scheduleTimeDefault)}" class="w-full p-3 rounded-lg">
+                                </div>
+                            </div>
+                            <div class="flex gap-2 mt-3">
+                                <button type="button" onclick="toggleJobDetailSection('scheduleSection')" class="btn-secondary" style="flex:1;width:auto">Cancel</button>
+                                <button type="button" onclick="confirmScheduleJob('${job.id}')" class="btn-primary" style="flex:1;width:auto">
+                                    <i class="fas fa-check mr-1"></i>Save schedule
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" onclick="toggleJobDetailSection('timerSection')" class="m3-tonal">
                             <i class="fas fa-stopwatch mr-1"></i>Timer ${timerText}
@@ -1504,7 +1513,7 @@
             if (!el) return;
             const opening = el.classList.contains('hidden');
             // Accordion: close sibling expandable panels
-            ['timerSection', 'paymentSection', 'reviewSection', 'moreSection'].forEach((sid) => {
+            ['timerSection', 'paymentSection', 'reviewSection', 'moreSection', 'scheduleSection'].forEach((sid) => {
                 const s = document.getElementById(sid);
                 if (s && sid !== id) s.classList.add('hidden');
             });
@@ -1880,20 +1889,27 @@
             syncJobToCalendarIfEnabled(id);
         }
 
-        // Convert a lead into a booked job. Asks for a date (defaults to today)
-        // and moves it into the Scheduled pipeline + calendar.
-        function bookLead(id) {
+        // Schedule (or reschedule) a job from the detail sheet — date + time, no prompts.
+        function confirmScheduleJob(id) {
             const job = CL_DATA.findJob(id);
             if (!job) return;
-            const today = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
-            const raw = prompt('Book this lead as a scheduled job.\n\nJob date (YYYY-MM-DD):', job.jobDate || today);
-            if (raw === null) return;
-            const date = String(raw).trim();
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { showToast('Enter a date like 2026-07-10', 'error'); return; }
-            CL_DATA.updateJob(id, { status: 'scheduled', jobDate: date });
+            const dateEl = document.getElementById('scheduleJobDate');
+            const timeEl = document.getElementById('scheduleJobTime');
+            const date = dateEl ? String(dateEl.value || '').trim() : '';
+            const time = timeEl ? String(timeEl.value || '').trim() : '';
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                showToast('Pick a job date', 'error');
+                return;
+            }
+            CL_DATA.updateJob(id, {
+                status: 'scheduled',
+                jobDate: date,
+                jobTime: time || ''
+            });
             persistJobChange(id);
             setTab('booked');
-            showToast('Lead booked ✓');
+            showToast('Job scheduled ✓');
+            openJobModal(id);
         }
 
         // Archive a lead as lost (reversible). Optional reason is stored for context.
