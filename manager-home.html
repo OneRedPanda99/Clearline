@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+        // Instant redirect off the last-known role (cached at sign-in) so a
+        // stale bookmark/link for the wrong home page doesn't flash before
+        // the async Firebase profile check bounces it to the right one.
+        (function() {
+            try {
+                var role = localStorage.getItem('cl-last-role');
+                if (role === 'owner') location.replace('index.html');
+                else if (role === 'worker') location.replace('worker-home.html');
+            } catch (e) {}
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">

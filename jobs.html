@@ -1100,16 +1100,6 @@
             return `${h}:${String(parsed.m).padStart(2, '0')} ${ap}`;
         }
 
-        function shortJobAddress(addr) {
-            if (!addr) return '';
-            let s = String(addr).trim();
-            // Keep street line only (drop city/state/country after first comma).
-            if (s.includes(',')) s = s.split(',')[0].trim();
-            s = s.replace(/\s+United States$/i, '').trim();
-            if (s.length > 36) s = s.slice(0, 34).trim() + '…';
-            return s;
-        }
-
         function renderJobCard(job) {
             const isDone = job.status === 'completed';
             const isLost = job.status === 'lost';
@@ -1305,7 +1295,13 @@
                 : '-';
             const jobIdShort = (job.id || '').replace('job_', '#JOB-').slice(0, 18) || '-';
             const assignedManagerName = job.assignedManager ? (allManagers.find(m => m.uid === job.assignedManager)?.displayName || 'Manager') : '';
-            const assignedWorkerName = job.assignedTo ? (allWorkers.find(w => w.uid === job.assignedTo)?.displayName || 'Worker') : '';
+            // assignedWorkers is a crew list now; assignedTo is a fallback for jobs assigned before that change.
+            const assignedWorkerIds = Array.isArray(job.assignedWorkers) && job.assignedWorkers.length
+                ? job.assignedWorkers
+                : (job.assignedTo ? [job.assignedTo] : []);
+            const assignedWorkerName = assignedWorkerIds
+                .map(wid => allWorkers.find(w => w.uid === wid)?.displayName || 'Worker')
+                .join(', ');
 
             const estCount = (job.documents && job.documents.estimates) ? job.documents.estimates.length : 0;
             const invCount = (job.documents && job.documents.invoices) ? job.documents.invoices.length : 0;
@@ -1617,6 +1613,10 @@
             if (!job) return;
             stopJobTimerTicker();
             editingJobId = id;
+            // assignedWorkers is a crew list now; assignedTo is a fallback for jobs assigned before that change.
+            const assignedWorkerIds = Array.isArray(job.assignedWorkers) && job.assignedWorkers.length
+                ? job.assignedWorkers
+                : (job.assignedTo ? [job.assignedTo] : []);
             document.body.classList.add('modal-open');
             document.getElementById('jobModal-title').textContent = 'Edit Job';
             editPhotoState = {
@@ -1719,13 +1719,15 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="text-xs text-gray-400 block mb-1">Assigned Worker</label>
-                                <select id="editAssignedTo" class="w-full p-3 rounded-lg edit-field">
-                                    <option value="">None</option>
-                                    ${allWorkers.map(w =>
-                                        `<option value="${w.uid}" ${job.assignedTo === w.uid ? 'selected' : ''}>${w.displayName || w.username}</option>`
-                                    ).join('')}
-                                </select>
+                                <label class="text-xs text-gray-400 block mb-1">Assigned Workers (crew)</label>
+                                <div id="editAssignedWorkers" class="w-full p-2 rounded-lg edit-field" style="max-height:140px;overflow-y:auto;">
+                                    ${allWorkers.length ? allWorkers.map(w => `
+                                        <label style="display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px;">
+                                            <input type="checkbox" data-assigned-worker="${w.uid}" ${assignedWorkerIds.includes(w.uid) ? 'checked' : ''} style="width:16px;height:16px;accent-color:#0ea5e9;">
+                                            <span>${w.displayName || w.username}</span>
+                                        </label>
+                                    `).join('') : '<p class="text-xs text-gray-500 px-1">No workers yet.</p>'}
+                                </div>
                             </div>
                         </div>
                         <div>
@@ -1827,7 +1829,8 @@
                 followUpDate: document.getElementById('editFollowUp').value,
                 notes: document.getElementById('editNotes').value.trim(),
                 assignedManager: document.getElementById('editAssignedManager').value || null,
-                assignedTo: document.getElementById('editAssignedTo').value || null,
+                assignedWorkers: [...document.querySelectorAll('#editAssignedWorkers [data-assigned-worker]:checked')].map(cb => cb.getAttribute('data-assigned-worker')),
+                assignedTo: null, // superseded by assignedWorkers; cleared so old readers don't show a stale single assignee
                 beforePhotos: editPhotoState.before,
                 afterPhotos: editPhotoState.after
             };

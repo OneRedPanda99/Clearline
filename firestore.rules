@@ -88,6 +88,14 @@ service cloud.firestore {
     }
 
     // ── jobs/{id} ───────────────────────────────
+    // A job can have a crew of several workers now (assignedWorkers, a
+    // list), not just one. `assignedTo` (a single uid) is kept as a
+    // read-only fallback for older job docs written before this change.
+    function isAssignedWorker() {
+      return (resource.data.assignedWorkers is list && uid() in resource.data.assignedWorkers)
+        || resource.data.assignedTo == uid();
+    }
+
     match /jobs/{id} {
       allow read: if isOwner()
         || (isManager() && (
@@ -95,7 +103,7 @@ service cloud.firestore {
               || resource.data.createdBy == uid()
            ))
         || (isWorker() && (
-              resource.data.assignedTo == uid()
+              isAssignedWorker()
               || resource.data.createdBy == uid()
            ));
 
@@ -110,7 +118,7 @@ service cloud.firestore {
             && request.resource.data.createdBy == resource.data.createdBy)
         || (isWorker()
             && perm("canEditOwnJobs")
-            && resource.data.createdBy == uid()
+            && (resource.data.createdBy == uid() || isAssignedWorker())
             && request.resource.data.createdBy == resource.data.createdBy);
 
       allow delete: if isOwner();

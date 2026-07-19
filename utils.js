@@ -474,6 +474,20 @@ window.phoneDigits = function(raw) {
 };
 
 /**
+ * Street-only, length-capped address for compact card display.
+ * Drops city/state/country after the first comma and truncates long
+ * street lines, e.g. "123 Long Winding Road Ct, Columbia, SC 29201" -> "123 Long Winding Road Ct".
+ */
+window.shortJobAddress = function(addr) {
+  if (!addr) return '';
+  let s = String(addr).trim();
+  if (s.includes(',')) s = s.split(',')[0].trim();
+  s = s.replace(/\s+United States$/i, '').trim();
+  if (s.length > 36) s = s.slice(0, 34).trim() + '…';
+  return s;
+};
+
+/**
  * Soft page transition for in-app navigations.
  * External / tel / mailto links skip the exit animation.
  */

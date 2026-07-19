@@ -223,6 +223,12 @@ const CL_FIREBASE = (function() {
             return;
         }
 
+        // Cache the role so index.html/manager-home.html/worker-home.html
+        // can redirect instantly on next load instead of flashing the wrong
+        // page while this async profile check is in flight (the installed
+        // PWA always opens on index.html regardless of role).
+        try { localStorage.setItem('cl-last-role', userProfile.role || ''); } catch (_) {}
+
         window.dispatchEvent(new CustomEvent('cl-profile-updated', {
             detail: { profile: Object.assign({}, userProfile) }
         }));
@@ -262,9 +268,20 @@ const CL_FIREBASE = (function() {
                 db.collection('jobs').onSnapshot(() => {
                     syncFromCloud();
                 }, onSnapErr('jobs'));
+            } else if (role === 'manager') {
+                db.collection('jobs').where('assignedManager', '==', uid).onSnapshot(() => {
+                    syncFromCloud();
+                }, onSnapErr('jobs'));
+                db.collection('jobs').where('createdBy', '==', uid).onSnapshot(() => {
+                    syncFromCloud();
+                }, onSnapErr('jobs'));
             } else {
-                const field = role === 'manager' ? 'assignedManager' : 'assignedTo';
-                db.collection('jobs').where(field, '==', uid).onSnapshot(() => {
+                // Worker: a crew list (assignedWorkers) now, plus the legacy
+                // single-assignee field for jobs written before that change.
+                db.collection('jobs').where('assignedWorkers', 'array-contains', uid).onSnapshot(() => {
+                    syncFromCloud();
+                }, onSnapErr('jobs'));
+                db.collection('jobs').where('assignedTo', '==', uid).onSnapshot(() => {
                     syncFromCloud();
                 }, onSnapErr('jobs'));
                 db.collection('jobs').where('createdBy', '==', uid).onSnapshot(() => {
@@ -505,6 +522,9 @@ const CL_FIREBASE = (function() {
             await auth.signOut();
         }
         currentUser = null;
+        // Clear the cached role so a shared device doesn't instant-redirect
+        // the next person who signs in based on the previous user's role.
+        try { localStorage.removeItem('cl-last-role'); } catch (_) {}
     }
 
     // ------------------------------------------------------------
@@ -684,9 +704,10 @@ const CL_FIREBASE = (function() {
     // Role-aware job fetch.
     //   Owner:   every job
     //   Manager: jobs where assignedManager == me OR createdBy == me
-    //   Worker:  jobs where assignedTo == me OR createdBy == me
+    //   Worker:  jobs where I'm in assignedWorkers (a crew list), or the
+    //            legacy single-assignee assignedTo == me, OR createdBy == me
     // Firestore has no native OR across fields, so the non-owner cases
-    // run two queries and dedupe by doc id.
+    // run multiple queries and dedupe by doc id.
     async function _fetchJobsForRole() {
         const uid = currentUser.uid;
         const role = (userProfile && userProfile.role) || 'worker';
@@ -700,6 +721,7 @@ const CL_FIREBASE = (function() {
                 db.collection('jobs').where('createdBy', '==', uid).get()
               ]
             : [
+                db.collection('jobs').where('assignedWorkers', 'array-contains', uid).get(),
                 db.collection('jobs').where('assignedTo', '==', uid).get(),
                 db.collection('jobs').where('createdBy', '==', uid).get()
               ];

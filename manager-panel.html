@@ -428,7 +428,7 @@
                     </div>
                 ` : ''}
 
-                <details class="form-section" open>
+                <details class="form-section">
                     <summary>Contact</summary>
                     <div class="section-body grid grid-cols-2 gap-2">
                         <div>
@@ -853,10 +853,22 @@
             }
 
             container.innerHTML = filtered.map(j => {
-                const opts = ['<option value="">Unassigned</option>']
-                    .concat(targets.map(w =>
-                        `<option value="${w.uid}" ${w.uid === j.assignedTo ? 'selected' : ''}>${(w.displayName || w.username || w.uid)}</option>`
+                const mgrOpts = ['<option value="">Unassigned</option>']
+                    .concat(targetManagers.map(m =>
+                        `<option value="${m.uid}" ${m.uid === j.assignedManager ? 'selected' : ''}>${escapeHtml(m.displayName || m.username || m.uid)}</option>`
                     )).join('');
+                // assignedWorkers is a crew list now; assignedTo is a fallback for jobs assigned before that change.
+                const assignedWorkerIds = Array.isArray(j.assignedWorkers) && j.assignedWorkers.length
+                    ? j.assignedWorkers
+                    : (j.assignedTo ? [j.assignedTo] : []);
+                const workerChecks = targetWorkers.length
+                    ? targetWorkers.map(w => `
+                        <label style="display:flex;align-items:center;gap:6px;padding:4px 2px;font-size:12px;">
+                            <input type="checkbox" data-assign-worker="${w.uid}" ${assignedWorkerIds.includes(w.uid) ? 'checked' : ''} style="width:15px;height:15px;accent-color:#0ea5e9;">
+                            <span>${escapeHtml(w.displayName || w.username || w.uid)}</span>
+                        </label>
+                    `).join('')
+                    : '<p class="text-gray-500 text-xs">No workers available.</p>';
                 const dateLabel = j.jobDate
                     ? new Date(j.jobDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                     : 'No date';
@@ -869,15 +881,20 @@
                             </div>
                             <span class="status-badge status-${j.status || 'new'}">${j.status || 'new'}</span>
                         </div>
-                        <div class="flex gap-2 mt-2">
-                            <select class="assign-select flex-1 bg-slate-700/60 text-white text-sm rounded-lg px-2 py-1.5" data-job-id="${j.id}">
-                                ${opts}
+                        ${targetManagers.length ? `
+                            <label class="text-[11px] text-gray-500 block mt-2 mb-1">Manager</label>
+                            <select class="assign-manager-select w-full bg-slate-700/60 text-white text-sm rounded-lg px-2 py-1.5" data-job-id="${j.id}">
+                                ${mgrOpts}
                             </select>
-                            <button class="btn-primary btn-sm" style="width:auto"
-                                    onclick="saveAssignment('${j.id}', this)">
-                                Save
-                            </button>
+                        ` : ''}
+                        <label class="text-[11px] text-gray-500 block mt-2 mb-1">Workers (crew)</label>
+                        <div class="assign-worker-checks" data-job-id="${j.id}" style="max-height:120px;overflow-y:auto;background:rgba(15,23,42,0.4);border-radius:8px;padding:4px 8px;">
+                            ${workerChecks}
                         </div>
+                        <button class="btn-primary btn-sm mt-2" style="width:auto"
+                                onclick="saveAssignment('${j.id}', this)">
+                            Save
+                        </button>
                     </div>
                 `;
             }).join('');
@@ -885,39 +902,36 @@
 
         async function saveAssignment(jobId, btn) {
             const db = CL_FIREBASE.getFirestore();
-            const select = document.querySelector(`select.assign-select[data-job-id="${jobId}"]`);
-            if (!select) return;
-            const selectedUid = select.value || null;
+            const workerBox = document.querySelector(`.assign-worker-checks[data-job-id="${jobId}"]`);
+            if (!workerBox) return;
+            const assignedWorkers = [...workerBox.querySelectorAll('[data-assign-worker]:checked')]
+                .map(cb => cb.getAttribute('data-assign-worker'));
 
-            let assignedTo = null;
-            let assignedManager = null;
-
-            if (selectedUid) {
-                const isManager = managers.find(m => m.uid === selectedUid);
-                if (isManager) {
-                    // Assigning a manager directly. they supervise the job, no worker yet
-                    assignedManager = selectedUid;
-                    assignedTo = null;
-                } else {
-                    const worker = workers.find(w => w.uid === selectedUid);
-                    if (!worker) { showToast('Staff member not found', 'error'); return; }
-                    assignedTo = selectedUid;
-                    assignedManager = worker.assignedManager
-                        || (myProfile.role === 'manager' ? CL_FIREBASE.getCurrentUser().uid : null);
-                }
-            }
+            // The manager dropdown only renders for the Owner (Managers can
+            // only assign within their own team, so they can't reassign
+            // that team-level relationship). A Manager assigning workers
+            // stays the manager of record automatically, same as before.
+            const mgrSelect = document.querySelector(`select.assign-manager-select[data-job-id="${jobId}"]`);
+            const assignedManager = mgrSelect
+                ? (mgrSelect.value || null)
+                : (myProfile.role === 'manager' ? CL_FIREBASE.getCurrentUser().uid : null);
 
             const origLabel = btn.textContent;
             btn.disabled = true; btn.textContent = 'Saving…';
             try {
-            await db.collection('jobs').doc(jobId).set({
-                assignedTo: assignedTo,
-                assignedManager: assignedManager,
-                lastUpdated: new Date().toISOString()
-            }, { merge: true });
-            // Keep local state in sync
-            const j = assignableJobs.find(x => x.id === jobId);
-            if (j) { j.assignedTo = assignedTo; j.assignedManager = assignedManager; }
+                await db.collection('jobs').doc(jobId).set({
+                    assignedWorkers,
+                    assignedManager,
+                    assignedTo: null, // superseded by assignedWorkers
+                    lastUpdated: new Date().toISOString()
+                }, { merge: true });
+                // Keep local state in sync
+                const j = assignableJobs.find(x => x.id === jobId);
+                if (j) { j.assignedWorkers = assignedWorkers; j.assignedManager = assignedManager; j.assignedTo = null; }
+                CL_FIREBASE.logActivity('job.updated', {
+                    entityType: 'job', entityId: jobId, entityLabel: j && j.customerName,
+                    message: `crew set to ${assignedWorkers.length} worker(s)`
+                });
                 btn.textContent = 'Saved ✓';
                 setTimeout(() => { btn.textContent = origLabel; btn.disabled = false; }, 1200);
             } catch (err) {

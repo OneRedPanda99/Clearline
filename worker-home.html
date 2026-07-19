@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+        // Instant redirect off the last-known role (cached at sign-in) so a
+        // stale bookmark/link for the wrong home page doesn't flash before
+        // the async Firebase profile check bounces it to the right one.
+        (function() {
+            try {
+                var role = localStorage.getItem('cl-last-role');
+                if (role === 'owner') location.replace('index.html');
+                else if (role === 'manager') location.replace('manager-home.html');
+            } catch (e) {}
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -62,7 +74,8 @@
     </nav>
 
     <script>
-        // Worker home. Shows only my jobs (assignedTo == uid OR createdBy == uid).
+        // Worker home. Shows only my jobs (I'm in the assignedWorkers crew,
+        // or the legacy single assignedTo, OR I created the job).
         // NO pricing anywhere -- per spec, Assigned Workers never see dollar amounts.
         // Estimator variant unlocks Quick Add / Estimate Form if the
         // corresponding permission flag is true.
@@ -88,14 +101,15 @@
             }
             container.innerHTML = week.map(j => {
                 const d = j.jobDate ? new Date(j.jobDate + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) : '';
+                const shortAddr = window.shortJobAddress ? shortJobAddress(j.address) : (j.address || '');
                 return `
-                    <div class="glass-card rounded-xl p-3">
-                        <p class="font-semibold">${j.customerName || 'Job'}</p>
-                        <p class="text-xs text-gray-400">${d} ${j.jobTime || ''} \u2022 ${j.serviceType || 'Service'}</p>
+                    <div class="glass-card rounded-xl p-3" onclick="window.location.href='jobs.html?highlight=${encodeURIComponent(j.id)}'" style="cursor:pointer;">
+                        <p class="font-semibold">${escapeHtml(j.customerName || 'Job')}</p>
+                        <p class="text-xs text-gray-400">${d} ${j.jobTime || ''} \u2022 ${escapeHtml(j.serviceType || 'Service')}</p>
                         ${j.squareFootage ? `<p class="text-[11px] text-gray-500 mt-0.5">${j.squareFootage} sq ft</p>` : ''}
                         ${j.address ? `
-                            <a href="https://maps.google.com/?q=${encodeURIComponent(j.address)}" target="_blank" class="inline-block text-[11px] text-primary mt-1">
-                                <i class="fas fa-map-marker-alt mr-1"></i>${j.address}
+                            <a href="https://maps.google.com/?q=${encodeURIComponent(j.address)}" target="_blank" onclick="event.stopPropagation()" class="inline-block text-[11px] text-primary mt-1">
+                                <i class="fas fa-map-marker-alt mr-1"></i>${escapeHtml(shortAddr)}
                             </a>
                         ` : ''}
                     </div>
@@ -127,13 +141,16 @@
         async function load(profile) {
             const db = CL_FIREBASE.getFirestore();
             const uid = CL_FIREBASE.getCurrentUser().uid;
-            const [assignedSnap, createdSnap] = await Promise.all([
+            // assignedWorkers is a crew list now, not a single assignee.
+            // assignedTo is kept as a fallback for jobs written before that change.
+            const [crewSnap, assignedSnap, createdSnap] = await Promise.all([
+                db.collection('jobs').where('assignedWorkers', 'array-contains', uid).get(),
                 db.collection('jobs').where('assignedTo', '==', uid).get(),
                 db.collection('jobs').where('createdBy', '==', uid).get()
             ]);
             const seen = new Set();
             const jobs = [];
-            [assignedSnap, createdSnap].forEach(s => s.forEach(d => {
+            [crewSnap, assignedSnap, createdSnap].forEach(s => s.forEach(d => {
                 if (seen.has(d.id)) return;
                 seen.add(d.id);
                 jobs.push(d.data());

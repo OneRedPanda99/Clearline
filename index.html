@@ -1,6 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+        // The installed PWA always opens here (manifest.json start_url), so
+        // a returning worker/manager would otherwise see a flash of this
+        // Owner dashboard before the async Firebase profile check bounces
+        // them to their real home page. Redirect instantly off the
+        // last-known role (cached at sign-in) instead of waiting on it.
+        (function() {
+            try {
+                var role = localStorage.getItem('cl-last-role');
+                if (role === 'worker') location.replace('worker-home.html');
+                else if (role === 'manager') location.replace('manager-home.html');
+            } catch (e) {}
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
