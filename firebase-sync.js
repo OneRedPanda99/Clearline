@@ -35,10 +35,10 @@ const CL_FIREBASE = (function() {
 
     // Broadcast a coarse sync state so any page can show a single, consistent
     // status indicator (see the sync badge in utils.js). States:
-    //   'saving'  — a local change is being pushed to the cloud
-    //   'saved'   — the push succeeded (transient confirmation)
-    //   'offline' — no network; changes are safe on-device
-    //   'error'   — a push/pull failed; user can retry
+    //   'saving'  - a local change is being pushed to the cloud
+    //   'saved'   - the push succeeded (transient confirmation)
+    //   'offline' - no network; changes are safe on-device
+    //   'error'   - a push/pull failed; user can retry
     function emitSyncState(state, detail) {
         if (typeof window === 'undefined') return;
         try {
@@ -109,7 +109,7 @@ const CL_FIREBASE = (function() {
             // Use SESSION persistence so auth state lives in sessionStorage
             // (same-origin, not blocked by Edge/Firefox tracking prevention).
             // LOCAL (the default) relies on IndexedDB from gstatic.com, which
-            // Edge blocks as a third-party storage access — causing the app to
+            // Edge blocks as a third-party storage access. causing the app to
             // appear signed-out on a normal page load and requiring Ctrl+Shift+R.
             try {
                 await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
@@ -120,7 +120,7 @@ const CL_FIREBASE = (function() {
 
             // Enable offline persistence. Note: the compat SDK's
             // enablePersistence() will log a deprecation hint about
-            // FirestoreSettings.cache — that's a Firebase internals warning
+            // FirestoreSettings.cache. that's a Firebase internals warning
             // and can be ignored until we migrate to the modular SDK.
             try {
                 await db.enablePersistence({ synchronizeTabs: true });
@@ -216,7 +216,7 @@ const CL_FIREBASE = (function() {
         // user not yet provisioned by the Owner), don't keep them in a
         // half-authenticated state. Sign out + redirect with a hint.
         if (!userProfile) {
-            console.warn('[CL_FIREBASE] No user profile — sign-in rejected');
+            console.warn('[CL_FIREBASE] No user profile. sign-in rejected');
             try { await auth.signOut(); } catch (_) {}
             redirectToSignIn('notprovisioned');
             return;
@@ -237,7 +237,7 @@ const CL_FIREBASE = (function() {
                     console.warn('[CL_FIREBASE] snapshot listener error:', src, code, err && err.message);
                     // Don't crash the app on permission/transient listener errors.
                     if (code === 'permission-denied' && typeof window !== 'undefined' && typeof showToast === 'function') {
-                        try { showToast('Cloud access blocked (rules) — check Firestore rules', 'error'); } catch (_) {}
+                        try { showToast('Cloud access blocked (rules). Check Firestore rules', 'error'); } catch (_) {}
                     }
                 } catch (_) {}
             };
@@ -288,7 +288,7 @@ const CL_FIREBASE = (function() {
             return;
         }
 
-        // No role yet — attempt Owner bootstrap if this is a Google sign-in.
+        // No role yet. attempt Owner bootstrap if this is a Google sign-in.
         const providerId = (currentUser.providerData[0] && currentUser.providerData[0].providerId) || '';
         const isGoogle = providerId === 'google.com';
         const configuredOwner = (window.CL_SECRETS && window.CL_SECRETS.ownerUid) || '';
@@ -498,7 +498,7 @@ const CL_FIREBASE = (function() {
 
     // Stamp a customer/job with the fields needed for the top-level
     // collection (createdBy + lastUpdated). Never overwrites an
-    // existing createdBy — records keep their original author so
+    // existing createdBy. records keep their original author so
     // future rules scope them correctly.
     function _stampForCloud(entity) {
         if (!entity) return entity;

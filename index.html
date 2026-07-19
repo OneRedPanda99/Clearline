@@ -108,7 +108,7 @@
                 <div id="todayJobs"></div>
             </div>
             <div id="todayEmpty" style="display:none;padding:20px;text-align:center;color:#64748b;font-size:13px;margin-bottom:14px;" class="glass-card">
-                Nothing on the calendar today — add a <a href="jobs.html?addLead=1" style="color:#60a5fa;">lead visit</a> or <a href="calendar.html" style="color:#60a5fa;">scheduled job</a>.
+                Nothing on the calendar today. Add a <a href="jobs.html?addLead=1" style="color:#60a5fa;">lead visit</a> or <a href="calendar.html" style="color:#60a5fa;">scheduled job</a>.
             </div>
 
             <!-- Coming up -->
@@ -210,7 +210,7 @@
                 <div id="calcError" role="alert" style="color:#EF4444;font-size:13px;margin-bottom:8px;min-height:18px;"></div>
                 <div style="background: rgba(34, 197, 94, 0.1); border-radius: 12px; padding: 16px; text-align: center;">
                     <p style="font-size: 12px; color: #64748b;">Estimated Price</p>
-                    <p id="calcResult" style="font-size: 28px; font-weight: 700; color: #34d399;">—</p>
+                    <p id="calcResult" style="font-size: 28px; font-weight: 700; color: #34d399;">...</p>
                 </div>
             </div>
         </div>
@@ -540,7 +540,7 @@
 
             if (errors.length) {
                 if (errorEl) errorEl.innerHTML = errors.join('<br>');
-                if (resultEl) resultEl.textContent = '—';
+                if (resultEl) resultEl.textContent = '...';
                 return;
             }
 
@@ -550,7 +550,7 @@
             if (minPrice > 0 && minPrice < 75) minPrice = 75;
             if (maxPrice > 0 && maxPrice < 100) maxPrice = 100;
             
-            if (resultEl) resultEl.textContent = `$${minPrice.toLocaleString()} – $${maxPrice.toLocaleString()}`;
+            if (resultEl) resultEl.textContent = `$${minPrice.toLocaleString()} to $${maxPrice.toLocaleString()}`;
         }
 
         // Checklist

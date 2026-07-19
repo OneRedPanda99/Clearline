@@ -394,7 +394,7 @@
             closeCustomerModal();
         }
 
-        // Render customers — All (A–Z) or Recent
+        // Render customers. All (A–Z) or Recent
         function renderCustomers() {
             const container = document.getElementById('customerList');
             const emptyState = document.getElementById('emptyState');
@@ -546,7 +546,7 @@
             
             const customerJobs = getCustomerJobs(c.id);
             
-            // Build jobs list HTML — sort newest first, group by year/month,
+            // Build jobs list HTML. sort newest first, group by year/month,
             // scrollable so many jobs don't break the layout.
             let jobsHtml = '';
             if (customerJobs.length > 0) {

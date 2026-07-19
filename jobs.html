@@ -741,7 +741,7 @@
             gapiInited = true;
         }
 
-        // Refresh token state from localStorage — the rest of the UI uses
+        // Refresh token state from localStorage. the rest of the UI uses
         // `accessToken`/`tokenExpiry` directly. No DOM side effects (#2).
         function checkGoogleAuth() {
             accessToken = localStorage.getItem('gcal-token');
@@ -1603,7 +1603,7 @@
                             <div>
                                 <label class="text-xs text-gray-400 block mb-1">Assigned Manager</label>
                                 <select id="editAssignedManager" class="w-full p-3 rounded-lg edit-field">
-                                    <option value="">— None —</option>
+                                    <option value="">None</option>
                                     ${allManagers.map(m =>
                                         `<option value="${m.uid}" ${job.assignedManager === m.uid ? 'selected' : ''}>${m.displayName || m.username}</option>`
                                     ).join('')}
@@ -1612,7 +1612,7 @@
                             <div>
                                 <label class="text-xs text-gray-400 block mb-1">Assigned Worker</label>
                                 <select id="editAssignedTo" class="w-full p-3 rounded-lg edit-field">
-                                    <option value="">— None —</option>
+                                    <option value="">None</option>
                                     ${allWorkers.map(w =>
                                         `<option value="${w.uid}" ${job.assignedTo === w.uid ? 'selected' : ''}>${w.displayName || w.username}</option>`
                                     ).join('')}
@@ -2041,14 +2041,14 @@
                     const status = err && (err.status || (err.result && err.result.error && err.result.error.code));
                     if (status === 401 || status === 403) {
                         invalidateCalendarToken();
-                        showToast('Calendar session expired — sign in again', 'error');
+                        showToast('Calendar session expired. Sign in again', 'error');
                     } else {
                         console.error('API error, falling back to URL', err);
                     }
                 }
             }
 
-            // Fallback to URL — parse jobTime defensively so 'HH:MM AM/PM'
+            // Fallback to URL. parse jobTime defensively so 'HH:MM AM/PM'
             // values don't produce malformed dates. (#15)
             const jobDate = job.jobDate.replace(/-/g, '');
             let startH = 9, startM = 0;
@@ -2199,7 +2199,7 @@
             }
         }
 
-        // (#3) `syncAllToGCal` was removed — no UI element on this page ever
+        // (#3) `syncAllToGCal` was removed. no UI element on this page ever
         // called it and its `syncBtn` target didn't exist. Use single-job
         // `addToGoogleCalendar(id)` from the detail modal instead.
 
@@ -2273,7 +2273,7 @@
                 return;
             }
 
-            // Otherwise prompt inline — never silently create a blank record.
+            // Otherwise prompt inline. never silently create a blank record.
             openCreateCustomerPrompt(jobId, job);
         }
 

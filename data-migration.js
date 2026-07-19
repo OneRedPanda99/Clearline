@@ -110,7 +110,7 @@ var CL_DATA = {
     },
     
     // Central cloud-sync trigger. Every write sink calls this so updates,
-    // deletes, document attachments, and photo edits — not just adds — reach
+    // deletes, document attachments, and photo edits (not just adds) reach
     // Firebase. mergeFromCloud passes { skipSync: true } to avoid echoing the
     // cloud's own payload straight back.
     //
@@ -129,7 +129,7 @@ var CL_DATA = {
                 CL_FIREBASE.syncToCloud();
                 return;
             }
-            // Auth not ready yet — poll for up to 10 seconds then sync
+            // Auth not ready yet. Poll for up to 10 seconds then sync
             let attempts = 0;
             const poll = setInterval(() => {
                 attempts++;
@@ -207,7 +207,7 @@ var CL_DATA = {
         return list;
     },
     
-    // Add a customer — saveCustomers now fires the cloud sync itself.
+    // Add a customer. saveCustomers now fires the cloud sync itself.
     addCustomer(customer) {
         const customers = this.getCustomers();
         customers.push(customer);

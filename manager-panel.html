@@ -219,7 +219,7 @@
                         <div class="flex justify-between items-start gap-2">
                             <div class="flex-1 min-w-0">
                                 <p class="font-semibold truncate">${u.displayName || u.username || '(unnamed)'}${statusPill}${pendPill}</p>
-                                <p class="text-xs text-gray-400 truncate">${u.username || '\u2014'}</p>
+                                <p class="text-xs text-gray-400 truncate">${u.username || ''}</p>
                                 <p class="text-[11px] text-gray-500 mt-0.5">${subtitle}</p>
                             </div>
                             <button onclick="openEditUser('${u.uid}')" class="text-primary text-sm font-semibold">Edit</button>
@@ -287,7 +287,7 @@
                          @clearline.invalid suffix only when talking to
                          Firebase Auth; the user doc stores the bare form. -->
                     <input type="text" id="uf-username" value="${(u.username || '').replace(/"/g,'&quot;')}" ${isCreate ? '' : 'disabled'} autocapitalize="none" autocorrect="off" spellcheck="false" class="w-full p-3 rounded-lg edit-field">
-                    ${isCreate ? '<p class="text-[11px] text-gray-500 mt-1">No email required — just a short login handle (e.g. "john").</p>' : ''}
+                    ${isCreate ? '<p class="text-[11px] text-gray-500 mt-1">No email required. just a short login handle (e.g. "john").</p>' : ''}
                 </div>
                 ${isCreate ? `
                     <div>
@@ -308,7 +308,7 @@
                         <div>
                             <label class="text-xs text-gray-400 block mb-1">Assigned Manager</label>
                             <select id="uf-assignedManager" class="w-full p-3 rounded-lg edit-field" ${canAssignManager ? '' : 'disabled'}>
-                                <option value="">\u2014 None \u2014</option>
+                                <option value="">None</option>
                                 ${mgrOpts}
                             </select>
                         </div>
@@ -470,7 +470,7 @@
                     docs.push(d.data());
                 }));
             }
-            // Hide completed jobs — they don't need reassignment.
+            // Hide completed jobs. they don't need reassignment.
             assignableJobs = docs.filter(j => j.status !== 'completed')
                 .sort((a, b) => (b.jobDate || '').localeCompare(a.jobDate || ''));
             renderAssignList();
@@ -513,7 +513,7 @@
             }
 
             container.innerHTML = filtered.map(j => {
-                const opts = ['<option value="">— Unassigned —</option>']
+                const opts = ['<option value="">Unassigned</option>']
                     .concat(targets.map(w =>
                         `<option value="${w.uid}" ${w.uid === j.assignedTo ? 'selected' : ''}>${(w.displayName || w.username || w.uid)}</option>`
                     )).join('');
@@ -555,7 +555,7 @@
             if (selectedUid) {
                 const isManager = managers.find(m => m.uid === selectedUid);
                 if (isManager) {
-                    // Assigning a manager directly — they supervise the job, no worker yet
+                    // Assigning a manager directly. they supervise the job, no worker yet
                     assignedManager = selectedUid;
                     assignedTo = null;
                 } else {
