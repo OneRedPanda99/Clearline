@@ -15,7 +15,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="data-migration.js"></script>
-    <script src="firebase-sync.js?v=4"></script>
+    <script src="firebase-sync.js?v=5"></script>
     <style>
         /* status chips from app.css */
         .filter-btn { transition: all 0.2s; }
@@ -906,31 +906,18 @@
         function prefillScheduleJob(id) {
             const c = customers.find(c => c.id === id);
             if (!c) return;
-            const today = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
-            const jobId = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
-            const nowIso = new Date().toISOString();
-            CL_DATA.addJob({
-                id: jobId,
+            // Don't create the job yet — just hand the customer info to
+            // jobs.html so it can open a real "Schedule Job" form and let
+            // the date/time actually be chosen before anything is saved.
+            safeSet('cl-schedule-job-prefill', {
                 customerId: c.id,
                 customerName: c.name || '',
                 customerPhone: c.phone || '',
                 customerEmail: c.email || '',
-                address: c.address || '',
-                serviceType: '',
-                jobCategory: '',
-                jobDate: today,
-                jobTime: '',
-                jobDuration: '',
-                quoteAmount: '',
-                squareFootage: '',
-                status: 'scheduled',
-                notes: '',
-                paymentStatus: 'unpaid',
-                dateAdded: nowIso,
-                documents: { estimates: [], invoices: [], waivers: [] }
+                address: c.address || ''
             });
             closeDetailModal();
-            window.location.href = `jobs.html?highlight=${encodeURIComponent(jobId)}&edit=1&tab=booked`;
+            window.location.href = 'jobs.html?scheduleJob=1';
         }
 
         let placeAcBox = null;
