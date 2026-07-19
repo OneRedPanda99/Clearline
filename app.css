@@ -2167,6 +2167,8 @@ input::placeholder, textarea::placeholder {
     text-decoration: none;
     display: inline-flex;
     align-items: center;
+    border: none;
+    cursor: pointer;
 }
 
 .m3-doc-row .m3-doc-secondary {
@@ -2177,6 +2179,12 @@ input::placeholder, textarea::placeholder {
     color: var(--md-sys-color-on-surface);
     font-size: 12px;
     font-weight: 650;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    border: none;
+    cursor: pointer;
+}
     text-decoration: none;
     display: inline-flex;
     align-items: center;
