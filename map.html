@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#0b0e14">
+    <meta name="theme-color" content="#1a1c1f">
     <title>Job Map - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
@@ -60,14 +60,14 @@
         <div class="bg-darker px-4 py-2 border-b border-slate-700">
             <div class="max-w-lg mx-auto flex gap-2 items-center flex-wrap">
                 <label class="text-gray-400 text-sm">Start:</label>
-                <input type="time" id="startTime" value="08:00" class="bg-slate-700 text-white px-2 py-1 rounded text-sm" style="min-height:36px;">
-                <button onclick="locateMe(true)" id="locateMeBtn" class="bg-slate-700 text-gray-200 px-3 py-2 rounded-lg text-sm font-semibold">
+                <input type="time" id="startTime" value="08:00" class="text-sm" style="min-height:36px;">
+                <button onclick="locateMe(true)" id="locateMeBtn" class="btn-secondary btn-sm" style="width:auto">
                     <i class="fas fa-location-crosshairs mr-1"></i> Locate me
                 </button>
-                <button onclick="planRoute()" id="planRouteBtn" class="flex-1 bg-gradient-to-r from-primary to-purple-600 text-white py-2 rounded-lg font-semibold text-sm hidden">
+                <button onclick="planRoute()" id="planRouteBtn" class="btn-primary flex-1 hidden" style="width:auto">
                     <i class="fas fa-route mr-1"></i> Plan Route
                 </button>
-                <button onclick="openRouteInGoogleMaps()" id="openGmapsBtn" class="bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hidden">
+                <button onclick="openRouteInGoogleMaps()" id="openGmapsBtn" class="btn-primary btn-sm hidden" style="width:auto;background:var(--md-sys-color-tertiary);color:var(--md-sys-color-on-tertiary)">
                     <i class="fas fa-external-link-alt mr-1"></i> Google Maps
                 </button>
             </div>
@@ -160,17 +160,20 @@
         function setFilter(filter) {
             currentFilter = filter;
             document.querySelectorAll('.jobs-filter-pill').forEach(btn => {
-                btn.classList.remove('bg-primary', 'text-white');
-                btn.classList.add('bg-slate-700', 'text-gray-300');
-                if (btn.dataset.filter === filter) { btn.classList.remove('bg-slate-700', 'text-gray-300'); btn.classList.add('bg-primary', 'text-white'); }
+                const on = btn.dataset.filter === filter;
+                btn.classList.toggle('md-chip--selected', on);
+                btn.style.background = on ? 'var(--md-sys-color-secondary-container)' : 'var(--md-sys-color-surface-container-high)';
+                btn.style.color = on ? 'var(--md-sys-color-on-secondary-container)' : 'var(--md-sys-color-on-surface-variant)';
+                btn.style.borderRadius = '8px';
+                btn.style.minHeight = '32px';
             });
             loadJobs();
         }
 
         function statusColor(status) {
-            if (status === 'completed') return '#64748b'; // grey
-            if (status === 'scheduled') return '#8b5cf6'; // purple
-            return '#3b82f6'; // new/default blue
+            if (status === 'completed') return '#64748b';
+            if (status === 'scheduled') return '#4f8cff'; // brand primary (M3)
+            return '#8ab4ff';
         }
 
         function loadJobs() {
@@ -243,9 +246,9 @@
                 const isToday = job.jobDate === today;
                 const dateStr = new Date(job.jobDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
                 const jobTotal = getJobDisplayTotal(job);
-                return `<div class="bg-slate-700 rounded-xl p-3 flex items-center gap-3" onclick="focusJob(${i})">
-                    <div class="w-8 h-8 rounded-full ${isToday ? 'bg-primary' : 'bg-purple-600'} flex items-center justify-center text-white font-bold">${i + 1}</div>
-                    <div class="flex-1"><p class="font-semibold">${job.customerName || 'Job'}</p><p class="text-sm ${isToday ? 'text-primary' : 'text-purple-400'}">${isToday ? 'TODAY' : dateStr} ${job.jobTime || ''}</p></div>
+                return `<div class="m3-list-item" onclick="focusJob(${i})" style="cursor:pointer">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold" style="background:${isToday ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-secondary-container)'};color:${isToday ? 'var(--md-sys-color-on-primary)' : 'var(--md-sys-color-on-secondary-container)'}">${i + 1}</div>
+                    <div class="flex-1"><p class="font-semibold">${job.customerName || 'Job'}</p><p class="text-sm ${isToday ? 'text-primary' : 'text-secondary'}">${isToday ? 'TODAY' : dateStr} ${job.jobTime || ''}</p></div>
                     ${jobTotal > 0 ? `<span class="text-green-400 font-bold">$${jobTotal.toFixed(0)}</span>` : ''}
                 </div>`;
             }).join('');
@@ -311,7 +314,7 @@
                 // Draw polyline
                 if (routePolyline) map.removeLayer(routePolyline);
                 const points = decodePolyline(route.overview_polyline.points);
-                routePolyline = L.polyline(points, { color: '#8b5cf6', weight: 4, opacity: 0.8 }).addTo(map);
+                routePolyline = L.polyline(points, { color: '#4f8cff', weight: 4, opacity: 0.8 }).addTo(map);
                 map.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
 
                 // Build route summary
@@ -367,7 +370,7 @@
                         <div class="flex gap-4 mt-2 text-sm">
                             <span class="text-primary">Arrive: ${arriveTime}</span>
                             <span class="text-gray-400">Job: ${durationMin} min</span>
-                            <span class="text-purple-400">Leave: ${formatTime(leaveTime)}</span>
+                            <span class="text-secondary">Leave: ${formatTime(leaveTime)}</span>
                         </div>
                     </div>`;
                     currentTime = leaveTime;

@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="theme-color" content="#0b0e14">
+    <meta name="theme-color" content="#1a1c1f">
     <title>Calendar - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
@@ -19,35 +19,35 @@
     <style>
         .calendar-day {
             aspect-ratio: 1;
-            min-height: 40px;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            border-radius: 8px;
+            min-height: var(--md-tap-target);
+            transition: background-color var(--md-duration-short) var(--md-easing-standard),
+                        transform var(--md-duration-short) var(--md-easing-standard);
+            border-radius: var(--md-radius-sm);
             cursor: pointer;
         }
         .calendar-day:hover {
-            background: rgba(255,255,255,0.05);
-            transform: scale(1.05);
+            background: var(--md-sys-color-surface-container-high);
         }
         .calendar-day:active {
-            transform: scale(0.92);
-            opacity: 0.8;
+            transform: scale(0.96);
         }
         .calendar-day.today {
-            border: 2px solid var(--electric, #2e7bff);
-            box-shadow: 0 0 8px rgba(46, 123, 255, 0.3);
+            border: 2px solid var(--md-sys-color-primary);
+            background: var(--md-sys-color-secondary-container);
+            color: var(--md-sys-color-on-secondary-container);
         }
         .calendar-day.has-jobs {
-            background: rgba(46, 123, 255, 0.18);
+            background: color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
         }
         .job-dot {
             width: 5px;
             height: 5px;
             border-radius: 50%;
         }
-        .job-dot.scheduled { background: #2e7bff; }
-        .job-dot.completed { background: #10b981; }
-        .job-dot.followup { background: #f59e0b; }
-        .job-dot.new { background: #3b82f6; }
+        .job-dot.scheduled { background: var(--md-sys-color-primary); }
+        .job-dot.completed { background: var(--md-sys-color-tertiary); }
+        .job-dot.followup { background: var(--warning); }
+        .job-dot.new { background: var(--md-sys-color-secondary); }
         .modal {
             display: none;
             position: fixed;
@@ -62,15 +62,15 @@
         .modal.modal-open,
         .modal:not([hidden]) { display: flex !important; }
         .modal-content {
-            background: rgba(30, 41, 59, 0.95);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-radius: 10px 10px 0 0;
+            background: var(--md-sys-color-surface-container-low);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-bottom: none;
+            border-radius: var(--md-radius-xl) var(--md-radius-xl) 0 0;
             width: 100%;
             max-height: 60vh;
             overflow-y: auto;
             padding-bottom: var(--safe-bottom);
-            animation: modalSlideUp 0.25s ease;
+            animation: modalSlideUp var(--md-duration-medium) var(--md-easing-emphasized);
         }
         @keyframes modalFadeIn {
             from { opacity: 0; }
@@ -80,18 +80,7 @@
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .status-badge {
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        .status-new { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-        .status-followup,
-        .status-quoted { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-        .status-scheduled { background: rgba(46, 123, 255, 0.2); color: #7fb0ff; }
-        .status-completed { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        /* status chips from app.css */
         .section-title {
             font-size: 11px;
             font-weight: 600;
@@ -324,30 +313,30 @@
                 <input type="hidden" id="addLeadVisitDateStr" value="">
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Time</label>
-                    <input type="time" id="addLeadVisitTime" value="11:30" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white">
+                    <input type="time" id="addLeadVisitTime" value="11:30" class="w-full">
                 </div>
                 <input type="hidden" id="addLeadVisitCustomerId" value="">
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Customer name <span class="text-gray-500">(optional)</span></label>
-                    <input type="text" id="addLeadVisitName" list="addLeadVisitCustomerOptions" oninput="syncLeadVisitCustomerSelection()" placeholder="Name" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="name">
+                    <input type="text" id="addLeadVisitName" list="addLeadVisitCustomerOptions" oninput="syncLeadVisitCustomerSelection()" placeholder="Name" class="w-full" autocomplete="name">
                     <datalist id="addLeadVisitCustomerOptions"></datalist>
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Phone <span class="text-gray-500">(optional)</span></label>
-                    <input type="tel" id="addLeadVisitPhone" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="tel">
+                    <input type="tel" id="addLeadVisitPhone" class="w-full" autocomplete="tel">
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Email <span class="text-gray-500">(optional)</span></label>
-                    <input type="email" id="addLeadVisitEmail" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="email">
+                    <input type="email" id="addLeadVisitEmail" class="w-full" autocomplete="email">
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Address <span class="text-gray-500">(optional)</span></label>
-                    <input type="text" id="addLeadVisitAddress" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="street-address">
+                    <input type="text" id="addLeadVisitAddress" class="w-full" autocomplete="street-address">
                 </div>
-                <button type="button" onclick="confirmAddLeadVisit()" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-semibold">
+                <button type="button" onclick="confirmAddLeadVisit()" class="btn-primary" style="background:var(--warning);color:#111827">
                     <i class="fas fa-file-alt mr-2"></i>Create &amp; open estimate
                 </button>
-                <button type="button" onclick="closeAddLeadVisitModal()" class="w-full bg-slate-600 text-white py-3 rounded-xl font-semibold">Cancel</button>
+                <button type="button" onclick="closeAddLeadVisitModal()" class="btn-secondary">Cancel</button>
             </div>
         </div>
     </div>
@@ -645,10 +634,10 @@ localStorage.setItem('cl-calendar-view', view);
                     <p class="text-gray-400">${dayNames[selectedDate.getDay()]}</p>
                 </div>
                 <div class="flex flex-col gap-2 mb-4">
-                    <button type="button" onclick="addJobForDate('${dateStr}')" class="w-full bg-primary/20 text-primary py-3 rounded-xl font-semibold border border-primary/30">
+                    <button type="button" onclick="addJobForDate('${dateStr}')" class="btn-secondary">
                         <i class="fas fa-briefcase mr-2"></i>Scheduled job
                     </button>
-                    <button type="button" onclick="openAddLeadVisitModal('${dateStr}')" class="w-full bg-amber-500/20 text-amber-400 py-3 rounded-xl font-semibold border border-amber-500/30">
+                    <button type="button" onclick="openAddLeadVisitModal('${dateStr}')" class="btn-secondary">
                         <i class="fas fa-user-plus mr-2"></i>Estimate visit (lead)
                     </button>
                 </div>

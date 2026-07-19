@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="theme-color" content="#0b0e14">
+    <meta name="theme-color" content="#1a1c1f">
     <title>Settings - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
@@ -61,19 +61,19 @@
             <div class="glass-card rounded-2xl overflow-hidden mb-4">
                 <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
                     <span>Driveway</span>
-                    <input type="number" id="priceDriveway" value="0.15" step="0.01" class="w-20 bg-slate-700 rounded-lg p-2 text-right text-sm">
+                    <input type="number" id="priceDriveway" value="0.15" step="0.01" class="w-20 text-right text-sm">
                 </div>
                 <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
                     <span>House Wash</span>
-                    <input type="number" id="priceHouse" value="0.25" step="0.01" class="w-20 bg-slate-700 rounded-lg p-2 text-right text-sm">
+                    <input type="number" id="priceHouse" value="0.25" step="0.01" class="w-20 text-right text-sm">
                 </div>
                 <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
                     <span>Deck/Patio</span>
-                    <input type="number" id="priceDeck" value="0.30" step="0.01" class="w-20 bg-slate-700 rounded-lg p-2 text-right text-sm">
+                    <input type="number" id="priceDeck" value="0.30" step="0.01" class="w-20 text-right text-sm">
                 </div>
                 <div class="setting-item p-4 flex justify-between items-center">
                     <span>Minimum Job</span>
-                    <input type="number" id="priceMin" value="75" class="w-20 bg-slate-700 rounded-lg p-2 text-right text-sm">
+                    <input type="number" id="priceMin" value="75" class="w-20 text-right text-sm">
                 </div>
             </div>
 
@@ -85,7 +85,7 @@
                         <p>Default Job Duration</p>
                         <p class="text-xs text-gray-400">Hours per job</p>
                     </div>
-                    <select id="defaultDuration" class="bg-slate-700 rounded-lg p-2 text-sm">
+                    <select id="defaultDuration" class="text-sm">
                         <option value="1">1 hour</option>
                         <option value="1.5">1.5 hours</option>
                         <option value="2" selected>2 hours</option>
@@ -98,7 +98,7 @@
                         <p>Calendar View</p>
                         <p class="text-xs text-gray-400">Default calendar display</p>
                     </div>
-                    <select id="calendarView" class="bg-slate-700 rounded-lg p-2 text-sm">
+                    <select id="calendarView" class="text-sm">
                         <option value="month" selected>Month</option>
                         <option value="week">Week</option>
                         <option value="day">Day</option>
@@ -118,7 +118,7 @@
             <div class="glass-card rounded-2xl overflow-hidden mb-4">
                 <div class="p-4">
                     <p class="text-xs text-gray-400 mb-2">Customize the services you offer (comma-separated)</p>
-                    <textarea id="serviceTypes" rows="2" class="w-full p-3 rounded-lg bg-slate-700 text-sm" placeholder="Driveway, House, Deck, Patio, Fence..."></textarea>
+                    <textarea id="serviceTypes" rows="2" class="w-full text-sm" placeholder="Driveway, House, Deck, Patio, Fence..."></textarea>
                 </div>
             </div>
 
@@ -127,7 +127,7 @@
             <div class="glass-card rounded-2xl overflow-hidden mb-4">
                 <div class="p-4">
                     <p class="text-xs text-gray-400 mb-2">Categories for organizing jobs (comma-separated)</p>
-                    <textarea id="jobCategories" rows="2" class="w-full p-3 rounded-lg bg-slate-700 text-sm" placeholder="Pressure Washing, Soft Wash, Landscaping..."></textarea>
+                    <textarea id="jobCategories" rows="2" class="w-full text-sm" placeholder="Pressure Washing, Soft Wash, Landscaping..."></textarea>
                 </div>
             </div>
 
@@ -137,7 +137,7 @@
                 <div class="p-4">
                     <div id="syncSignedOut">
                         <p class="text-sm text-gray-300 mb-3">Sign in with Google to sync data and connect Google Calendar.</p>
-                        <button onclick="CL_FIREBASE.signInWithGoogle()" class="w-full bg-white text-gray-800 py-3 rounded-lg font-semibold flex items-center justify-center gap-2">
+                        <button onclick="CL_FIREBASE.signInWithGoogle()" class="btn-secondary" style="display:flex;align-items:center;justify-content:center;gap:8px;background:var(--md-sys-color-surface-container-highest)!important;color:var(--md-sys-color-on-surface)!important">
                             <img src="https://www.google.com/favicon.ico" alt="" class="w-5 h-5">
                             Sign in with Google
                         </button>
@@ -158,10 +158,10 @@
                             <span id="gcalStatus" class="text-blue-400">Calendar Connected</span>
                         </div>
                         <div class="flex gap-2">
-                            <button onclick="CL_FIREBASE.syncToCloud()" class="flex-1 bg-primary text-white py-2 rounded-lg font-semibold text-sm">
+                            <button onclick="CL_FIREBASE.syncToCloud()" class="btn-primary btn-sm" style="width:auto;flex:1">
                                 <i class="fas fa-cloud-upload-alt mr-1"></i> Sync Now
                             </button>
-                            <button onclick="CL_FIREBASE.signOut()" class="flex-1 bg-slate-600 text-white py-2 rounded-lg font-semibold text-sm">
+                            <button onclick="CL_FIREBASE.signOut()" class="btn-secondary btn-sm" style="width:auto;flex:1">
                                 Sign Out
                             </button>
                         </div>
@@ -198,7 +198,7 @@
 
 
             <!-- Save Button -->
-            <button onclick="saveSettings(); showToast('Settings saved!')" class="w-full bg-primary text-white py-4 rounded-2xl font-semibold text-lg mb-4">
+            <button onclick="saveSettings(); showToast('Settings saved!')" class="btn-primary mb-4">
                 <i class="fas fa-save mr-2"></i>Save Settings
             </button>
 

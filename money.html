@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#0b0e14">
+    <meta name="theme-color" content="#1a1c1f">
     <title>Money - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
@@ -14,9 +14,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .money-row {
-            display:flex; align-items:center; gap:10px;
-            padding: 12px 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display:flex; align-items:center; gap:var(--md-space-3);
+            min-height: 56px;
+            padding: var(--md-space-3) var(--md-space-2);
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
             text-decoration:none; color: inherit;
         }
         .money-row:last-child { border-bottom: none; }
@@ -25,28 +26,14 @@
         .money-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
         .pill { font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; }
         .pill.tax { background: rgba(251,191,36,0.14); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
-        .pill.pay { background: rgba(167,139,250,0.14); color: #a78bfa; border: 1px solid rgba(167,139,250,0.25); }
+        .pill.pay { background: color-mix(in srgb, var(--md-sys-color-secondary) 18%, transparent); color: var(--md-sys-color-secondary); border: 1px solid color-mix(in srgb, var(--md-sys-color-secondary) 30%, transparent); }
         .pill.exp { background: rgba(52,211,153,0.14); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
         .form-grid { display:grid; gap:10px; }
         .form-grid label { font-size: 12px; color:#94a3b8; display:block; margin-bottom:4px; }
         .form-grid input, .form-grid select, .form-grid textarea {
             width:100%; padding: 12px; border-radius: 12px;
         }
-        .btn-primary {
-            width:100%; padding: 12px; border-radius: 14px;
-            background: linear-gradient(135deg, #2e7bff, #1d4ed8);
-            border:none; color:#fff; font-weight: 800;
-        }
-        .btn-muted {
-            width:100%; padding: 12px; border-radius: 14px;
-            background: rgba(51,65,85,0.45);
-            border: 1px solid rgba(255,255,255,0.10); color:#e2e8f0; font-weight: 800;
-        }
-        .danger {
-            background: rgba(239,68,68,0.15);
-            border: 1px solid rgba(239,68,68,0.25);
-            color: #fecaca;
-        }
+        /* Buttons use shared M3 .btn-primary / .btn-secondary / .btn-danger from app.css */
     </style>
 </head>
 <body>
@@ -69,13 +56,13 @@
             </div>
 
             <div class="page-tabs page-tabs--pills">
-                <button type="button" class="page-tab active" id="tabExpenses" onclick="setTab('expenses')">Expenses</button>
+                <button type="button" class="page-tab active" id="tabOverview" onclick="setTab('overview')">Overview</button>
+                <button type="button" class="page-tab" id="tabExpenses" onclick="setTab('expenses')">Expenses</button>
                 <button type="button" class="page-tab" id="tabPayroll" onclick="setTab('payroll')">Payroll</button>
                 <button type="button" class="page-tab" id="tabTaxes" onclick="setTab('taxes')">Taxes</button>
-                <button type="button" class="page-tab" id="tabReports" onclick="setTab('reports')">Reports</button>
             </div>
 
-            <div id="statsRow" class="stats-grid stats-grid--4 mb-3"></div>
+            <div id="statsRow" class="mb-3"></div>
             <div id="moneyBody"></div>
         </div>
     </main>
@@ -94,7 +81,8 @@
 
     <script>
         let myProfile = null;
-        let currentTab = 'expenses';
+        let currentTab = 'overview';
+        let moneyPeriod = 'week'; // week | month | year
         let editing = null; // { kind: 'expense'|'payroll', id }
 
         const TAX_CATS = [
@@ -148,11 +136,18 @@
 
         function setTab(tab) {
             currentTab = tab;
-            ['expenses','payroll','taxes','reports'].forEach(t => {
-                document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+            ['overview','expenses','payroll','taxes'].forEach(t => {
+                const el = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+                if (el) el.classList.toggle('active', t === tab);
             });
             render();
         }
+
+        function setMoneyPeriod(period) {
+            moneyPeriod = period;
+            render();
+        }
+        window.setMoneyPeriod = setMoneyPeriod;
 
         function ensureOwner() {
             if (!myProfile) return false;
@@ -205,7 +200,7 @@
                         <input id="expDesc" placeholder="Gas, detergent, etc." value="${expense ? String(expense.description || '') : ''}">
                     </div>
                     <button class="btn-primary" type="button" onclick="saveExpense(${expense ? JSON.stringify(expense.id) : 'null'})">${isEdit ? 'Save changes' : 'Add expense'}</button>
-                    ${isEdit ? `<button class="btn-muted danger" type="button" onclick="deleteExpense(${JSON.stringify(expense.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
+                    ${isEdit ? `<button class="btn-danger" type="button" onclick="deleteExpense(${JSON.stringify(expense.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
                 </div>
             `;
             openModal('moneyModal');
@@ -277,7 +272,7 @@
                         <input id="payNotes" placeholder="Week ending..." value="${entry ? String(entry.notes || '') : ''}">
                     </div>
                     <button class="btn-primary" type="button" onclick="savePayroll(${entry ? JSON.stringify(entry.id) : 'null'})">${isEdit ? 'Save changes' : 'Add payroll'}</button>
-                    ${isEdit ? `<button class="btn-muted danger" type="button" onclick="deletePayroll(${JSON.stringify(entry.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
+                    ${isEdit ? `<button class="btn-danger" type="button" onclick="deletePayroll(${JSON.stringify(entry.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
                 </div>
             `;
             openModal('moneyModal');
@@ -324,42 +319,249 @@
             render();
         }
 
-        function calcStats() {
+        function parseYmd(ymd) {
+            const s = String(ymd || '');
+            const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (!m) return null;
+            return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+        }
+
+        function toYmd(d) {
+            if (window.localYmd) return localYmd(d);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        function addDays(d, n) {
+            const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            x.setDate(x.getDate() + n);
+            return x;
+        }
+
+        function startOfWeek(d) {
+            // Local week starting Monday (common small-business week)
+            const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            const day = (x.getDay() + 6) % 7; // Mon=0 … Sun=6
+            x.setDate(x.getDate() - day);
+            return x;
+        }
+
+        function periodRange(period, today = new Date()) {
+            const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            if (period === 'week') {
+                return { start: startOfWeek(end), end, label: 'This week' };
+            }
+            if (period === 'month') {
+                return { start: new Date(end.getFullYear(), end.getMonth(), 1), end, label: 'This month' };
+            }
+            return { start: new Date(end.getFullYear(), 0, 1), end, label: 'This year' };
+        }
+
+        function inRangeYmd(ymd, start, end) {
+            const d = parseYmd(ymd);
+            if (!d) return false;
+            return d >= start && d <= end;
+        }
+
+        function jobRevenue(job) {
+            return window.getJobDisplayTotal ? Number(getJobDisplayTotal(job) || 0) : 0;
+        }
+
+        function isCompletedJob(job) {
+            return job && (job.status === 'completed' || job.status === 'paid');
+        }
+
+        function isBookedPipeline(job) {
+            if (!job) return false;
+            const st = String(job.status || '');
+            return st === 'scheduled' || st === 'in_progress' || st === 'booked';
+        }
+
+        function periodPnl(start, end) {
             const jobs = CL_DATA.getJobs();
             const expenses = CL_DATA.getExpenses();
             const payroll = CL_DATA.getPayroll();
-            const month = monthKey(ymdNow());
 
-            const revMonth = jobs
-                .filter(j => j.status === 'completed' && j.jobDate && monthKey(j.jobDate) === month)
-                .reduce((s, j) => s + (window.getJobDisplayTotal ? getJobDisplayTotal(j) : 0), 0);
+            const rev = jobs
+                .filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, start, end))
+                .reduce((s, j) => s + jobRevenue(j), 0);
 
-            const expMonth = expenses
-                .filter(e => e.date && monthKey(e.date) === month)
+            const exp = expenses
+                .filter(e => inRangeYmd(e.date, start, end))
                 .reduce((s, e) => s + Number(e.amount || 0), 0);
 
-            const payMonth = payroll
-                .filter(p => p.date && monthKey(p.date) === month)
-                .reduce((s, p) => s + Number(p.grossPay || 0), 0);
+            const pay = payroll
+                .filter(p => inRangeYmd(p.date, start, end))
+                .reduce((s, p) => s + Number(p.grossPay || (Number(p.hours || 0) * Number(p.rate || 0))), 0);
 
-            return { month, revMonth, expMonth, payMonth, profitMonth: revMonth - expMonth - payMonth };
+            return { rev, exp, pay, net: rev - exp - pay };
+        }
+
+        /**
+         * Revenue forecasts using common small-business methods:
+         * - This year: YTD completed + remaining booked pipeline this year
+         *   (also compute annualized run-rate = YTD / daysElapsed * 365)
+         * - Next year: trailing 12 months × (1 + YoY growth)
+         *   YoY = (this YTD − same period last year) / last-year YTD
+         */
+        function calcForecasts(today = new Date()) {
+            const jobs = CL_DATA.getJobs();
+            const year = today.getFullYear();
+            const todayYmd = toYmd(today);
+            const yearStart = new Date(year, 0, 1);
+            const yearEnd = new Date(year, 11, 31);
+            const priorYearStart = new Date(year - 1, 0, 1);
+            const priorSameDay = new Date(year - 1, today.getMonth(), today.getDate());
+            const ttmStart = addDays(today, -364);
+
+            const ytd = jobs
+                .filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, yearStart, today))
+                .reduce((s, j) => s + jobRevenue(j), 0);
+
+            const priorYtd = jobs
+                .filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, priorYearStart, priorSameDay))
+                .reduce((s, j) => s + jobRevenue(j), 0);
+
+            const bookedRest = jobs
+                .filter(j => {
+                    if (!isBookedPipeline(j)) return false;
+                    const d = parseYmd(j.jobDate);
+                    if (!d) return false;
+                    return d > today && d <= yearEnd;
+                })
+                .reduce((s, j) => s + jobRevenue(j), 0);
+
+            const dayOfYear = Math.max(1, Math.floor((today - yearStart) / 86400000) + 1);
+            const daysInYear = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
+            const runRate = (ytd / dayOfYear) * daysInYear;
+
+            // Primary estimate operators actually use for the rest of the year:
+            // money already earned + jobs already on the books.
+            const estThisYear = ytd + bookedRest;
+
+            const ttm = jobs
+                .filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, ttmStart, today))
+                .reduce((s, j) => s + jobRevenue(j), 0);
+
+            let growth = null;
+            if (priorYtd > 0) growth = (ytd - priorYtd) / priorYtd;
+            // If no prior-year comps, assume flat vs trailing twelve months.
+            const growthUsed = growth === null ? 0 : growth;
+            const baselineNext = ttm > 0 ? ttm : estThisYear;
+            const estNextYear = baselineNext * (1 + growthUsed);
+
+            return {
+                year,
+                nextYear: year + 1,
+                todayYmd,
+                ytd,
+                bookedRest,
+                runRate,
+                estThisYear,
+                priorYtd,
+                growth,
+                ttm,
+                estNextYear,
+                dayOfYear,
+                daysInYear
+            };
         }
 
         function renderStats() {
-            const st = calcStats();
             const stats = document.getElementById('statsRow');
-            const cards = [
-                { label: 'Revenue (mo.)', value: fmtMoney(st.revMonth), color:'#34d399' },
-                { label: 'Expenses (mo.)', value: fmtMoney(st.expMonth), color:'#fbbf24' },
-                { label: 'Payroll (mo.)', value: fmtMoney(st.payMonth), color:'#a78bfa' },
-                { label: 'Profit (mo.)', value: fmtMoney(st.profitMonth), color:'#60a5fa' },
-            ];
-            stats.innerHTML = cards.map(c => `
-                <div class="stat-card">
-                    <p class="value" style="color:${c.color};">${c.value}</p>
-                    <p class="label">${c.label}</p>
+            if (currentTab !== 'overview') {
+                stats.innerHTML = '';
+                return;
+            }
+            if (!ensureOwner()) {
+                stats.innerHTML = '';
+                return;
+            }
+
+            const range = periodRange(moneyPeriod);
+            const pnl = periodPnl(range.start, range.end);
+            const fc = calcForecasts();
+            const growthPct = fc.growth === null ? null : (fc.growth * 100);
+            const growthLabel = growthPct === null
+                ? 'no prior-year comps · assuming flat'
+                : `${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(0)}% YoY`;
+
+            stats.innerHTML = `
+                <div class="page-tabs page-tabs--segmented" style="margin-bottom:12px;">
+                    <button type="button" class="page-tab ${moneyPeriod === 'week' ? 'active' : ''}" onclick="setMoneyPeriod('week')">Week</button>
+                    <button type="button" class="page-tab ${moneyPeriod === 'month' ? 'active' : ''}" onclick="setMoneyPeriod('month')">Month</button>
+                    <button type="button" class="page-tab ${moneyPeriod === 'year' ? 'active' : ''}" onclick="setMoneyPeriod('year')">Year</button>
                 </div>
-            `).join('');
+                <p class="section-title" style="margin-top:0;">${esc(range.label)}</p>
+                <div class="stats-grid stats-grid--4 mb-3">
+                    <div class="stat-card"><p class="value" style="color:#34d399;">${fmtMoney(pnl.rev)}</p><p class="label">Revenue</p></div>
+                    <div class="stat-card"><p class="value" style="color:#fbbf24;">${fmtMoney(pnl.exp)}</p><p class="label">Expenses</p></div>
+                    <div class="stat-card"><p class="value" style="color:var(--md-sys-color-secondary);">${fmtMoney(pnl.pay)}</p><p class="label">Payroll</p></div>
+                    <div class="stat-card"><p class="value" style="color:${pnl.net >= 0 ? '#60a5fa' : '#f87171'};">${fmtMoney(pnl.net)}</p><p class="label">Net</p></div>
+                </div>
+
+                <p class="section-title">Revenue forecast</p>
+                <div class="glass-card rounded-xl p-4 mb-3" style="display:grid;gap:14px;">
+                    <div>
+                        <p class="money-sub" style="margin:0;">Est. revenue ${fc.year}</p>
+                        <p style="font-size:28px;font-weight:800;margin:2px 0 4px;color:#34d399;">${fmtMoney(fc.estThisYear)}</p>
+                        <p class="money-sub" style="margin:0;">YTD ${fmtMoney(fc.ytd)} + booked ${fmtMoney(fc.bookedRest)}</p>
+                        <p class="money-sub" style="margin:4px 0 0;">Run-rate check: ${fmtMoney(fc.runRate)} (YTD ÷ ${fc.dayOfYear} days × ${fc.daysInYear})</p>
+                    </div>
+                    <div style="border-top:1px solid var(--md-sys-color-outline-variant);padding-top:12px;">
+                        <p class="money-sub" style="margin:0;">Est. revenue ${fc.nextYear}</p>
+                        <p style="font-size:28px;font-weight:800;margin:2px 0 4px;color:var(--md-sys-color-primary);">${fmtMoney(fc.estNextYear)}</p>
+                        <p class="money-sub" style="margin:0;">Trailing 12 mo ${fmtMoney(fc.ttm)} × (1 + growth)</p>
+                        <p class="money-sub" style="margin:4px 0 0;">Growth: ${esc(growthLabel)}${fc.priorYtd > 0 ? ` · last year to-date ${fmtMoney(fc.priorYtd)}` : ''}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderOverview() {
+            const jobs = CL_DATA.getJobs().filter(j => isCompletedJob(j) && j.jobDate);
+            const expenses = CL_DATA.getExpenses().filter(e => e.date);
+            const payroll = CL_DATA.getPayroll().filter(p => p.date);
+
+            const revByMonth = rollupByMonth(jobs, j => j.jobDate, j => jobRevenue(j));
+            const expByMonth = rollupByMonth(expenses, e => e.date, e => e.amount);
+            const payByMonth = rollupByMonth(payroll, p => p.date, p => (p.grossPay || (Number(p.hours||0)*Number(p.rate||0))));
+
+            const idx = (pairs) => new Map(pairs.map(([k,v]) => [k, v]));
+            const iRev = idx(revByMonth), iExp = idx(expByMonth), iPay = idx(payByMonth);
+            const months = Array.from(new Set([ ...iRev.keys(), ...iExp.keys(), ...iPay.keys() ])).sort().reverse().slice(0, 6);
+
+            if (!months.length) {
+                return `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
+                    <i class="fas fa-chart-line text-3xl mb-2"></i>
+                    <p>No completed jobs or costs yet</p>
+                    <p class="text-xs text-gray-500 mt-1">Period totals and forecasts update as you finish jobs and log expenses.</p>
+                </div>`;
+            }
+
+            return `
+                <p class="section-title">Recent months</p>
+                <div class="glass-card" style="overflow:hidden;">
+                    ${months.map(m => {
+                        const rev = iRev.get(m) || 0;
+                        const exp = iExp.get(m) || 0;
+                        const pay = iPay.get(m) || 0;
+                        const profit = rev - exp - pay;
+                        return `
+                            <div class="money-row">
+                                <span class="money-dot" style="background: rgba(96,165,250,0.55);"></span>
+                                <div style="min-width:0;">
+                                    <p style="font-weight:900;margin:0;">${esc(m)}</p>
+                                    <p class="money-sub">Rev ${fmtMoney(rev)} · Exp ${fmtMoney(exp)} · Pay ${fmtMoney(pay)}</p>
+                                </div>
+                                <div class="money-amt" style="color:${profit >= 0 ? '#34d399' : '#f87171'};">${fmtMoney(profit)}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
         }
 
         function renderExpenses() {
@@ -492,47 +694,6 @@
             return table('Monthly totals (latest)', months, monthRows) + table('Quarterly totals (latest)', quarters, quarterRows);
         }
 
-        function renderReports() {
-            const jobs = CL_DATA.getJobs().filter(j => j.status === 'completed' && j.jobDate);
-            const expenses = CL_DATA.getExpenses().filter(e => e.date);
-            const payroll = CL_DATA.getPayroll().filter(p => p.date);
-
-            const revByMonth = rollupByMonth(jobs, j => j.jobDate, j => (window.getJobDisplayTotal ? getJobDisplayTotal(j) : 0));
-            const expByMonth = rollupByMonth(expenses, e => e.date, e => e.amount);
-            const payByMonth = rollupByMonth(payroll, p => p.date, p => (p.grossPay || (Number(p.hours||0)*Number(p.rate||0))));
-
-            const idx = (pairs) => new Map(pairs.map(([k,v]) => [k, v]));
-            const iRev = idx(revByMonth), iExp = idx(expByMonth), iPay = idx(payByMonth);
-            const months = Array.from(new Set([ ...iRev.keys(), ...iExp.keys(), ...iPay.keys() ])).sort().reverse().slice(0, 12);
-
-            if (!months.length) {
-                return `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
-                    <i class="fas fa-chart-line text-3xl mb-2"></i>
-                    <p>No report data yet</p>
-                    <p class="text-xs text-gray-500 mt-1">Complete a job and add an expense to see profit by month.</p>
-                </div>`;
-            }
-
-            return `<div class="glass-card" style="overflow:hidden;">
-                ${months.map(m => {
-                    const rev = iRev.get(m) || 0;
-                    const exp = iExp.get(m) || 0;
-                    const pay = iPay.get(m) || 0;
-                    const profit = rev - exp - pay;
-                    return `
-                        <div class="money-row">
-                            <span class="money-dot" style="background: rgba(96,165,250,0.55);"></span>
-                            <div style="min-width:0;">
-                                <p style="font-weight:900;margin:0;">${esc(m)}</p>
-                                <p class="money-sub">Rev ${fmtMoney(rev)} · Exp ${fmtMoney(exp)} · Pay ${fmtMoney(pay)}</p>
-                            </div>
-                            <div class="money-amt" style="color:${profit >= 0 ? '#34d399' : '#f87171'};">${fmtMoney(profit)}</div>
-                        </div>
-                    `;
-                }).join('')}
-            </div>`;
-        }
-
         function render() {
             showOwnerOnlyUI();
             renderStats();
@@ -550,7 +711,7 @@
             if (currentTab === 'expenses') body.innerHTML = renderExpenses();
             else if (currentTab === 'payroll') body.innerHTML = renderPayroll();
             else if (currentTab === 'taxes') body.innerHTML = renderTaxes();
-            else body.innerHTML = renderReports();
+            else body.innerHTML = renderOverview();
         }
 
         function start(profile) {

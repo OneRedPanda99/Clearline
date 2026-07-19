@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="theme-color" content="#0b0e14">
+    <meta name="theme-color" content="#1a1c1f">
     <title>Jobs - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
@@ -17,20 +17,6 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .job-card {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            border-radius: 10px !important;
-        }
-        .job-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.25);
-            border-color: rgba(255,255,255,0.15);
-        }
-        .job-card:active {
-            transform: scale(0.98) translateY(0);
-            opacity: 0.95;
-        }
         .edit-scroll {
             max-height: calc(100dvh - 260px);
             max-height: calc(100vh - 260px);
@@ -40,14 +26,9 @@
         .edit-footer {
             position: sticky;
             bottom: 0;
-            background: #1e293b;
+            background: var(--md-sys-color-surface-container);
             padding-top: 10px;
             padding-bottom: 6px;
-        }
-        .edit-field {
-            background: #334155;
-            border: 1px solid #475569;
-            color: #f8fafc;
         }
         .photo-grid {
             display: grid;
@@ -58,12 +39,10 @@
             width: 100%;
             aspect-ratio: 1 / 1;
             object-fit: cover;
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--md-radius-sm);
+            border: 1px solid var(--md-sys-color-outline-variant);
         }
-        .photo-tile {
-            position: relative;
-        }
+        .photo-tile { position: relative; }
         .photo-remove {
             position: absolute;
             top: 4px;
@@ -77,40 +56,12 @@
             font-size: 12px;
             cursor: pointer;
         }
-        /* Ensure modal styling stays consistent */
-        .modal {
-            display: none;
-            align-items: flex-end;
-            justify-content: center;
-            background: rgba(2, 6, 23, 0.85);
-            animation: modalFadeIn 0.2s ease;
-        }
+        /* Page needs flex show/hide; chrome comes from app.css */
+        .modal { display: none; align-items: flex-end; justify-content: center; }
         .modal.show,
         .modal.modal-open,
-        .modal:not([hidden]) {
-            display: flex !important;
-        }
-        .modal-content {
-            width: 100%;
-            max-width: 560px;
-            border-radius: 10px 10px 0 0;
-            animation: modalSlideUp 0.25s ease;
-        }
-        @keyframes modalFadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes modalSlideUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .quick-actions-row {
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-        .quick-actions-row::-webkit-scrollbar {
-            display: none;
-        }
+        .modal:not([hidden]) { display: flex !important; }
+        .modal-content { width: 100%; max-width: 560px; }
     </style>
 </head>
 <body>
@@ -217,34 +168,34 @@
                 <p class="text-sm text-gray-400">Creates a <strong class="text-gray-200">lead</strong> with an estimate visit on your calendar (Jobs → Leads). When they book work, move them to Scheduled.</p>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Estimate visit date</label>
-                    <input type="date" id="addLeadJobDate" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white">
+                    <input type="date" id="addLeadJobDate" class="w-full">
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Time</label>
-                    <input type="time" id="addLeadJobTime" value="11:30" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white">
+                    <input type="time" id="addLeadJobTime" value="11:30" class="w-full">
                 </div>
                 <input type="hidden" id="addLeadCustomerId" value="">
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Customer name <span class="text-gray-500">(optional)</span></label>
-                    <input type="text" id="addLeadCustomerName" list="addLeadCustomerOptions" oninput="syncLeadCustomerSelection()" placeholder="e.g. Smith" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="name">
+                    <input type="text" id="addLeadCustomerName" list="addLeadCustomerOptions" oninput="syncLeadCustomerSelection()" placeholder="e.g. Smith" class="w-full" autocomplete="name">
                     <datalist id="addLeadCustomerOptions"></datalist>
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Phone <span class="text-gray-500">(optional)</span></label>
-                    <input type="tel" id="addLeadCustomerPhone" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="tel">
+                    <input type="tel" id="addLeadCustomerPhone" class="w-full" autocomplete="tel">
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Email <span class="text-gray-500">(optional)</span></label>
-                    <input type="email" id="addLeadCustomerEmail" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="email">
+                    <input type="email" id="addLeadCustomerEmail" class="w-full" autocomplete="email">
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Address <span class="text-gray-500">(optional)</span></label>
-                    <input type="text" id="addLeadCustomerAddress" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="street-address">
+                    <input type="text" id="addLeadCustomerAddress" class="w-full" autocomplete="street-address">
                 </div>
-                <button type="button" onclick="confirmAddLead()" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-semibold">
+                <button type="button" onclick="confirmAddLead()" class="btn-primary" style="background:var(--warning);color:#111827">
                     <i class="fas fa-file-alt mr-2"></i>Create &amp; open estimate
                 </button>
-                <button type="button" onclick="closeAddLeadModal()" class="w-full bg-slate-600 text-white py-3 rounded-xl font-semibold">Cancel</button>
+                <button type="button" onclick="closeAddLeadModal()" class="btn-secondary">Cancel</button>
             </div>
         </div>
     </div>
@@ -273,86 +224,6 @@
     </div>
 
     <script>
-        // Maps API Key (from config.js)
-        const MAPS_API_KEY = window.CL_SECRETS?.mapsApiKey || '';
-        let userLocation = null;
-
-        // Hydrate user location from the shared 30-minute cache.
-        // Never triggers a geolocation prompt on page load.
-        function getUserLocation() {
-            getCachedLocation({ prompt: false }).then(loc => {
-                if (loc) userLocation = loc;
-            });
-        }
-
-        // Calculate distance (miles) between two points
-        function calcDistance(lat1, lng1, lat2, lng2) {
-            const R = 3959;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLng = (lng2 - lng1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLng/2) * Math.sin(dLng/2);
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        }
-
-        // Estimate drive time
-        function estimateDriveTime(miles) {
-            const mins = Math.round((miles / 30) * 60);
-            return mins < 60 ? `${mins} min` : `${Math.floor(mins/60)}h ${mins%60}m`;
-        }
-
-        // Geocode cache — addresses rarely move; caching 24h saves a billable
-        // Maps Geocoding API call every time a job modal opens. (#7)
-        const GEOCODE_CACHE_KEY = 'cl-geocode-cache';
-        const GEOCODE_TTL_MS = 24 * 60 * 60 * 1000;
-        function getGeocodeCache() { return safeGet(GEOCODE_CACHE_KEY, {}) || {}; }
-        function cachedGeocode(address) {
-            const cache = getGeocodeCache();
-            const entry = cache[address];
-            if (entry && typeof entry.ts === 'number' && (Date.now() - entry.ts) < GEOCODE_TTL_MS) {
-                return { lat: entry.lat, lng: entry.lng };
-            }
-            return null;
-        }
-        function saveGeocode(address, lat, lng) {
-            const cache = getGeocodeCache();
-            cache[address] = { lat, lng, ts: Date.now() };
-            safeSet(GEOCODE_CACHE_KEY, cache);
-        }
-
-        // Get distance to job address (with geocode cache).
-        async function getDistanceToAddress(address) {
-            if (!userLocation || !address) return null;
-            let coords = cachedGeocode(address);
-            if (!coords) {
-                try {
-                    if (MAPS_API_KEY) {
-                        const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${MAPS_API_KEY}`);
-                        const data = await res.json();
-                        if (data.status === 'OK' && data.results[0]) {
-                            const loc = data.results[0].geometry.location;
-                            coords = { lat: loc.lat, lng: loc.lng };
-                            saveGeocode(address, coords.lat, coords.lng);
-                        }
-                    }
-                    if (!coords) {
-                        const free = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(address)}`, {
-                            headers: { 'Accept': 'application/json' }
-                        });
-                        const arr = await free.json();
-                        if (Array.isArray(arr) && arr[0]) {
-                            coords = { lat: parseFloat(arr[0].lat), lng: parseFloat(arr[0].lon) };
-                            if (!Number.isNaN(coords.lat) && !Number.isNaN(coords.lng)) saveGeocode(address, coords.lat, coords.lng);
-                        }
-                    }
-                } catch (e) { console.log('Geocode error:', e); }
-            }
-            if (!coords) return null;
-            const dist = calcDistance(userLocation.lat, userLocation.lng, coords.lat, coords.lng);
-            return { distance: dist.toFixed(1), time: estimateDriveTime(dist) };
-        }
-
         // Parse free-form jobTime into {h, m}. Accepts 'HH:MM', 'HH:MM AM/PM',
         // 'H', '9 pm', etc. Returns null for unparseable values. (#15)
         function parseJobTime(raw) {
@@ -482,11 +353,6 @@
             if (job) openJobModal(jobId);
         }
 
-        function scrollJobQuickActions(dir) {
-            const row = document.getElementById('jobQuickActionsRow');
-            if (!row) return;
-            row.scrollBy({ left: dir * 220, behavior: 'smooth' });
-        }
 
         function latestEstimateForJob(job) {
             if (!job || !job.documents || !Array.isArray(job.documents.estimates)) return null;
@@ -567,7 +433,7 @@
                                 ${cp ? `
                                     <div class="mt-2 flex items-center gap-2">
                                         <input type="text" value="${at}" placeholder="HH:MM:SS" class="w-32 p-2 rounded bg-slate-800 border border-slate-700 text-xs text-white" id="cp-input-${job.id}-${item.id}">
-                                        <button type="button" onclick="setServiceCheckpointFromInput('${job.id}', '${item.id}', document.getElementById('cp-input-${job.id}-${item.id}').value)" class="text-xs bg-slate-700 text-slate-100 px-2 py-1 rounded">Set time</button>
+                                        <button type="button" onclick="setServiceCheckpointFromInput('${job.id}', '${item.id}', document.getElementById('cp-input-${job.id}-${item.id}').value)" class="btn-secondary btn-sm" style="width:auto;min-height:32px;font-size:12px">Set time</button>
                                     </div>
                                 ` : ''}
                             </div>
@@ -945,7 +811,6 @@
             loadUsers();
             updateStats();
             renderJobs();
-            getUserLocation(); // Get user location for distance estimates
             checkGoogleAuth(); // Check if Calendar is connected via Firebase
             if (accessToken && tokenExpiry > Date.now()) {
                 initGapiClient(); // Init Calendar API if connected
@@ -1402,7 +1267,7 @@
                         <div class="min-w-0">
                             <p class="text-sm text-gray-300">Have the customer scan this, or send the link:</p>
                             <div class="flex flex-wrap gap-2 mt-2">
-                                ${job.customerPhone ? `<button type="button" onclick="sendReviewLink('${job.id}')" class="bg-amber-500 text-slate-900 px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-comment-dots mr-1"></i>Text link</button>` : ''}
+                                ${job.customerPhone ? `<button type="button" onclick="sendReviewLink('${job.id}')" class="btn-primary btn-sm" style="width:auto;background:var(--warning);color:#111827"><i class="fas fa-comment-dots mr-1"></i>Text link</button>` : ''}
                                 <a href="${escapeHtml(reviewUrl)}" target="_blank" rel="noopener" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-up-right-from-square mr-1"></i>Open</a>
                             </div>
                         </div>
@@ -1422,10 +1287,10 @@
                     </div>
                     ${payInfo.balance > 0 ? `
                         <div class="grid grid-cols-2 gap-2 mt-3">
-                            <button type="button" onclick="recordPayment('${job.id}')" class="bg-green-600 text-white py-3 rounded-xl font-semibold"><i class="fas fa-dollar-sign mr-1"></i>Record payment</button>
-                            <button type="button" onclick="markPaidInFull('${job.id}')" class="bg-slate-700 text-white py-3 rounded-xl font-semibold"><i class="fas fa-check mr-1"></i>Paid in full</button>
+                            <button type="button" onclick="recordPayment('${job.id}')" class="btn-primary" style="background:var(--md-sys-color-tertiary);color:var(--md-sys-color-on-tertiary)"><i class="fas fa-dollar-sign mr-1"></i>Record payment</button>
+                            <button type="button" onclick="markPaidInFull('${job.id}')" class="btn-secondary"><i class="fas fa-check mr-1"></i>Paid in full</button>
                         </div>
-                        ${job.customerPhone ? `<button type="button" onclick="sendPaymentReminder('${job.id}')" class="w-full mt-2 bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl font-semibold text-sm"><i class="fas fa-comment-sms mr-1"></i>Text balance reminder</button>` : ''}
+                        ${job.customerPhone ? `<button type="button" onclick="sendPaymentReminder('${job.id}')" class="btn-secondary w-full mt-2 btn-sm"><i class="fas fa-comment-sms mr-1"></i>Text balance reminder</button>` : ''}
                     ` : `<p class="text-center text-xs text-green-400 mt-3"><i class="fas fa-circle-check mr-1"></i>Paid in full</p>`}
                 </div>
             ` : '';
@@ -1443,189 +1308,202 @@
             const assignedManagerName = job.assignedManager ? (allManagers.find(m => m.uid === job.assignedManager)?.displayName || 'Manager') : '';
             const assignedWorkerName = job.assignedTo ? (allWorkers.find(w => w.uid === job.assignedTo)?.displayName || 'Worker') : '';
 
+            const estCount = (job.documents && job.documents.estimates) ? job.documents.estimates.length : 0;
+            const invCount = (job.documents && job.documents.invoices) ? job.documents.invoices.length : 0;
+            const waiverCount = (job.documents && job.documents.waivers) ? job.documents.waivers.length : 0;
+            const hasDocs = estCount + invCount + waiverCount > 0;
+            const serviceLine = escapeHtml(job.serviceType || 'Service TBD');
+            const whenLine = `${formattedDate}${job.jobTime ? ' · ' + job.jobTime : ''}`;
+            const assigneeLine = [assignedManagerName && ('Mgr ' + assignedManagerName), assignedWorkerName && ('Wrk ' + assignedWorkerName)].filter(Boolean).join(' · ');
+
+            const docsHtml = hasDocs ? `
+                <div class="glass-card rounded-xl p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="section-title" style="margin:0;padding:0;">Documents</p>
+                        <span class="text-[11px]" style="color:var(--md-sys-color-on-surface-variant)">${estCount} est · ${invCount} inv · ${waiverCount} waiver</span>
+                    </div>
+                    <div id="jobDocStatus" class="text-xs mb-2" style="color:var(--md-sys-color-on-surface-variant)"></div>
+                    <div class="space-y-2">
+                        ${(job.documents.estimates || []).map((doc, i) => `
+                            <div class="m3-doc-row">
+                                <button type="button" class="text-left min-w-0 flex-1 m3-tap" style="background:transparent;border:none;color:inherit;padding:0;" onclick="openEstimateView('${job.id}', '${doc.id}', 'estimate')">
+                                    <p class="text-sm font-semibold truncate" style="color:var(--md-sys-color-on-primary-container)"><i class="fas fa-file-invoice mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || ('Estimate ' + (i + 1)))}</p>
+                                    <p class="text-[11px]" style="color:var(--md-sys-color-on-surface-variant)">Tap to view PDF</p>
+                                </button>
+                                <div class="flex items-center gap-1 flex-shrink-0">
+                                    <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}&view=1" class="m3-doc-primary">View</a>
+                                    <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="m3-doc-secondary">Edit</a>
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${(job.documents.invoices || []).map((doc, i) => `
+                            <div class="m3-doc-row">
+                                <button type="button" class="text-left min-w-0 flex-1 m3-tap" style="background:transparent;border:none;color:inherit;padding:0;" onclick="openEstimateView('${job.id}', '${doc.id}', 'invoice')">
+                                    <p class="text-sm font-semibold truncate" style="color:#fde68a"><i class="fas fa-file-invoice-dollar mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || ('Invoice ' + (i + 1)))}</p>
+                                    <p class="text-[11px]" style="color:var(--md-sys-color-on-surface-variant)">Tap to view PDF</p>
+                                </button>
+                                <div class="flex items-center gap-1 flex-shrink-0">
+                                    <a href="estimate.html?mode=invoice&jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}&view=1" class="m3-doc-primary" style="background:#f59e0b;color:#111827">View</a>
+                                    <a href="invoice.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="m3-doc-secondary">Edit</a>
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${(job.documents.waivers || []).map((doc, i) => `
+                            <div class="m3-doc-row">
+                                <span class="text-sm truncate" style="color:var(--md-sys-color-on-tertiary-container)"><i class="fas fa-file-signature mr-1"></i>Waiver ${i + 1}</span>
+                                <a href="waiver.html?jobId=${encodeURIComponent(job.id)}" class="m3-doc-secondary">Open</a>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : `
+                <div class="glass-card rounded-xl p-3 text-center text-sm" style="color:var(--md-sys-color-on-surface-variant)">
+                    <p>No estimates or invoices yet</p>
+                </div>
+            `;
+
             document.getElementById('modalContent').innerHTML = `
                 <div class="space-y-3">
                     <div class="glass-card rounded-2xl p-4 border border-white/10">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex items-start gap-3 min-w-0">
-                                <div class="w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl text-slate-200 flex-shrink-0" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.14);">${firstLetter || 'J'}</div>
+                                <div class="w-11 h-11 rounded-lg flex items-center justify-center font-bold text-lg text-slate-200 flex-shrink-0" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.14);">${firstLetter || 'J'}</div>
                                 <div class="min-w-0">
-                                    <p class="text-2xl font-bold truncate">${escapeHtml(job.customerName || 'Customer')}</p>
-                                    <span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${statusPill}">${statusLabel}</span>
+                                    <p class="text-xl font-bold truncate">${escapeHtml(job.customerName || 'Customer')}</p>
+                                    <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide ${statusPill}">${statusLabel}</span>
+                                    <p class="text-xs text-slate-400 mt-1 truncate">${serviceLine} · ${whenLine}</p>
+                                    ${job.address ? `<p class="text-xs text-slate-300 mt-0.5 truncate"><i class="fas fa-map-marker-alt mr-1 text-blue-400"></i>${escapeHtml(job.address)}</p>` : ''}
+                                    ${assigneeLine ? `<p class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(assigneeLine)}</p>` : ''}
                                 </div>
                             </div>
-                            ${amount > 0 ? `<div class="text-right"><p class="text-3xl font-bold text-green-400">$${amount.toFixed(2)}</p><p class="text-xs text-gray-400 -mt-1">Job total</p></div>` : ''}
-                        </div>
-                        <div class="mt-3 text-sm text-gray-300 flex flex-wrap gap-x-3 gap-y-1">
-                            ${job.customerPhone ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="text-gray-300 hover:text-white"><i class="fas fa-phone mr-1"></i>${escapeHtml(job.customerPhone)}</a>` : ''}
-                            ${job.address ? `<span><i class="fas fa-map-marker-alt mr-1 text-blue-400"></i>${escapeHtml(job.address)}</span>` : ''}
-                        </div>
-                        <div class="mt-3 pt-3 border-t border-slate-700 grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                                <p class="text-xs text-gray-400 mb-1">Scheduled</p>
-                                <p class="font-semibold">${formattedDate}</p>
-                                ${job.jobTime ? `<p class="text-gray-300 mt-1"><i class="far fa-clock mr-1 text-slate-300"></i>${job.jobTime}</p>` : ''}
-                            </div>
-                            <div class="border-l border-slate-700 pl-3">
-                                <p class="text-xs text-gray-400 mb-1">Job ID</p>
-                                <p class="font-semibold">${jobIdShort}</p>
-                                ${(assignedManagerName || assignedWorkerName) ? `<p class="text-xs text-gray-300 mt-1">${assignedManagerName ? `Mgr: ${escapeHtml(assignedManagerName)}` : ''}${assignedManagerName && assignedWorkerName ? ' · ' : ''}${assignedWorkerName ? `Wrk: ${escapeHtml(assignedWorkerName)}` : ''}</p>` : ''}
-                            </div>
+                            ${amount > 0 ? `<div class="text-right flex-shrink-0"><p class="text-2xl font-bold text-green-400">$${amount.toFixed(2)}</p></div>` : ''}
                         </div>
                     </div>
 
-                    ${(job.address || job.customerPhone) ? `
-                    <div class="grid grid-cols-1 gap-2">
-                        ${job.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="bg-blue-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-location-arrow mr-2"></i>Navigate</a>` : (job.customerPhone ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="bg-green-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-phone mr-2"></i>Call customer</a>` : `<span class="bg-slate-700/40 text-slate-500 py-3 rounded-xl text-center font-semibold">No navigation target</span>`)}
-                    </div>
-                    ` : ''}
-
-                    ${paymentCard}
-
-                    ${reviewCard}
-
-                    <div class="glass-card rounded-xl p-3 border border-sky-500/30">
-                        <div class="flex justify-between items-center gap-3">
-                            <div>
-                                <p class="text-xs text-gray-400 uppercase tracking-wide">Job Stopwatch</p>
-                                <p class="text-2xl font-extrabold text-sky-300">${timerText}</p>
-                                ${job.jobDuration ? `<p class="text-xs text-gray-400">Last saved duration: ${job.jobDuration}</p>` : ''}
-                            </div>
-                            <div class="flex gap-2">
-                                <button type="button" onclick="toggleJobStopwatch('${job.id}')" class="${timerState.isRunning ? 'bg-amber-600' : 'bg-blue-600'} text-white px-4 py-2 rounded-lg font-semibold">${timerBtnText}</button>
-                                <button type="button" onclick="resetJobStopwatch('${job.id}')" class="bg-slate-700 text-gray-200 px-4 py-2 rounded-lg font-semibold">Reset</button>
-                            </div>
-                        </div>
-                        ${renderJobTimerChecklist(job, timerState)}
+                    <div class="m3-hub-actions">
+                        ${job.address
+                            ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="m3-filled"><i class="fas fa-location-arrow"></i>Navigate</a>`
+                            : `<span class="m3-outlined" style="opacity:0.45"><i class="fas fa-location-arrow"></i>Navigate</span>`}
+                        ${job.customerPhone
+                            ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="m3-tonal-success"><i class="fas fa-phone"></i>Call</a>`
+                            : `<span class="m3-outlined" style="opacity:0.45"><i class="fas fa-phone"></i>Call</span>`}
+                        ${job.customerPhone
+                            ? `<a href="job-chat.html?jobId=${encodeURIComponent(job.id)}" class="m3-tonal"><i class="fas fa-comment-dots"></i>Text</a>`
+                            : `<span class="m3-outlined" style="opacity:0.45"><i class="fas fa-comment-dots"></i>Text</span>`}
                     </div>
 
-                    <div class="glass-card rounded-xl overflow-hidden">
-                        <div class="list-item">
-                            <i class="fas fa-screwdriver-wrench text-blue-400 mr-3"></i>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs text-gray-400">Service</p>
-                                <p class="font-semibold">${escapeHtml(job.serviceType || 'No service details — tap Edit Job to add')}</p>
-                            </div>
-                            <i class="fas fa-chevron-right text-gray-500"></i>
-                        </div>
-                        <div class="list-item">
-                            <i class="fas fa-map-marker-alt text-green-400 mr-3"></i>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs text-gray-400">Address</p>
-                                <p class="font-semibold">${escapeHtml(job.address || '-')}</p>
-                            </div>
-                            <i class="fas fa-chevron-right text-gray-500"></i>
-                        </div>
-                        <div class="list-item">
-                            <i class="fas fa-calendar-alt text-slate-300 mr-3"></i>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs text-gray-400">Scheduled</p>
-                                <p class="font-semibold">${formattedDate}${job.jobTime ? ` at ${job.jobTime}` : ''}</p>
-                            </div>
-                            <i class="fas fa-chevron-right text-gray-500"></i>
-                        </div>
+                    ${docsHtml}
+
+                    <div class="m3-grid-2">
+                        <button type="button" onclick="openDocumentForm('estimate', '${job.id}')"><i class="fas fa-plus mr-1"></i>Estimate</button>
+                        <button type="button" onclick="openDocumentForm('invoice', '${job.id}')"><i class="fas fa-plus mr-1"></i>Invoice</button>
+                        <button type="button" onclick="openDocumentForm('waiver', '${job.id}')"><i class="fas fa-file-signature mr-1"></i>Waiver</button>
+                        <button type="button" onclick="editJob('${job.id}')"><i class="fas fa-pen mr-1"></i>Edit job</button>
                     </div>
 
-                    <div>
-                        <p class="section-title mb-2">Quick Actions</p>
-                        <div class="flex items-center gap-1">
-                            <button type="button" onclick="scrollJobQuickActions(-1)" class="hidden md:inline-flex bg-slate-800 border border-slate-700 text-slate-200 px-2 py-2 rounded-lg text-xs" aria-label="Scroll actions left"><i class="fas fa-chevron-left"></i></button>
-                            <div id="jobQuickActionsRow" class="quick-actions-row flex gap-2 overflow-x-auto pb-1 scroll-smooth">
-                                ${job.status === 'scheduled' ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-play mr-1"></i>Start Job</a>` : `<span class="bg-slate-800/50 border border-slate-700 text-slate-500 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">Start Job</span>`}
-                                <button onclick="openDocumentForm('estimate', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-invoice mr-1"></i>Add Estimate</button>
-                                <button onclick="openDocumentForm('invoice', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-invoice-dollar mr-1"></i>Add Invoice</button>
-                                <button onclick="openDocumentForm('waiver', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-signature mr-1"></i>Add Waiver</button>
-                                <button onclick="addToGoogleCalendar('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fab fa-google mr-1"></i>Add to GCal</button>
-                                <button onclick="createCustomerFromJob('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">${job.customerId ? `<i class="fas fa-user-check mr-1"></i>${escapeHtml(job.customerName || 'Customer')}` : '<i class="fas fa-user-plus mr-1"></i>Link Customer'}</button>
-                                ${job.customerPhone ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-phone mr-1"></i>Call</a>` : '<span class="bg-slate-800/50 border border-slate-700 text-slate-500 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">No phone</span>'}
-                                ${job.customerPhone ? `<a href="sms:${encodeURIComponent(job.customerPhone)}" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-comment-dots mr-1"></i>Text</a>` : ''}
-                            </div>
-                            <button type="button" onclick="scrollJobQuickActions(1)" class="hidden md:inline-flex bg-slate-800 border border-slate-700 text-slate-200 px-2 py-2 rounded-lg text-xs" aria-label="Scroll actions right"><i class="fas fa-chevron-right"></i></button>
-                        </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="toggleJobDetailSection('timerSection')" class="m3-tonal">
+                            <i class="fas fa-stopwatch mr-1"></i>Timer ${timerText}
+                        </button>
+                        ${payInfo
+                            ? `<button type="button" onclick="toggleJobDetailSection('paymentSection')" class="m3-outlined"><i class="fas fa-dollar-sign mr-1"></i>Payment</button>`
+                            : (job.status === 'scheduled'
+                                ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="m3-filled" style="display:inline-flex;align-items:center;justify-content:center;min-height:var(--md-tap-target);border-radius:var(--md-radius-md);font-size:13px;font-weight:650;text-decoration:none"><i class="fas fa-play mr-1"></i>Start job</a>`
+                                : `<button type="button" onclick="addToGoogleCalendar('${job.id}')" class="m3-outlined"><i class="fab fa-google mr-1"></i>Calendar</button>`)}
                     </div>
 
-                    ${job.documents && (job.documents.estimates?.length || job.documents.invoices?.length || job.documents.waivers?.length) ? `
-                    <div class="glass-card rounded-xl p-3">
-                        <p class="section-title mb-2">Saved Documents</p>
-                        <div id="jobDocStatus" class="text-xs text-slate-300 mb-2"></div>
-                        <div class="space-y-2">
-                            ${(job.documents.estimates || []).map((doc, i) => `
-                                <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded-lg">
-                                    <span class="text-sm text-cyan-300 truncate"><i class="fas fa-file-invoice mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || `Estimate ${i + 1}`)}</span>
-                                    <div class="flex items-center gap-1">
-                                        <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-cyan-600/20 border border-cyan-500/40 text-cyan-200 px-2 py-1 rounded">Edit</a>
-                                        <button type="button" onclick="deleteJobDocument('${job.id}', 'estimates', '${doc.id}')" class="text-xs bg-red-600/20 border border-red-500/40 text-red-200 px-2 py-1 rounded">Delete</button>
-                                    </div>
+                    <div id="timerSection" class="hidden">
+                        <div class="glass-card rounded-xl p-3 border border-sky-500/30">
+                            <div class="flex justify-between items-center gap-3">
+                                <div>
+                                    <p class="text-xs text-gray-400 uppercase tracking-wide">Stopwatch</p>
+                                    <p class="text-2xl font-extrabold text-sky-300">${timerText}</p>
+                                    ${job.jobDuration ? `<p class="text-xs text-gray-400">Saved: ${job.jobDuration}</p>` : ''}
                                 </div>
-                            `).join('')}
-                            ${(job.documents.invoices || []).map((doc, i) => `
-                                <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded-lg">
-                                    <span class="text-sm text-amber-300 truncate"><i class="fas fa-file-invoice-dollar mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || `Invoice ${i + 1}`)}</span>
-                                    <a href="invoice.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-amber-600/20 border border-amber-500/40 text-amber-200 px-2 py-1 rounded">Edit</a>
+                                <div class="flex gap-2">
+                                    <button type="button" onclick="toggleJobStopwatch('${job.id}')" class="btn-primary btn-sm" style="width:auto;${timerState.isRunning ? 'background:var(--warning);color:#111827' : ''}">${timerBtnText}</button>
+                                    <button type="button" onclick="resetJobStopwatch('${job.id}')" class="btn-secondary btn-sm" style="width:auto">Reset</button>
                                 </div>
-                            `).join('')}
-                            ${(job.documents.waivers || []).map((doc, i) => `
-                                <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded-lg">
-                                    <span class="text-sm text-emerald-300 truncate"><i class="fas fa-file-signature mr-1"></i>Waiver ${i + 1}</span>
-                                    <a href="waiver.html?jobId=${encodeURIComponent(job.id)}" class="text-xs bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 px-2 py-1 rounded">Open</a>
-                                </div>
-                            `).join('')}
+                            </div>
+                            ${renderJobTimerChecklist(job, timerState)}
                         </div>
                     </div>
-                    ` : ''}
+
+                    ${payInfo ? `<div id="paymentSection" class="hidden">${paymentCard}</div>` : '<div id="paymentSection" class="hidden"></div>'}
+
+                    ${(job.status === 'completed' && reviewUrl) ? `<div id="reviewSection" class="hidden">${reviewCard}</div>` : ''}
 
                     ${job.notes ? `
-                        <div>
-                            <p class="section-title mb-2">Notes</p>
-                            <div class="glass-card rounded-xl p-3 text-sm">
-                                <p style="white-space:pre-wrap;">${escapeHtml(job.notes)}</p>
-                                <p class="text-xs text-gray-400 mt-2">Added by you</p>
-                            </div>
-                        </div>
+                        <details class="glass-card rounded-xl p-3">
+                            <summary class="text-sm font-semibold text-slate-200 cursor-pointer">Notes</summary>
+                            <p class="text-sm mt-2" style="white-space:pre-wrap;">${escapeHtml(job.notes)}</p>
+                        </details>
                     ` : ''}
 
+                    <div id="moreSection" class="hidden">
+                        <div class="glass-card rounded-xl p-3 space-y-2">
+                            ${payInfo || job.status === 'scheduled' ? `<button type="button" onclick="addToGoogleCalendar('${job.id}')" class="btn-secondary"><i class="fab fa-google mr-1"></i>Add to Google Calendar</button>` : ''}
+                            <button type="button" onclick="createCustomerFromJob('${job.id}')" class="btn-secondary">${job.customerId ? '<i class="fas fa-user-check mr-1"></i>Open customer' : '<i class="fas fa-user-plus mr-1"></i>Link customer'}</button>
+                            ${(job.status === 'completed' && reviewUrl) ? `<button type="button" onclick="toggleJobDetailSection('reviewSection')" class="btn-secondary"><i class="fas fa-star mr-1"></i>Ask for review</button>` : ''}
+                            <button type="button" onclick="confirmDeleteJob('${job.id}')" class="btn-danger"><i class="fas fa-trash mr-1"></i>Delete job</button>
+                            <p class="text-[11px] text-slate-500 pt-1">${jobIdShort}</p>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-1 gap-2 pt-1">
-                        <div id="jobActionStatus" class="text-xs text-slate-300 mb-1"></div>
-                        <input id="cancelReasonInput" type="text" placeholder="Cancel reason (required for cancel)" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-sm">
+                        <div id="jobActionStatus" class="text-xs text-slate-300"></div>
                         ${job.status !== 'completed' ? `
-                            <button onclick="markComplete('${job.id}'); closeJobModal();" class="bg-green-600 text-white py-4 rounded-xl font-semibold text-lg">
-                                <i class="fas fa-check-circle mr-1"></i>Mark as Complete
+                            <button onclick="markComplete('${job.id}'); closeJobModal();" class="btn-primary" style="background:var(--md-sys-color-tertiary);color:var(--md-sys-color-on-tertiary)">
+                                <i class="fas fa-check-circle mr-1"></i>Mark complete
                             </button>
                         ` : `
-                            <button onclick="markScheduled('${job.id}'); closeJobModal();" class="bg-slate-700 text-white py-4 rounded-xl font-semibold text-lg">
-                                <i class="fas fa-undo mr-1"></i>Reopen Job
+                            <button onclick="markScheduled('${job.id}'); closeJobModal();" class="btn-secondary">
+                                <i class="fas fa-undo mr-1"></i>Reopen job
                             </button>
                         `}
-                        <div class="grid grid-cols-2 gap-2">
-                        <button onclick="editJob('${job.id}')" class="bg-slate-600 text-white py-3 rounded-xl font-semibold">
-                            <i class="fas fa-pen mr-1"></i>Edit Job
-                        </button>
-                        ${job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-slate-700 text-white py-3 rounded-xl font-semibold text-center"><i class="fas fa-phone mr-1"></i>Call</a>` : `<span class="bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-xl font-semibold text-center">No phone</span>`}
+                        <button type="button" onclick="toggleJobDetailSection('moreSection')" class="btn-text">More options</button>
+                        <div id="cancelRow" class="hidden">
+                            <input id="cancelReasonInput" type="text" placeholder="Cancel reason (required)" class="w-full mb-2">
+                            <button type="button" onclick="cancelJobWithReason('${job.id}');" class="btn-secondary">Mark cancelled</button>
                         </div>
-                        <button onclick="cancelJobWithReason('${job.id}');" class="text-red-300 text-sm text-left underline underline-offset-2 py-1 px-1 bg-transparent border-none">Cancel job</button>
                     </div>
                 </div>
             `;
 
             openModal('jobModal');
-
-            // Calculate distance estimate if address exists
-            if (job.address) {
-                getDistanceToAddress(job.address).then(result => {
-                    const el = document.getElementById('distanceEstimate');
-                    if (el && result) {
-                        el.innerHTML = `<i class="fas fa-car mr-1"></i>${result.distance} mi • ~${result.time} drive`;
-                    } else if (el) {
-                        el.textContent = '';
-                    }
-                });
-            }
         }
 
         function closeJobModal() {
             document.body.classList.remove('modal-open');
             closeModal('jobModal');
         }
+
+        window.toggleJobDetailSection = function(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const opening = el.classList.contains('hidden');
+            // Accordion: close sibling expandable panels
+            ['timerSection', 'paymentSection', 'reviewSection', 'moreSection'].forEach((sid) => {
+                const s = document.getElementById(sid);
+                if (s && sid !== id) s.classList.add('hidden');
+            });
+            el.classList.toggle('hidden', !opening);
+            const cancelRow = document.getElementById('cancelRow');
+            if (cancelRow) {
+                cancelRow.classList.toggle('hidden', !(opening && id === 'moreSection'));
+            }
+        };
+
+        /** One-tap PDF/view for a saved estimate or invoice. */
+        window.openEstimateView = function(jobId, docId, mode) {
+            if (!jobId || !docId) return;
+            const qp = new URLSearchParams();
+            qp.set('jobId', jobId);
+            qp.set('docId', docId);
+            qp.set('view', '1');
+            if (mode === 'invoice') qp.set('mode', 'invoice');
+            window.location.href = 'estimate.html?' + qp.toString();
+        };
 
         // ── Edit Job ────────────────────────────────────────────
         function editJob(id) {
@@ -1758,10 +1636,10 @@
                     </div>
                     <div class="edit-footer">
                         <div class="flex gap-2">
-                            <button onclick="openJobModal('${job.id}')" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold">
+                            <button onclick="openJobModal('${job.id}')" class="btn-secondary" style="width:auto;flex:1">
                                 Cancel
                             </button>
-                            <button onclick="saveJobEdit('${job.id}')" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold">
+                            <button onclick="saveJobEdit('${job.id}')" class="btn-primary" style="flex:1;width:auto">
                                 <i class="fas fa-save mr-2"></i>Save
                             </button>
                         </div>
@@ -2024,12 +1902,23 @@
             const snapshot = CL_DATA.findJob(id);
             if (!snapshot) return;
             CL_DATA.deleteJob(id);
+            closeJobModal();
             loadData();
             updateStats();
             renderJobs();
             showUndoToast('Job deleted', () => restoreDeletedJob(snapshot));
             removeJobFromGoogleCalendar(snapshot).catch(() => {});
         }
+        window.deleteJob = deleteJob;
+
+        function confirmDeleteJob(id) {
+            const job = CL_DATA.findJob(id);
+            if (!job) return;
+            const name = job.customerName || 'this job';
+            if (!confirm(`Delete job for ${name}? You can undo for a few seconds.`)) return;
+            deleteJob(id);
+        }
+        window.confirmDeleteJob = confirmDeleteJob;
 
         function deleteJobDocument(jobId, docType, docId) {
             const job = CL_DATA.findJob(jobId);
@@ -2077,13 +1966,16 @@
             const job = CL_DATA.findJob(id);
             if (!job) return;
             const notes = [job.notes || '', `Cancelled: ${clean}`].filter(Boolean).join('\n');
-            CL_DATA.updateJob(id, { status: 'completed', notes });
+            // Mark lost (not completed) so it leaves the active pipeline without deleting history.
+            CL_DATA.updateJob(id, { status: 'lost', lostReason: clean, lostAt: new Date().toISOString(), notes });
             loadData();
             updateStats();
             renderJobs();
             syncJobToCalendarIfEnabled(id);
             closeJobModal();
+            showToast('Job marked cancelled');
         }
+        window.cancelJobWithReason = cancelJobWithReason;
 
         function restoreDeletedJob(job) {
             // Remove the tombstone so the restored job won't be re-deleted on
@@ -2349,84 +2241,6 @@
             }
         }
 
-        function viewDocument(jobId, docType, index) {
-            const job = jobs.find(j => j.id === jobId);
-            if (!job || !job.documents || !job.documents[docType] || !job.documents[docType][index]) {
-                setJobDocStatus('Document not found.', true);
-                return;
-            }
-
-            const doc = job.documents[docType][index];
-            const docContent = document.getElementById('documentContent');
-            const docTitle = document.getElementById('documentModal-title');
-
-            const typeNames = { estimates: 'Estimate', invoices: 'Invoice', waivers: 'Waiver' };
-            docTitle.textContent = `${typeNames[docType]} ${index + 1}`;
-
-            // Estimates/invoices are editable; waivers stay view-only.
-            const editPage = docType === 'estimates' ? 'estimate.html'
-                           : docType === 'invoices' ? 'invoice.html'
-                           : null;
-            const editHref = editPage ? `${editPage}?jobId=${encodeURIComponent(jobId)}&docId=${encodeURIComponent(doc.id)}` : null;
-
-            // Prefer the compact formState preview; fall back to the legacy PNG
-            // when an older entry still has one.
-            let preview = '';
-            if (doc.pdfDataUrl) {
-                preview = `
-                    <div class="text-center">
-                        <img src="${doc.pdfDataUrl}" alt="Document" style="max-width: 100%; border: 1px solid #475569; border-radius: 8px;">
-                    </div>`;
-            } else if (doc.formState || doc.summary) {
-                const s = doc.summary || {};
-                const fs = doc.formState || {};
-                const services = Array.isArray(fs.services) ? fs.services : [];
-                preview = `
-                    <div class="bg-slate-700/40 p-4 rounded-xl">
-                        <p class="text-xl font-bold">${s.customerName || fs.customerName || job.customerName || 'Customer'}</p>
-                        ${s.number ? `<p class="text-xs text-gray-400">#${s.number}</p>` : ''}
-                        ${services.length ? `
-                            <ul class="mt-3 text-sm space-y-1">
-                                ${services.map(x => `<li>• ${x.description || 'Service'} — ${x.squareFootage || '?'} sq ft</li>`).join('')}
-                            </ul>
-                        ` : ''}
-                        ${s.total != null ? `<p class="mt-3 text-2xl font-bold text-green-400">$${Number(s.total).toFixed(2)}</p>` : ''}
-                        ${fs.notes ? `<p class="mt-2 text-sm text-gray-300">${fs.notes}</p>` : ''}
-                    </div>`;
-            } else {
-                preview = `
-                    <div class="text-center text-gray-400 py-8">
-                        <i class="fas fa-file-alt text-4xl mb-3"></i>
-                        <p>Document preview not available</p>
-                    </div>`;
-            }
-
-            const actions = `
-                <div class="flex gap-2 mt-4">
-                    ${editHref ? `
-                        <a href="${editHref}" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold text-center">
-                            <i class="fas fa-edit mr-2"></i>Edit
-                        </a>
-                    ` : ''}
-                    ${doc.pdfDataUrl ? `
-                        <a href="${doc.pdfDataUrl}" download="${typeNames[docType]}-${job.customerName || 'document'}.png" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold text-center">
-                            <i class="fas fa-download mr-2"></i>Download
-                        </a>
-                    ` : ''}
-                    <button onclick="deleteDocument('${jobId}', '${docType}', '${doc.id}')" class="flex-1 bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
-                        <i class="fas fa-trash mr-2"></i>Delete
-                    </button>
-                </div>
-                <p class="text-xs text-gray-500 text-center mt-3">
-                    ${doc.createdAt ? `Created: ${new Date(doc.createdAt).toLocaleString()}` : ''}
-                    ${doc.updatedAt ? ` • Updated: ${new Date(doc.updatedAt).toLocaleString()}` : ''}
-                </p>
-            `;
-
-            docContent.innerHTML = preview + actions;
-            document.body.classList.add('modal-open');
-            openModal('documentModal');
-        }
 
         // ── Create Customer from Job ─────────────────────────────
         function createCustomerFromJob(jobId) {
@@ -2487,8 +2301,8 @@
                         <input type="text" id="ccAddress" value="${(job.address || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
                     </div>
                     <div class="flex gap-2 pt-2">
-                        <button onclick="openJobModal('${jobId}')" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold">Cancel</button>
-                        <button onclick="submitCreateCustomer('${jobId}')" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold">Create</button>
+                        <button onclick="openJobModal('${jobId}')" class="btn-secondary" style="width:auto;flex:1">Cancel</button>
+                        <button onclick="submitCreateCustomer('${jobId}')" class="btn-primary" style="flex:1;width:auto">Create</button>
                     </div>
                 </div>
             `;

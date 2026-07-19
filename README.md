@@ -2,6 +2,8 @@
 
 Pressure washing CRM, mobile-first PWA for managing customers, jobs, estimates, and invoices.
 
+UI follows **[Material Design 3 foundations](https://m3.material.io/foundations)** (design tokens, surface containers, 48dp touch targets, state layers) with Clearline’s electric brand mapped onto M3 color roles — see `app.css`.
+
 ## Setup
 
 1. Copy `config.example.js` to `config.js`
@@ -18,3 +20,4 @@ Pressure washing CRM, mobile-first PWA for managing customers, jobs, estimates, 
 - Offline-first PWA with localStorage + Firestore
 - Price calculator and pre-job checklist
 - Before/after photo capture
+- Material Design 3 across the CRM (tokens, buttons, fields, chips, lists, sheets, nav, job hub)

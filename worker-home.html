@@ -5,18 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#020617">
+    <meta name="theme-color" content="#1a1c1f">
     <title>My Jobs - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
     <script src="data-migration.js"></script>
     <script src="firebase-sync.js?v=4"></script>
-    <script>
-        window.tailwind = { config: { theme: { extend: { colors: {
-            primary: '#0ea5e9', secondary: '#38bdf8', dark: '#0f172a', darker: '#020617', accent: '#06b6d4'
-        } } } } };
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="app.css">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -42,10 +37,10 @@
             <div id="estimatorQuickAdd" class="hidden mb-4">
                 <p class="section-title mb-2">Quick Actions</p>
                 <div class="flex gap-2">
-                    <a id="quickAddLink" href="estimate.html" class="hidden flex-1 bg-primary text-white py-3 rounded-xl text-center font-semibold text-sm">
+                    <a id="quickAddLink" href="estimate.html" class="hidden btn-primary" style="flex:1;width:auto;text-align:center;font-size:13px">
                         <i class="fas fa-plus mr-1"></i>New Estimate
                     </a>
-                    <a id="estFormLink" href="estimate.html" class="hidden flex-1 bg-cyan-600 text-white py-3 rounded-xl text-center font-semibold text-sm">
+                    <a id="estFormLink" href="estimate.html" class="hidden btn-primary" style="flex:1;width:auto;text-align:center">
                         <i class="fas fa-file-invoice mr-1"></i>Estimate
                     </a>
                 </div>
@@ -121,7 +116,7 @@
             // Quick-grid on page body — permission-based shortcuts.
             const items = [];
             if (isEstimator) items.push({ href: 'jobs.html', label: 'Jobs', icon: 'fa-briefcase', color: '#fb923c' });
-            if (p.canViewCalendar) items.push({ href: 'calendar.html', label: 'Calendar', icon: 'fa-calendar-alt', color: '#a78bfa' });
+            if (p.canViewCalendar) items.push({ href: 'calendar.html', label: 'Calendar', icon: 'fa-calendar-alt', color: 'var(--md-sys-color-secondary)' });
             if (p.canViewMap) items.push({ href: 'map.html', label: 'Map', icon: 'fa-map-marked-alt', color: '#f87171' });
             const grid = document.getElementById('navGrid');
             grid.innerHTML = items.length

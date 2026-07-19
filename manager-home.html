@@ -5,18 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#020617">
+    <meta name="theme-color" content="#1a1c1f">
     <title>Team Home - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
     <script src="data-migration.js"></script>
     <script src="firebase-sync.js?v=4"></script>
-    <script>
-        window.tailwind = { config: { theme: { extend: { colors: {
-            primary: '#0ea5e9', secondary: '#38bdf8', dark: '#0f172a', darker: '#020617', accent: '#06b6d4'
-        } } } } };
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="app.css">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -38,7 +33,7 @@
 
             <div class="stats-grid">
                 <div class="stat-card"><p class="value" style="color:#60a5fa;" id="s-leads">0</p><p class="label">Leads</p></div>
-                <div class="stat-card"><p class="value" style="color:#a78bfa;" id="s-scheduled">0</p><p class="label">Scheduled</p></div>
+                <div class="stat-card"><p class="value" style="color: var(--md-sys-color-secondary);" id="s-scheduled">0</p><p class="label">Scheduled</p></div>
                 <div class="stat-card"><p class="value" style="color:#34d399;" id="s-done">0</p><p class="label">Done</p></div>
             </div>
 
@@ -48,7 +43,7 @@
             <p class="section-title mb-2">Navigate</p>
             <div class="quick-grid mb-6">
                 <a href="jobs.html" class="quick-btn"><i class="fas fa-briefcase" style="color:#fb923c;"></i><span>Jobs</span></a>
-                <a href="calendar.html" class="quick-btn"><i class="fas fa-calendar-alt" style="color:#a78bfa;"></i><span>Calendar</span></a>
+                <a href="calendar.html" class="quick-btn"><i class="fas fa-calendar-alt" style="color: var(--md-sys-color-secondary);"></i><span>Calendar</span></a>
                 <a href="map.html" class="quick-btn"><i class="fas fa-map-marked-alt" style="color:#f87171;"></i><span>Map</span></a>
                 <a href="customer-tracker.html" class="quick-btn"><i class="fas fa-users" style="color:#38bdf8;"></i><span>Customers</span></a>
                 <a href="manager-panel.html" class="quick-btn"><i class="fas fa-user-shield" style="color:#fbbf24;"></i><span>Panel</span></a>
