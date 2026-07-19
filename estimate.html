@@ -72,8 +72,9 @@
         .view-toolbar a, .view-toolbar button {
             flex: 1;
             min-width: 110px;
+            min-height: 48px;
             padding: 12px 10px;
-            border-radius: 12px;
+            border-radius: 999px;
             border: none;
             font-weight: 700;
             font-size: 13px;
@@ -81,11 +82,20 @@
             text-decoration: none;
             cursor: pointer;
             color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
         }
-        .view-toolbar .vt-back { background: rgba(51,65,85,0.9); }
-        .view-toolbar .vt-print { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
-        .view-toolbar .vt-edit { background: rgba(71,85,105,0.95); border: 1px solid rgba(255,255,255,0.12); }
-        .view-toolbar .vt-share { background: rgba(16,185,129,0.85); }
+        .view-toolbar a:focus-visible,
+        .view-toolbar button:focus-visible {
+            outline: 2px solid #8ab4ff;
+            outline-offset: 2px;
+        }
+        .view-toolbar .vt-back { background: #243552; color: #dbe7ff; }
+        .view-toolbar .vt-print { background: #4f8cff; color: #fff; }
+        .view-toolbar .vt-edit { background: #2c3036; border: 1px solid rgba(255,255,255,0.16); }
+        .view-toolbar .vt-share { background: #0f3d2c; color: #a7f3d0; }
         .view-banner {
             display: none;
             font-size: 12px;
