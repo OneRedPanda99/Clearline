@@ -13,7 +13,7 @@
     <script src="data-migration.js"></script>
     <script src="firebase-sync.js?v=4"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="app.css?v=6">
+    <link rel="stylesheet" href="app.css?v=8">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -1053,12 +1053,34 @@
         }
         function paymentPill(status) {
             const map = {
-                paid:    ['Paid',    'rgba(34,197,94,0.15)',  '#4ade80'],
-                partial: ['Partial', 'rgba(251,191,36,0.15)', '#fbbf24'],
-                unpaid:  ['Unpaid',  'rgba(248,113,113,0.15)','#f87171']
+                paid:    ['Paid',    'rgba(34,197,94,0.22)',  '#4ade80'],
+                partial: ['Partial', 'rgba(251,191,36,0.18)', '#fbbf24'],
+                unpaid:  ['Unpaid',  'rgba(248,113,113,0.18)','#f87171']
             };
             const [label, bg, fg] = map[status] || map.unpaid;
-            return `<span class="tag-pill" style="background:${bg};color:${fg};">${label}</span>`;
+            return `<span class="tag-pill tag-pill--lg" style="background:${bg};color:${fg};">${label}</span>`;
+        }
+
+        function formatJobTime12(raw) {
+            const parsed = parseJobTime(raw);
+            if (!parsed) {
+                const s = String(raw || '').trim();
+                return s || '';
+            }
+            let h = parsed.h % 12;
+            if (h === 0) h = 12;
+            const ap = parsed.h >= 12 ? 'PM' : 'AM';
+            return `${h}:${String(parsed.m).padStart(2, '0')} ${ap}`;
+        }
+
+        function shortJobAddress(addr) {
+            if (!addr) return '';
+            let s = String(addr).trim();
+            // Keep street line only (drop city/state/country after first comma).
+            if (s.includes(',')) s = s.split(',')[0].trim();
+            s = s.replace(/\s+United States$/i, '').trim();
+            if (s.length > 36) s = s.slice(0, 34).trim() + '…';
+            return s;
         }
 
         // Follow-up context for a lead: how long it's been waiting and whether
@@ -1088,57 +1110,56 @@
             const isEst = job.status === 'new';
             const isOverdue = isOverdueJob(job);
             const stripe = isDone ? 'job-card-v2__stripe--done' : (isEst || isLost) ? 'job-card-v2__stripe--estimate' : 'job-card-v2__stripe--booked';
-            const pill = isLost ? '<span class="tag-pill" style="background:rgba(148,163,184,0.18);color:#cbd5e1;">Lost</span>'
-                : isDone ? '<span class="tag-pill" style="background:rgba(34,197,94,0.15);color:#4ade80;">Completed</span>'
-                : isOverdue ? '<span class="tag-pill" style="background:rgba(239,68,68,0.18);color:#fca5a5;">Overdue</span>'
-                : isEst ? '<span class="tag-pill tag-pill--estimate">Lead</span>'
-                : '<span class="tag-pill tag-pill--booked">Booked</span>';
+            const pill = isLost ? '<span class="tag-pill tag-pill--lg" style="background:rgba(148,163,184,0.18);color:#cbd5e1;">Lost</span>'
+                : isDone ? '<span class="tag-pill tag-pill--lg tag-pill--completed">Completed</span>'
+                : isOverdue ? '<span class="tag-pill tag-pill--lg" style="background:rgba(239,68,68,0.18);color:#fca5a5;">Overdue</span>'
+                : isEst ? '<span class="tag-pill tag-pill--lg tag-pill--estimate">Lead</span>'
+                : '<span class="tag-pill tag-pill--lg tag-pill--booked">Booked</span>';
             const total = getJobDisplayTotal(job);
-            const money = total > 0 ? `<span style="color:#34d399;font-weight:700;font-size:14px;">$${total.toFixed(0)}</span>` : '';
+            const money = total > 0 ? `<span class="job-card-v2__money">$${total.toFixed(0)}</span>` : '';
             // Payment badge on the card (owner only, and only when there's a total).
             const pay = total > 0 && isOwnerRole() ? jobPaymentInfo(job) : null;
             const payPill = pay ? paymentPill(pay.status) : '';
             const startHref = isEst
                 ? `estimate.html?jobId=${encodeURIComponent(job.id)}`
                 : (isOverdue ? `jobs.html?highlight=${encodeURIComponent(job.id)}&edit=1` : `jobs.html?highlight=${encodeURIComponent(job.id)}&start=1`);
-            const maps = job.address ? `https://maps.google.com/?q=${encodeURIComponent(job.address)}` : '';
             const startLabel = isOverdue ? 'Mark done' : 'Start';
+            const time12 = formatJobTime12(job.jobTime);
+            const street = shortJobAddress(job.address);
+            const metaBits = [];
+            if (!isEst && time12) metaBits.push(time12);
+            if (!isDone && !isLost && street) metaBits.push(street);
+            const metaLine = isEst
+                ? leadFollowUpMeta(job)
+                : (metaBits.length
+                    ? `<p class="job-card-v2__meta">${metaBits.map(b => escapeHtml(b)).join(' · ')}</p>`
+                    : '');
 
-            // Leads and lost leads get pipeline-specific action rows.
-            let actionsRow;
+            // Keep list cards quiet. Call/Nav live in the job detail sheet.
+            // Only show a single primary action when the job still needs one.
+            let actionsRow = '';
             if (isLost) {
-                actionsRow = `
-                    <button type="button" class="jc-start" onclick="reopenLead('${job.id}')"><i class="fas fa-rotate-left"></i> Reopen</button>
-                    ${job.customerPhone ? `<a class="jc-call" href="tel:${encodeURIComponent(job.customerPhone)}"><i class="fas fa-phone"></i> Call</a>` : ''}`;
+                actionsRow = `<button type="button" class="jc-start" onclick="reopenLead('${job.id}')"><i class="fas fa-rotate-left"></i> Reopen</button>`;
             } else if (isEst) {
-                actionsRow = `
-                    <button type="button" class="jc-start" onclick="bookLead('${job.id}')"><i class="fas fa-calendar-check"></i> Book</button>
-                    ${job.customerPhone ? `<a class="jc-call" href="tel:${encodeURIComponent(job.customerPhone)}"><i class="fas fa-phone"></i> Call</a>` : '<span class="jc-call" style="opacity:0.35;"><i class="fas fa-phone"></i> Call</span>'}
-                    <button type="button" class="jc-nav" onclick="markLost('${job.id}')"><i class="fas fa-ban"></i> Lost</button>`;
-            } else {
-                actionsRow = `
-                    ${isDone ? '' : `<a class="jc-start" href="${startHref}"><i class="fas ${isOverdue ? 'fa-check-circle' : 'fa-play'}"></i> ${startLabel}</a>`}
-                    ${job.customerPhone ? `<a class="jc-call" href="tel:${encodeURIComponent(job.customerPhone)}"><i class="fas fa-phone"></i> Call</a>` : '<span class="jc-call" style="opacity:0.35;"><i class="fas fa-phone"></i> Call</span>'}
-                    ${maps ? `<a class="jc-nav" target="_blank" rel="noopener" href="${maps}"><i class="fas fa-location-arrow"></i> Nav</a>` : '<span class="jc-nav" style="opacity:0.35;"><i class="fas fa-location-arrow"></i> Nav</span>'}`;
+                actionsRow = `<button type="button" class="jc-start" onclick="bookLead('${job.id}')"><i class="fas fa-calendar-check"></i> Book</button>`;
+            } else if (!isDone) {
+                actionsRow = `<a class="jc-start" href="${startHref}" data-cl-nav><i class="fas ${isOverdue ? 'fa-check-circle' : 'fa-play'}"></i> ${startLabel}</a>`;
             }
 
             return `
-                <div class="job-card-v2 glass-card animate-in" onclick="openJobModal('${job.id}')">
+                <div class="job-card-v2 glass-card animate-in${isDone ? ' job-card-v2--done' : ''}" onclick="openJobModal('${job.id}')">
                     <div class="job-card-v2__inner">
                         <div class="job-card-v2__stripe ${stripe}"></div>
                         <div class="job-card-v2__content">
-                            <div class="flex justify-between items-start gap-2">
+                            <div class="job-card-v2__top">
                                 <div class="min-w-0">
-                                    <p class="font-bold text-sm truncate" style="margin:0;">${escapeHtml(job.customerName || 'No name')}</p>
-                                    <div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${pill}${payPill}</div>
-                                    ${isEst ? `<p style="font-size:12px;margin:6px 0 0;">${leadFollowUpMeta(job)}</p>` : (job.jobTime ? `<p style="font-size:12px;color:#94a3b8;margin:6px 0 0;"><i class="fas fa-clock"></i> ${job.jobTime}</p>` : '')}
+                                    <p class="job-card-v2__name">${escapeHtml(job.customerName || 'No name')}</p>
+                                    <div class="job-card-v2__pills">${pill}${payPill}</div>
+                                    ${metaLine}
                                 </div>
                                 ${money}
                             </div>
-                            ${job.address ? `<p class="text-xs text-gray-500 mt-1 truncate"><i class="fas fa-map-marker-alt mr-1"></i>${escapeHtml(job.address)}</p>` : ''}
-                            <div class="job-card-v2__actions" onclick="event.stopPropagation()">
-                                ${actionsRow}
-                            </div>
+                            ${actionsRow ? `<div class="job-card-v2__actions" onclick="event.stopPropagation()">${actionsRow}</div>` : ''}
                         </div>
                     </div>
                 </div>`;
@@ -1313,7 +1334,7 @@
             const waiverCount = (job.documents && job.documents.waivers) ? job.documents.waivers.length : 0;
             const hasDocs = estCount + invCount + waiverCount > 0;
             const serviceLine = escapeHtml(job.serviceType || 'Service TBD');
-            const whenLine = `${formattedDate}${job.jobTime ? ' · ' + job.jobTime : ''}`;
+            const whenLine = `${formattedDate}${job.jobTime ? ' · ' + formatJobTime12(job.jobTime) : ''}`;
             const assigneeLine = [assignedManagerName && ('Mgr ' + assignedManagerName), assignedWorkerName && ('Wrk ' + assignedWorkerName)].filter(Boolean).join(' · ');
 
             const docsHtml = hasDocs ? `
