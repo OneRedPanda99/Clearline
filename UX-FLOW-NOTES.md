@@ -1,5 +1,16 @@
 # Clearline - UX Flow Analysis & Recommendations
 
+## Design foundations
+
+UI/UX follows **Material Design 3 foundations** ([m3.material.io/foundations](https://m3.material.io/foundations)):
+
+- Design tokens → `app.css` `:root` (`--md-sys-color-*`, spacing, shape, motion)
+- Surface containers instead of ad-hoc card greys
+- 4dp spacing grid + **48dp** minimum touch targets
+- State layers / focus-visible for interaction feedback
+- Content hierarchy: short job hub, primary actions first, secondary behind expanders
+- Brand expression: Clearline electric blue mapped onto M3 roles (not default purple Material)
+
 ## Current App Structure
 
 ### Pages

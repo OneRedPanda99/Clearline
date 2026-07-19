@@ -1455,44 +1455,44 @@
                 <div class="glass-card rounded-xl p-3">
                     <div class="flex items-center justify-between mb-2">
                         <p class="section-title" style="margin:0;padding:0;">Documents</p>
-                        <span class="text-[11px] text-slate-400">${estCount} est · ${invCount} inv · ${waiverCount} waiver</span>
+                        <span class="text-[11px]" style="color:var(--md-sys-color-on-surface-variant)">${estCount} est · ${invCount} inv · ${waiverCount} waiver</span>
                     </div>
-                    <div id="jobDocStatus" class="text-xs text-slate-300 mb-2"></div>
+                    <div id="jobDocStatus" class="text-xs mb-2" style="color:var(--md-sys-color-on-surface-variant)"></div>
                     <div class="space-y-2">
                         ${(job.documents.estimates || []).map((doc, i) => `
-                            <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2.5 rounded-lg">
-                                <button type="button" class="text-left min-w-0 flex-1" onclick="openEstimateView('${job.id}', '${doc.id}', 'estimate')">
-                                    <p class="text-sm text-cyan-300 font-semibold truncate"><i class="fas fa-file-invoice mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || ('Estimate ' + (i + 1)))}</p>
-                                    <p class="text-[11px] text-slate-400">Tap to view PDF</p>
+                            <div class="m3-doc-row">
+                                <button type="button" class="text-left min-w-0 flex-1 m3-tap" style="background:transparent;border:none;color:inherit;padding:0;" onclick="openEstimateView('${job.id}', '${doc.id}', 'estimate')">
+                                    <p class="text-sm font-semibold truncate" style="color:var(--md-sys-color-on-primary-container)"><i class="fas fa-file-invoice mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || ('Estimate ' + (i + 1)))}</p>
+                                    <p class="text-[11px]" style="color:var(--md-sys-color-on-surface-variant)">Tap to view PDF</p>
                                 </button>
                                 <div class="flex items-center gap-1 flex-shrink-0">
-                                    <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}&view=1" class="text-xs bg-cyan-600 text-white px-2.5 py-1.5 rounded-lg font-semibold">View</a>
-                                    <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg font-semibold">Edit</a>
+                                    <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}&view=1" class="m3-doc-primary">View</a>
+                                    <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="m3-doc-secondary">Edit</a>
                                 </div>
                             </div>
                         `).join('')}
                         ${(job.documents.invoices || []).map((doc, i) => `
-                            <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2.5 rounded-lg">
-                                <button type="button" class="text-left min-w-0 flex-1" onclick="openEstimateView('${job.id}', '${doc.id}', 'invoice')">
-                                    <p class="text-sm text-amber-300 font-semibold truncate"><i class="fas fa-file-invoice-dollar mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || ('Invoice ' + (i + 1)))}</p>
-                                    <p class="text-[11px] text-slate-400">Tap to view PDF</p>
+                            <div class="m3-doc-row">
+                                <button type="button" class="text-left min-w-0 flex-1 m3-tap" style="background:transparent;border:none;color:inherit;padding:0;" onclick="openEstimateView('${job.id}', '${doc.id}', 'invoice')">
+                                    <p class="text-sm font-semibold truncate" style="color:#fde68a"><i class="fas fa-file-invoice-dollar mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || ('Invoice ' + (i + 1)))}</p>
+                                    <p class="text-[11px]" style="color:var(--md-sys-color-on-surface-variant)">Tap to view PDF</p>
                                 </button>
                                 <div class="flex items-center gap-1 flex-shrink-0">
-                                    <a href="estimate.html?mode=invoice&jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}&view=1" class="text-xs bg-amber-500 text-slate-900 px-2.5 py-1.5 rounded-lg font-semibold">View</a>
-                                    <a href="invoice.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg font-semibold">Edit</a>
+                                    <a href="estimate.html?mode=invoice&jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}&view=1" class="m3-doc-primary" style="background:#f59e0b;color:#111827">View</a>
+                                    <a href="invoice.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="m3-doc-secondary">Edit</a>
                                 </div>
                             </div>
                         `).join('')}
                         ${(job.documents.waivers || []).map((doc, i) => `
-                            <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2.5 rounded-lg">
-                                <span class="text-sm text-emerald-300 truncate"><i class="fas fa-file-signature mr-1"></i>Waiver ${i + 1}</span>
-                                <a href="waiver.html?jobId=${encodeURIComponent(job.id)}" class="text-xs bg-emerald-600/30 border border-emerald-500/40 text-emerald-200 px-2.5 py-1.5 rounded-lg font-semibold">Open</a>
+                            <div class="m3-doc-row">
+                                <span class="text-sm truncate" style="color:var(--md-sys-color-on-tertiary-container)"><i class="fas fa-file-signature mr-1"></i>Waiver ${i + 1}</span>
+                                <a href="waiver.html?jobId=${encodeURIComponent(job.id)}" class="m3-doc-secondary">Open</a>
                             </div>
                         `).join('')}
                     </div>
                 </div>
             ` : `
-                <div class="glass-card rounded-xl p-3 text-center text-slate-400 text-sm">
+                <div class="glass-card rounded-xl p-3 text-center text-sm" style="color:var(--md-sys-color-on-surface-variant)">
                     <p>No estimates or invoices yet</p>
                 </div>
             `;
@@ -1515,25 +1515,25 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="m3-hub-actions">
                         ${job.address
-                            ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="bg-blue-600 text-white py-3 rounded-xl text-center font-semibold text-sm"><i class="fas fa-location-arrow block mb-1"></i>Navigate</a>`
-                            : `<span class="bg-slate-800/50 text-slate-500 py-3 rounded-xl text-center font-semibold text-sm"><i class="fas fa-location-arrow block mb-1"></i>Navigate</span>`}
+                            ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="m3-filled"><i class="fas fa-location-arrow"></i>Navigate</a>`
+                            : `<span class="m3-outlined" style="opacity:0.45"><i class="fas fa-location-arrow"></i>Navigate</span>`}
                         ${job.customerPhone
-                            ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="bg-emerald-600 text-white py-3 rounded-xl text-center font-semibold text-sm"><i class="fas fa-phone block mb-1"></i>Call</a>`
-                            : `<span class="bg-slate-800/50 text-slate-500 py-3 rounded-xl text-center font-semibold text-sm"><i class="fas fa-phone block mb-1"></i>Call</span>`}
+                            ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="m3-tonal-success"><i class="fas fa-phone"></i>Call</a>`
+                            : `<span class="m3-outlined" style="opacity:0.45"><i class="fas fa-phone"></i>Call</span>`}
                         ${job.customerPhone
-                            ? `<a href="job-chat.html?jobId=${encodeURIComponent(job.id)}" class="bg-slate-700 text-white py-3 rounded-xl text-center font-semibold text-sm"><i class="fas fa-comment-dots block mb-1"></i>Text</a>`
-                            : `<span class="bg-slate-800/50 text-slate-500 py-3 rounded-xl text-center font-semibold text-sm"><i class="fas fa-comment-dots block mb-1"></i>Text</span>`}
+                            ? `<a href="job-chat.html?jobId=${encodeURIComponent(job.id)}" class="m3-tonal"><i class="fas fa-comment-dots"></i>Text</a>`
+                            : `<span class="m3-outlined" style="opacity:0.45"><i class="fas fa-comment-dots"></i>Text</span>`}
                     </div>
 
                     ${docsHtml}
 
-                    <div class="grid grid-cols-2 gap-2">
-                        <button type="button" onclick="openDocumentForm('estimate', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-plus mr-1"></i>Estimate</button>
-                        <button type="button" onclick="openDocumentForm('invoice', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-plus mr-1"></i>Invoice</button>
-                        <button type="button" onclick="openDocumentForm('waiver', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-file-signature mr-1"></i>Waiver</button>
-                        <button type="button" onclick="editJob('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-pen mr-1"></i>Edit job</button>
+                    <div class="m3-grid-2">
+                        <button type="button" onclick="openDocumentForm('estimate', '${job.id}')"><i class="fas fa-plus mr-1"></i>Estimate</button>
+                        <button type="button" onclick="openDocumentForm('invoice', '${job.id}')"><i class="fas fa-plus mr-1"></i>Invoice</button>
+                        <button type="button" onclick="openDocumentForm('waiver', '${job.id}')"><i class="fas fa-file-signature mr-1"></i>Waiver</button>
+                        <button type="button" onclick="editJob('${job.id}')"><i class="fas fa-pen mr-1"></i>Edit job</button>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">

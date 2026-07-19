@@ -1,18 +1,90 @@
-/* Clearline - App Shell Styles */
+/* Clearline - App Shell Styles
+ *
+ * UI foundations follow Material Design 3 (https://m3.material.io/foundations):
+ * design tokens, surface containers, 4dp spacing, 48dp touch targets,
+ * state layers, and content hierarchy — expressed with Clearline’s electric
+ * brand (not default Material purple).
+ */
 :root {
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
-    /* Electric / mockup palette */
-    --app-bg: #1a1c1f;
-    --app-surface: #23262b;
-    --app-border: rgba(255, 255, 255, 0.08);
-    --electric: #4f8cff;
+
+    /* ── M3 color roles (Clearline brand mapping) ─────────────────── */
+    --md-sys-color-primary: #4f8cff;
+    --md-sys-color-on-primary: #ffffff;
+    --md-sys-color-primary-container: #1e3a6e;
+    --md-sys-color-on-primary-container: #d6e3ff;
+    --md-sys-color-secondary: #8ab4ff;
+    --md-sys-color-on-secondary: #0b1a33;
+    --md-sys-color-secondary-container: #243552;
+    --md-sys-color-on-secondary-container: #dbe7ff;
+    --md-sys-color-tertiary: #34d399;
+    --md-sys-color-on-tertiary: #06281c;
+    --md-sys-color-tertiary-container: #0f3d2c;
+    --md-sys-color-on-tertiary-container: #a7f3d0;
+    --md-sys-color-error: #f87171;
+    --md-sys-color-on-error: #450a0a;
+    --md-sys-color-error-container: #7f1d1d;
+    --md-sys-color-on-error-container: #fecaca;
+
+    /* Surfaces: tonal “elevation” via container levels (M3) */
+    --md-sys-color-surface: #1a1c1f;
+    --md-sys-color-on-surface: #f1f5f9;
+    --md-sys-color-on-surface-variant: #94a3b8;
+    --md-sys-color-surface-dim: #15171a;
+    --md-sys-color-surface-bright: #2a2e34;
+    --md-sys-color-surface-container-lowest: #121417;
+    --md-sys-color-surface-container-low: #1e2126;
+    --md-sys-color-surface-container: #23262b;
+    --md-sys-color-surface-container-high: #2c3036;
+    --md-sys-color-surface-container-highest: #363b42;
+    --md-sys-color-outline: rgba(255, 255, 255, 0.16);
+    --md-sys-color-outline-variant: rgba(255, 255, 255, 0.08);
+    --md-sys-color-scrim: rgba(0, 0, 0, 0.55);
+
+    /* ── Spacing (4dp grid) ──────────────────────────────────────── */
+    --md-space-1: 4px;
+    --md-space-2: 8px;
+    --md-space-3: 12px;
+    --md-space-4: 16px;
+    --md-space-5: 20px;
+    --md-space-6: 24px;
+    --md-space-8: 32px;
+    --md-tap-target: 48px;
+
+    /* ── Shape ───────────────────────────────────────────────────── */
+    --md-radius-xs: 4px;
+    --md-radius-sm: 8px;
+    --md-radius-md: 12px;
+    --md-radius-lg: 16px;
+    --md-radius-xl: 28px;
+    --md-radius-full: 999px;
+
+    /* ── Motion (M3 easing) ──────────────────────────────────────── */
+    --md-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+    --md-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    --md-easing-decelerate: cubic-bezier(0, 0, 0, 1);
+    --md-duration-short: 120ms;
+    --md-duration-medium: 200ms;
+    --md-duration-long: 300ms;
+
+    /* ── State layers (on-surface / on-primary overlays) ─────────── */
+    --md-state-hover: 0.08;
+    --md-state-focus: 0.12;
+    --md-state-pressed: 0.12;
+    --md-state-dragged: 0.16;
+
+    /* Legacy aliases (keep existing pages working) */
+    --app-bg: var(--md-sys-color-surface);
+    --app-surface: var(--md-sys-color-surface-container);
+    --app-border: var(--md-sys-color-outline-variant);
+    --electric: var(--md-sys-color-primary);
     --electric-dim: #3d73d8;
     --stripe-booked: #2e7bff;
     --stripe-estimate: #eab308;
     --primary: #2e7bff;
     --primary-dark: #1d4ed8;
-    --accent: #4f8cff;
+    --accent: var(--md-sys-color-primary);
     --dark: #0f172a;
     --darker: #0b0e14;
 }
@@ -51,16 +123,22 @@ html, body {
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-    background: linear-gradient(180deg, #24272c 0%, var(--app-bg, #1a1c1f) 55%, #15171a 100%);
-    background-color: var(--app-bg, #0b0e14);
-    color: #f8fafc;
+    /* M3 type: brand-friendly UI sans (Roboto-class stack without Inter bias) */
+    font-family: 'Google Sans', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: linear-gradient(
+        180deg,
+        var(--md-sys-color-surface-bright) 0%,
+        var(--md-sys-color-surface) 55%,
+        var(--md-sys-color-surface-dim) 100%
+    );
+    background-color: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
     display: flex;
     flex-direction: column;
     -webkit-font-smoothing: antialiased;
-    /* Ensure background extends under safe areas */
     min-height: 100vh;
     min-height: 100dvh;
+    line-height: 1.4;
 }
 
 /* App Header */
@@ -160,7 +238,16 @@ button:hover .fa-cog {
 .content-wrapper {
     max-width: 500px;
     margin: 0 auto;
-    padding: 16px;
+    padding: var(--md-space-4);
+}
+
+/* Compact phone / medium width — M3 window-size friendly shell */
+@media (min-width: 600px) {
+    .content-wrapper,
+    .app-header-inner,
+    .tab-bar-inner {
+        max-width: 560px;
+    }
 }
 
 /* Bottom Tab Bar */
@@ -220,26 +307,34 @@ body.modal-open .tab-bar {
     display: flex !important;
 }
 
-/* Close/X button hover effects */
+/* Close/X — M3 48dp tap target, compact visual */
 .modal-close-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    background: rgba(255,255,255,0.08);
+    width: var(--md-tap-target);
+    height: var(--md-tap-target);
+    border-radius: var(--md-radius-full);
+    background: color-mix(in srgb, var(--md-sys-color-on-surface) calc(var(--md-state-hover) * 100%), transparent);
     border: none;
     font-size: 20px;
     line-height: 1;
-    color: #94a3b8;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    color: var(--md-sys-color-on-surface-variant);
+    transition: background-color var(--md-duration-short) var(--md-easing-standard),
+                color var(--md-duration-short) var(--md-easing-standard),
+                transform var(--md-duration-short) var(--md-easing-standard);
     cursor: pointer;
 }
 .modal-close-btn:hover {
-    background: rgba(239, 68, 68, 0.25) !important;
-    color: #f87171 !important;
-    transform: scale(1.1);
+    background: color-mix(in srgb, var(--md-sys-color-error) 25%, transparent) !important;
+    color: var(--md-sys-color-error) !important;
+}
+.modal-close-btn:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+}
+.modal-close-btn:active {
+    transform: scale(0.94);
 }
 
 /* Generic close/remove buttons */
@@ -324,12 +419,15 @@ a:hover .fa-trash {
     align-items: center;
     justify-content: flex-end;
     flex: 1;
-    padding: 4px 2px 6px;
-    color: #64748b;
+    padding: var(--md-space-1) 2px var(--md-space-2);
+    color: var(--md-sys-color-on-surface-variant);
     text-decoration: none;
-    transition: all 0.2s ease;
+    transition: background-color var(--md-duration-short) var(--md-easing-standard),
+                color var(--md-duration-short) var(--md-easing-standard),
+                transform var(--md-duration-short) var(--md-easing-standard);
     min-width: 0;
-    border-radius: 8px;
+    min-height: var(--md-tap-target);
+    border-radius: var(--md-radius-sm);
     position: relative;
 }
 
@@ -1026,31 +1124,33 @@ textarea {
     border: 0;
 }
 
-/* Glass Card */
+/* Surface containers (M3) — kept class name glass-card for compatibility */
 .glass-card {
-    background: rgba(30, 41, 59, 0.6);
+    background: var(--md-sys-color-surface-container);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 0.5px solid rgba(255,255,255,0.08);
-    border-radius: 10px;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-radius-md);
+    transition: background-color var(--md-duration-medium) var(--md-easing-standard),
+                border-color var(--md-duration-medium) var(--md-easing-standard),
+                box-shadow var(--md-duration-medium) var(--md-easing-standard);
 }
 
 .glass-card:hover {
-    background: rgba(30, 41, 59, 0.75);
-    border-color: rgba(255,255,255,0.12);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    background: var(--md-sys-color-surface-container-high);
+    border-color: var(--md-sys-color-outline);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
 }
 
-/* Section Title */
+/* Section Title — M3 label-medium style */
 .section-title {
     font-size: 12px;
     font-weight: 600;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: #64748b;
-    margin-bottom: 8px;
-    padding-left: 4px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-bottom: var(--md-space-2);
+    padding-left: var(--md-space-1);
 }
 
 /* Action Button */
@@ -1245,74 +1345,87 @@ input::placeholder, textarea::placeholder {
     color: #64748b;
 }
 
-/* Primary Button */
+/* Filled button (M3) */
 .btn-primary {
     width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, var(--primary), var(--accent));
-    color: white;
-    font-size: 16px;
+    min-height: var(--md-tap-target);
+    padding: var(--md-space-3) var(--md-space-4);
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    font-size: 15px;
     font-weight: 600;
+    letter-spacing: 0.01em;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--md-radius-full);
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color var(--md-duration-short) var(--md-easing-standard),
+                box-shadow var(--md-duration-short) var(--md-easing-standard),
+                transform var(--md-duration-short) var(--md-easing-standard);
 }
 
 .btn-primary:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
-    filter: brightness(1.05);
+    box-shadow: var(--shadow-accent);
+    filter: brightness(1.06);
+}
+
+.btn-primary:focus-visible {
+    outline: 2px solid var(--md-sys-color-secondary);
+    outline-offset: 2px;
 }
 
 .btn-primary:active {
-    transform: scale(0.98) translateY(0);
-    opacity: 0.95;
+    transform: scale(0.98);
+    filter: brightness(0.96);
 }
 
-/* Secondary Button */
+/* Tonal / secondary button (M3) */
 .btn-secondary {
     width: 100%;
-    padding: 14px;
-    background: rgba(51, 65, 85, 0.8);
-    color: white;
-    font-size: 16px;
+    min-height: var(--md-tap-target);
+    padding: var(--md-space-3) var(--md-space-4);
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+    font-size: 15px;
     font-weight: 600;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--md-radius-full);
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color var(--md-duration-short) var(--md-easing-standard),
+                transform var(--md-duration-short) var(--md-easing-standard);
 }
 
 .btn-secondary:hover {
-    background: rgba(51, 65, 85, 0.95);
-    transform: translateY(-1px);
+    filter: brightness(1.08);
+}
+
+.btn-secondary:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
 }
 
 .btn-secondary:active {
-    transform: scale(0.98) translateY(0);
-    opacity: 0.95;
+    transform: scale(0.98);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SC PRESSURE POINT — Design System v2 Additions
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Additional Design Tokens ──────────────────────────────────────────── */
+/* ── Additional Design Tokens (aliases → M3 roles) ─────────────────────── */
 :root {
-    --success:     #10B981;
+    --success:     var(--md-sys-color-tertiary);
     --warning:     #F59E0B;
-    --danger:      #EF4444;
-    --accent-glow: rgba(14, 165, 233, 0.25);
-    --shadow-sm:   0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-    --shadow-md:   0 4px 16px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
-    --shadow-accent: 0 4px 20px rgba(14,165,233,0.30);
-    --radius-sm:   4px;
-    --radius-md:   8px;
-    --radius-lg:   10px;
-    --radius-pill:  999px;
-    --text-muted:  #64748B;
-    --border:      rgba(255,255,255,0.08);
+    --danger:      var(--md-sys-color-error);
+    --accent-glow: color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent);
+    --shadow-sm:   0 1px 2px rgba(0,0,0,0.20);
+    --shadow-md:   0 2px 8px rgba(0,0,0,0.28);
+    --shadow-accent: 0 4px 16px color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent);
+    --radius-sm:   var(--md-radius-xs);
+    --radius-md:   var(--md-radius-sm);
+    --radius-lg:   var(--md-radius-md);
+    --radius-pill: var(--md-radius-full);
+    --text-muted:  var(--md-sys-color-on-surface-variant);
+    --border:      var(--md-sys-color-outline-variant);
     --grey-100:    #F4F6F8;
     --grey-200:    #E5E9EF;
     --grey-400:    #94A3B8;
@@ -1876,8 +1989,186 @@ input::placeholder, textarea::placeholder {
 .jobs-head-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; text-align: center; }
 .jobs-head-center h1 { margin: 0; line-height: 1.2; }
 .jobs-sync-pill { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #334155; color: #cbd5e1; margin-top: 4px; }
-.jobs-map-btn { width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; color: var(--electric, #2e7bff); background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08); text-decoration: none; transition: background 0.2s ease, transform 0.15s ease; }
+.jobs-map-btn {
+    width: var(--md-tap-target);
+    height: var(--md-tap-target);
+    border-radius: var(--md-radius-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--md-sys-color-primary);
+    background: var(--md-sys-color-surface-container-high);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    text-decoration: none;
+    transition: background-color var(--md-duration-short) var(--md-easing-standard),
+                transform var(--md-duration-short) var(--md-easing-standard);
+}
+.jobs-map-btn:hover {
+    background: var(--md-sys-color-surface-container-highest);
+}
+.jobs-map-btn:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+}
 .jobs-map-btn:active { transform: scale(0.94); }
-.jobs-add-circle { width: 36px; height: 36px; border-radius: 50%; border: none; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--electric, #2e7bff), var(--electric-dim, #1d4ed8)); color: #fff; cursor: pointer; box-shadow: 0 4px 14px rgba(46, 123, 255, 0.4); }
-.jobs-add-circle i { font-size: 16px; }
+.jobs-add-circle {
+    width: var(--md-tap-target);
+    height: var(--md-tap-target);
+    border-radius: var(--md-radius-full);
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    cursor: pointer;
+    box-shadow: var(--shadow-accent);
+}
+.jobs-add-circle i { font-size: 18px; }
 .jobs-add-circle:active { transform: scale(0.94); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   M3 foundation utilities (https://m3.material.io/foundations)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.m3-tap {
+    min-width: var(--md-tap-target);
+    min-height: var(--md-tap-target);
+}
+
+.m3-hub-actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--md-space-2);
+}
+
+.m3-hub-actions > a,
+.m3-hub-actions > button,
+.m3-hub-actions > span {
+    min-height: var(--md-tap-target);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border-radius: var(--md-radius-md);
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    border: none;
+    transition: filter var(--md-duration-short) var(--md-easing-standard),
+                transform var(--md-duration-short) var(--md-easing-standard);
+}
+
+.m3-hub-actions > a:active,
+.m3-hub-actions > button:active {
+    transform: scale(0.97);
+}
+
+.m3-hub-actions > a:focus-visible,
+.m3-hub-actions > button:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+}
+
+.m3-filled {
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+}
+
+.m3-tonal {
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+}
+
+.m3-tonal-success {
+    background: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+}
+
+.m3-outlined {
+    background: transparent;
+    color: var(--md-sys-color-on-surface);
+    border: 1px solid var(--md-sys-color-outline) !important;
+}
+
+.m3-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--md-space-2);
+}
+
+.m3-grid-2 > a,
+.m3-grid-2 > button {
+    min-height: var(--md-tap-target);
+    border-radius: var(--md-radius-md);
+    font-size: 13px;
+    font-weight: 650;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    background: var(--md-sys-color-surface-container-high);
+    color: var(--md-sys-color-on-surface);
+    transition: background-color var(--md-duration-short) var(--md-easing-standard),
+                transform var(--md-duration-short) var(--md-easing-standard);
+}
+
+.m3-grid-2 > a:active,
+.m3-grid-2 > button:active {
+    transform: scale(0.98);
+}
+
+.m3-grid-2 > a:focus-visible,
+.m3-grid-2 > button:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+}
+
+.m3-doc-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--md-space-2);
+    padding: var(--md-space-3);
+    border-radius: var(--md-radius-md);
+    background: var(--md-sys-color-surface-container-low);
+    border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.m3-doc-row .m3-doc-primary {
+    min-height: 36px;
+    padding: 0 var(--md-space-3);
+    border-radius: var(--md-radius-full);
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+}
+
+.m3-doc-row .m3-doc-secondary {
+    min-height: 36px;
+    padding: 0 var(--md-space-3);
+    border-radius: var(--md-radius-full);
+    background: var(--md-sys-color-surface-container-highest);
+    color: var(--md-sys-color-on-surface);
+    font-size: 12px;
+    font-weight: 650;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Prefer focus rings over mouse-only hover tricks on touch devices */
+@media (hover: none) {
+    .glass-card:hover {
+        background: var(--md-sys-color-surface-container);
+        border-color: var(--md-sys-color-outline-variant);
+        box-shadow: none;
+    }
+}
