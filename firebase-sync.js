@@ -13,6 +13,7 @@ const CL_FIREBASE = (function() {
     let app = null;
     let auth = null;
     let db = null;
+    let functions = null;
     let currentUser = null;
     let calendarAccessToken = null;
     let calendarTokenExpiry = 0;
@@ -54,11 +55,22 @@ const CL_FIREBASE = (function() {
     // Sign-in + user creation both pass the synthesized value to Firebase
     // while the UI + Firestore `users/{uid}.username` keep the clean form.
     const USERNAME_EMAIL_SUFFIX = '@clearline.invalid';
+
+    /** Normalize login handles: trim, lowercase, strip spaces. */
+    function normalizeUsername(username) {
+        return String(username || '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, '');
+    }
+
     function toAuthEmail(usernameOrEmail) {
         if (!usernameOrEmail) return '';
         const s = String(usernameOrEmail).trim();
         if (!s) return '';
-        return s.includes('@') ? s : (s + USERNAME_EMAIL_SUFFIX);
+        if (s.includes('@')) return s.toLowerCase();
+        const user = normalizeUsername(s);
+        return user ? (user + USERNAME_EMAIL_SUFFIX) : '';
     }
 
     // Get Firebase config from CL_SECRETS (loaded via config.js)
@@ -105,6 +117,13 @@ const CL_FIREBASE = (function() {
 
             auth = firebase.auth();
             db = firebase.firestore();
+            try {
+                const region = (window.CL_SECRETS && window.CL_SECRETS.functionsRegion) || 'us-central1';
+                functions = firebase.app().functions(region);
+            } catch (err) {
+                console.warn('Firebase Functions unavailable:', err && err.message);
+                functions = null;
+            }
 
             // Use SESSION persistence so auth state lives in sessionStorage
             // (same-origin, not blocked by Edge/Firefox tracking prevention).
@@ -167,8 +186,37 @@ const CL_FIREBASE = (function() {
         await loadScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
         await Promise.all([
             loadScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js'),
-            loadScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js')
+            loadScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js'),
+            loadScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js')
         ]);
+    }
+
+    async function callFunction(name, data) {
+        if (!functions) {
+            return { ok: false, code: 'functions-unavailable', message: 'Cloud Functions SDK not loaded' };
+        }
+        try {
+            const callable = functions.httpsCallable(name);
+            const result = await callable(data || {});
+            return { ok: true, data: result && result.data };
+        } catch (err) {
+            console.error('[CL_FIREBASE] callFunction failed:', name, err);
+            return {
+                ok: false,
+                code: (err && err.code) || 'unknown',
+                message: (err && err.message) || 'Callable failed'
+            };
+        }
+    }
+
+    /** Owner/manager: set a team member's password via Admin SDK. */
+    async function setUserPassword(uid, newPassword) {
+        return callFunction('setUserPassword', { uid, newPassword });
+    }
+
+    /** Owner: delete an Auth user if Firestore profile write failed after create. */
+    async function deleteAuthUser(uid) {
+        return callFunction('deleteAuthUser', { uid });
     }
 
     // Handle auth state changes. Orchestrates profile load, the Owner
@@ -353,7 +401,9 @@ const CL_FIREBASE = (function() {
             if (!ready) return { ok: false, code: 'init-failed' };
         }
         try {
-            await auth.signInWithEmailAndPassword(toAuthEmail(username), password);
+            const authEmail = toAuthEmail(username);
+            if (!authEmail) return { ok: false, code: 'auth/invalid-email', message: 'Enter a username' };
+            await auth.signInWithEmailAndPassword(authEmail, password);
             return { ok: true };
         } catch (err) {
             console.error('Sign-in error:', err);
@@ -859,6 +909,9 @@ const CL_FIREBASE = (function() {
         getUserInfo,
         getCurrentUser,
         getFirestore,
+        callFunction,
+        setUserPassword,
+        deleteAuthUser,
         syncToCloud,
         syncFromCloud,
         getCalendarToken,
@@ -867,6 +920,7 @@ const CL_FIREBASE = (function() {
         getProfile: () => (userProfile ? Object.assign({}, userProfile) : null),
         getGlobalSettings,
         updateGlobalSettings,
+        normalizeUsername,
         toAuthEmail,
         USERNAME_EMAIL_SUFFIX,
         can,

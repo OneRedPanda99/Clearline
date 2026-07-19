@@ -10,7 +10,7 @@
     <script src="config.js"></script>
     <script src="utils.js"></script>
     <script src="data-migration.js"></script>
-    <script src="firebase-sync.js?v=4"></script>
+    <script src="firebase-sync.js?v=5"></script>
     <script>
         window.tailwind = { config: { theme: { extend: { colors: {
             primary: '#0ea5e9', secondary: '#38bdf8', dark: '#0f172a',
@@ -72,7 +72,7 @@
                     <!-- Plain text, not `type=email`: Managers/Workers sign in
                          with a bare username. firebase-sync.toAuthEmail()
                          appends @clearline.invalid before calling Firebase. -->
-                    <input type="text" id="email" class="auth-input" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+                    <input type="text" id="email" class="auth-input" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="mike" required>
                 </div>
                 <div>
                     <label class="text-xs text-slate-400 block mb-1">Password</label>
@@ -86,7 +86,7 @@
             <p id="emailStatus" class="text-center text-xs text-red-400 mt-3 min-h-[1em]"></p>
 
             <p class="text-center text-[11px] text-slate-500 mt-6">
-                Manager & Worker accounts are created by the Owner. Password resets are handled by your Owner or Manager.
+                Crew accounts are created by the Owner (More → Team). Forgot password? Ask your Owner or Manager to set a new one.
             </p>
         </div>
     </main>
@@ -103,7 +103,7 @@
                 message = 'Your account has been deactivated. Contact your Owner or Manager.';
                 tone = 'error';
             } else if (q.has('notprovisioned')) {
-                message = 'This account is not set up yet. Ask your Owner to create your user record first.';
+                message = 'This login is not set up in Clearline yet. Ask your Owner to create your account under More → Team.';
                 tone = 'warn';
             } else if (q.has('signedout')) {
                 message = 'Signed out.';
@@ -154,18 +154,21 @@
             emailStatus.textContent = '';
             emailBtn.disabled = true;
             emailBtn.textContent = 'Signing in\u2026';
-            const email = document.getElementById('email').value.trim();
+            const email = document.getElementById('email').value.trim().toLowerCase();
             const password = document.getElementById('password').value;
             const res = await CL_FIREBASE.signInWithEmail(email, password);
             emailBtn.disabled = false;
             emailBtn.textContent = 'Sign In';
             if (!res.ok) {
                 const human = {
-                    'auth/invalid-credential': 'Invalid email or password.',
-                    'auth/user-not-found': 'No account with that email.',
+                    'auth/invalid-credential': 'Wrong username or password.',
+                    'auth/user-not-found': 'No account with that username.',
                     'auth/wrong-password': 'Incorrect password.',
+                    'auth/invalid-email': 'Enter your username (not an email).',
+                    'auth/operation-not-allowed': 'Email/Password sign-in is disabled in Firebase Console.',
                     'auth/too-many-requests': 'Too many attempts. Try again later.',
-                    'auth/network-request-failed': 'Network error. Try again.'
+                    'auth/network-request-failed': 'Network error. Try again.',
+                    'init-failed': 'Could not connect. Check your network and try again.'
                 }[res.code] || ('Sign-in failed: ' + (res.code || 'unknown'));
                 emailStatus.textContent = human;
             }

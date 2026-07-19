@@ -10,7 +10,7 @@
     <script src="config.js"></script>
     <script src="utils.js"></script>
     <script src="data-migration.js"></script>
-    <script src="firebase-sync.js?v=4"></script>
+    <script src="firebase-sync.js?v=5"></script>
     <script>
         window.tailwind = { config: { theme: { extend: { colors: {
             primary: '#0ea5e9', secondary: '#38bdf8', dark: '#0f172a', darker: '#020617', accent: '#06b6d4'
@@ -28,19 +28,42 @@
         .user-card.manager { border-left-color: #a78bfa; }
         .user-card.worker { border-left-color: #38bdf8; }
         .user-card.inactive { opacity: 0.55; }
+        .cred-box {
+            background: rgba(15,23,42,0.75);
+            border: 1px solid rgba(52,211,153,0.35);
+            border-radius: 12px;
+            padding: 14px;
+        }
+        .cred-row {
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 8px; margin-top: 8px;
+        }
+        .cred-row code {
+            font-size: 15px; font-weight: 700; color: #e2e8f0;
+            word-break: break-all;
+        }
+        .preset-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
+            border: 1px solid rgba(14,165,233,0.35); background: rgba(14,165,233,0.12);
+            color: #7dd3fc; cursor: pointer; margin: 0 6px 6px 0;
+        }
     </style>
 </head>
 <body>
     <header class="app-header">
         <div class="app-header-inner">
-            <a href="index.html" class="header-btn header-btn-left"><i class="fas fa-chevron-left"></i></a>
-            <h1>Manager Panel</h1>
+            <a id="panelBack" href="more.html" class="header-btn header-btn-left"><i class="fas fa-chevron-left"></i></a>
+            <h1>Team</h1>
         </div>
     </header>
 
     <main class="app-content">
         <div class="content-wrapper">
             <div id="roleBanner" class="glass-card rounded-xl p-3 mb-3 text-sm text-gray-300"></div>
+            <p class="text-xs text-gray-500 mb-3 px-1">
+                Create usernames + passwords for your crew. They sign in on the Sign In screen with that username (no email needed).
+            </p>
 
             <!-- Owner-only: New user buttons -->
             <div id="ownerActions" class="hidden flex gap-2 mb-4">
@@ -107,22 +130,20 @@
 
     <script>
         // --------------------------------------------------------------
-        // Phase 3 Manager Panel
+        // Team / Manager Panel
         //
         // Access matrix:
         //   Owner   -> full list of Managers + all Workers; can create,
-        //              set flags, reassign, deactivate, password-reset.
-        //   Manager -> only assigned Workers; can deactivate + reset
-        //              password + (optionally) assign jobs. Cannot
-        //              create users or change permission flags.
+        //              set flags, reassign, deactivate, set password.
+        //   Manager -> only assigned Workers; can deactivate + set
+        //              password + assign jobs. Cannot create users or
+        //              change permission flags.
         //   Worker  -> redirected away with a warning.
         //
-        // User creation uses a secondary Firebase app instance so
+        // User creation uses a secondary Firebase app so
         // createUserWithEmailAndPassword does NOT sign the Owner out.
-        // Password reset uses Firebase's admin-initiated reset email via
-        // sendPasswordResetEmail() -- this is admin-triggered, not
-        // self-service, and preserves the worker's UID (per Phase 3 plan
-        // risk note).
+        // Password changes use Cloud Function setUserPassword (Admin SDK)
+        // because @clearline.invalid usernames have no real inbox for email reset.
         // --------------------------------------------------------------
 
         const PERMISSION_KEYS = [
@@ -137,10 +158,68 @@
             ['canViewMap', 'View Map']
         ];
 
+        const PRESETS = {
+            manager: {
+                canCreateCustomers: true,
+                canEditOwnCustomers: true,
+                canCreateJobs: true,
+                canAttachJobToCustomer: true,
+                canEditOwnJobs: true,
+                canUseEstimateForm: true,
+                canSendEstimates: true,
+                canViewCalendar: true,
+                canViewMap: true
+            },
+            worker_assigned: {
+                canCreateCustomers: false,
+                canEditOwnCustomers: false,
+                canCreateJobs: false,
+                canAttachJobToCustomer: false,
+                canEditOwnJobs: true,
+                canUseEstimateForm: false,
+                canSendEstimates: false,
+                canViewCalendar: true,
+                canViewMap: true
+            },
+            worker_estimator: {
+                canCreateCustomers: true,
+                canEditOwnCustomers: true,
+                canCreateJobs: true,
+                canAttachJobToCustomer: true,
+                canEditOwnJobs: true,
+                canUseEstimateForm: true,
+                canSendEstimates: true,
+                canViewCalendar: true,
+                canViewMap: true
+            }
+        };
+
         let myProfile = null;
         let managers = [];
         let workers = [];
         let secondaryApp = null;
+        let lastCreatedCreds = null;
+
+        function defaultPermissionsFor(role, workerType) {
+            if (role === 'manager') return Object.assign({}, PRESETS.manager);
+            if (workerType === 'estimator') return Object.assign({}, PRESETS.worker_estimator);
+            return Object.assign({}, PRESETS.worker_assigned);
+        }
+
+        function generatePassword() {
+            const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+            const bytes = new Uint8Array(10);
+            (window.crypto || {}).getRandomValues
+                ? crypto.getRandomValues(bytes)
+                : bytes.forEach((_, i) => { bytes[i] = Math.floor(Math.random() * 256); });
+            let out = '';
+            for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+            return out;
+        }
+
+        function escAttr(v) {
+            return String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        }
 
         function getSecondaryApp() {
             if (secondaryApp) return secondaryApp;
@@ -158,17 +237,19 @@
                 return false;
             }
             if (profile.role === 'owner') {
-                banner.innerHTML = '<i class="fas fa-crown text-amber-400 mr-1"></i>Signed in as Owner. Full access.';
+                banner.innerHTML = '<i class="fas fa-crown text-amber-400 mr-1"></i>Signed in as Owner. Create accounts, set passwords, assign jobs.';
                 document.getElementById('ownerActions').classList.remove('hidden');
                 document.getElementById('managersSection').classList.remove('hidden');
+                document.getElementById('panelBack').href = 'more.html';
                 return true;
             }
             if (profile.role === 'manager') {
-                banner.innerHTML = '<i class="fas fa-user-tie text-purple-300 mr-1"></i>Signed in as Manager. Managing your team only.';
+                banner.innerHTML = '<i class="fas fa-user-tie text-purple-300 mr-1"></i>Signed in as Manager. Manage your crew and set passwords.';
                 document.getElementById('workersLabel').textContent = 'Your Team';
+                document.getElementById('panelBack').href = 'manager-home.html';
                 return true;
             }
-            banner.innerHTML = '<i class="fas fa-ban text-red-400 mr-1"></i>Workers cannot access the Manager Panel.';
+            banner.innerHTML = '<i class="fas fa-ban text-red-400 mr-1"></i>Workers cannot access the Team panel.';
             return false;
         }
 
@@ -262,12 +343,21 @@
 
         function renderUserForm({ mode, role, user }) {
             const isCreate = mode === 'create';
-            const u = user || { role, permissions: {}, active: true };
+            const roleVal = (user && user.role) || role;
+            const workerType = (user && user.workerType) || 'assigned';
+            const defaultPerms = isCreate
+                ? defaultPermissionsFor(roleVal, workerType)
+                : ((user && user.permissions) || {});
+            const u = user || { role: roleVal, permissions: defaultPerms, active: true, workerType };
+            if (isCreate && (!u.permissions || !Object.keys(u.permissions).length)) {
+                u.permissions = defaultPerms;
+            }
             const readOnlyFlags = myProfile.role !== 'owner';
             const canAssignManager = myProfile.role === 'owner' && u.role === 'worker';
+            const initialPassword = isCreate ? generatePassword() : '';
 
             const mgrOpts = managers.map(m =>
-                `<option value="${m.uid}" ${m.uid === u.assignedManager ? 'selected' : ''}>${m.displayName || m.username}</option>`
+                `<option value="${m.uid}" ${m.uid === u.assignedManager ? 'selected' : ''}>${escAttr(m.displayName || m.username)}</option>`
             ).join('');
 
             const permRows = PERMISSION_KEYS.map(([key, label]) => `
@@ -284,29 +374,41 @@
 
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Display Name *</label>
-                    <input type="text" id="uf-displayName" value="${(u.displayName || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                    <input type="text" id="uf-displayName" value="${escAttr(u.displayName || '')}" class="w-full p-3 rounded-lg edit-field" placeholder="Mike">
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Username *</label>
-                    <!-- Plain username. firebase-sync appends the synthetic
-                         @clearline.invalid suffix only when talking to
-                         Firebase Auth; the user doc stores the bare form. -->
-                    <input type="text" id="uf-username" value="${(u.username || '').replace(/"/g,'&quot;')}" ${isCreate ? '' : 'disabled'} autocapitalize="none" autocorrect="off" spellcheck="false" class="w-full p-3 rounded-lg edit-field">
-                    ${isCreate ? '<p class="text-[11px] text-gray-500 mt-1">No email required — just a short login handle (e.g. "john").</p>' : ''}
+                    <input type="text" id="uf-username" value="${escAttr(u.username || '')}" ${isCreate ? '' : 'disabled'} autocapitalize="none" autocorrect="off" spellcheck="false" class="w-full p-3 rounded-lg edit-field" placeholder="mike">
+                    ${isCreate ? '<p class="text-[11px] text-gray-500 mt-1">Login handle only — lowercase, no spaces (e.g. mike). No email needed.</p>' : ''}
                 </div>
                 ${isCreate ? `
                     <div>
                         <label class="text-xs text-gray-400 block mb-1">Initial Password *</label>
-                        <input type="text" id="uf-password" class="w-full p-3 rounded-lg edit-field" autocomplete="off">
-                        <p class="text-[11px] text-gray-500 mt-1">Share with the user out-of-band. They can't reset it themselves.</p>
+                        <div class="flex gap-2">
+                            <input type="text" id="uf-password" value="${escAttr(initialPassword)}" class="flex-1 p-3 rounded-lg edit-field" autocomplete="off">
+                            <button type="button" onclick="document.getElementById('uf-password').value = generatePassword()" class="bg-slate-600 text-white px-3 rounded-lg text-sm font-semibold">New</button>
+                        </div>
+                        <p class="text-[11px] text-gray-500 mt-1">You'll get a copy sheet after create — text it to them.</p>
                     </div>
-                ` : ''}
+                ` : `
+                    <div class="glass-card rounded-xl p-3">
+                        <p class="text-xs text-gray-400 mb-2">Password</p>
+                        <div class="flex gap-2">
+                            <input type="text" id="uf-newPassword" class="flex-1 p-3 rounded-lg edit-field" placeholder="New password (optional)" autocomplete="off">
+                            <button type="button" onclick="document.getElementById('uf-newPassword').value = generatePassword()" class="bg-slate-600 text-white px-3 rounded-lg text-sm font-semibold">New</button>
+                        </div>
+                        <button type="button" onclick="setPasswordForUser()" class="w-full mt-2 bg-amber-600 text-white py-2.5 rounded-xl font-semibold text-sm">
+                            <i class="fas fa-key mr-1"></i>Set password now
+                        </button>
+                        <p class="text-[11px] text-gray-500 mt-2">Requires Cloud Functions deploy (setUserPassword). No email reset — usernames aren't real emails.</p>
+                    </div>
+                `}
                 ${u.role === 'worker' ? `
                     <div class="grid grid-cols-2 gap-2">
                         <div>
                             <label class="text-xs text-gray-400 block mb-1">Worker Type</label>
-                            <select id="uf-workerType" class="w-full p-3 rounded-lg edit-field" ${readOnlyFlags ? 'disabled' : ''}>
-                                <option value="assigned" ${u.workerType === 'assigned' ? 'selected' : ''}>Assigned</option>
+                            <select id="uf-workerType" class="w-full p-3 rounded-lg edit-field" ${readOnlyFlags ? 'disabled' : ''} onchange="onWorkerTypeChange()">
+                                <option value="assigned" ${u.workerType === 'assigned' || !u.workerType ? 'selected' : ''}>Assigned</option>
                                 <option value="estimator" ${u.workerType === 'estimator' ? 'selected' : ''}>Estimator</option>
                             </select>
                         </div>
@@ -330,18 +432,120 @@
 
                 <div>
                     <p class="text-xs text-gray-400 mb-1">Permissions${readOnlyFlags ? ' (Owner-only to edit)' : ''}</p>
+                    ${isCreate && !readOnlyFlags ? `
+                        <div class="mb-2">
+                            <button type="button" class="preset-chip" onclick="applyPreset('role')">Apply ${roleVal === 'manager' ? 'manager' : 'worker'} defaults</button>
+                        </div>
+                    ` : ''}
                     ${permRows}
                 </div>
 
                 <div class="flex gap-2 pt-2">
                     <button onclick="closeModal('userModal')" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold">Cancel</button>
                     <button onclick="submitUserForm()" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold">
-                        ${isCreate ? 'Create User' : 'Save Changes'}
+                        ${isCreate ? 'Create account' : 'Save Changes'}
                     </button>
                 </div>
-
             `;
         }
+
+        window.generatePassword = generatePassword;
+
+        window.onWorkerTypeChange = function() {
+            if (myProfile.role !== 'owner') return;
+            const mode = document.getElementById('userForm-mode').value;
+            if (mode !== 'create') return;
+            applyPreset('role');
+        };
+
+        window.applyPreset = function() {
+            const role = document.getElementById('userForm-role').value;
+            const wtEl = document.getElementById('uf-workerType');
+            const wt = wtEl ? wtEl.value : 'assigned';
+            const perms = defaultPermissionsFor(role, wt);
+            document.querySelectorAll('[data-perm]').forEach(inp => {
+                const key = inp.getAttribute('data-perm');
+                inp.checked = !!perms[key];
+            });
+            showToast('Permissions set to defaults', 'success');
+        };
+
+        function showCredentialsSheet({ displayName, username, password, role }) {
+            lastCreatedCreds = { displayName, username, password, role };
+            document.getElementById('userModalTitle').textContent = 'Account ready';
+            document.getElementById('userModalBody').innerHTML = `
+                <div class="cred-box">
+                    <p class="text-sm text-emerald-300 font-semibold mb-1"><i class="fas fa-check-circle mr-1"></i>Tell them to open Clearline → Sign In</p>
+                    <p class="text-xs text-gray-400">Use the username section (not Google).</p>
+                    <div class="cred-row"><span class="text-xs text-gray-400">Name</span><code>${escAttr(displayName)}</code></div>
+                    <div class="cred-row"><span class="text-xs text-gray-400">Username</span><code id="credUsername">${escAttr(username)}</code></div>
+                    <div class="cred-row"><span class="text-xs text-gray-400">Password</span><code id="credPassword">${escAttr(password)}</code></div>
+                    <div class="cred-row"><span class="text-xs text-gray-400">Role</span><code>${escAttr(role)}</code></div>
+                </div>
+                <button type="button" onclick="copyCredentials()" class="w-full mt-3 bg-primary text-white py-3 rounded-xl font-semibold">
+                    <i class="fas fa-copy mr-1"></i>Copy login details
+                </button>
+                <button type="button" onclick="closeModal('userModal')" class="w-full mt-2 bg-slate-600 text-white py-3 rounded-xl font-semibold">Done</button>
+            `;
+            openModal('userModal');
+        }
+
+        window.copyCredentials = async function() {
+            if (!lastCreatedCreds) return;
+            const text =
+                'Clearline login\n' +
+                'Username: ' + lastCreatedCreds.username + '\n' +
+                'Password: ' + lastCreatedCreds.password + '\n' +
+                'Open the app → Sign In → use Username (not Google).';
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    ta.remove();
+                }
+                showToast('Copied — text it to them', 'success');
+            } catch (_) {
+                showToast('Could not copy — write it down from the screen', 'error');
+            }
+        };
+
+        window.setPasswordForUser = async function() {
+            const uid = document.getElementById('userForm-uid').value;
+            const pw = (document.getElementById('uf-newPassword') || {}).value || '';
+            if (!uid) return;
+            if (!pw || pw.length < 6) {
+                showToast('Password must be at least 6 characters', 'error');
+                return;
+            }
+            if (!window.CL_FIREBASE || !CL_FIREBASE.setUserPassword) {
+                showToast('Password reset requires Cloud Functions', 'error');
+                return;
+            }
+            showToast('Updating password…', 'success');
+            const res = await CL_FIREBASE.setUserPassword(uid, pw);
+            if (res && res.ok) {
+                const u = [...managers, ...workers].find(x => x.uid === uid);
+                showCredentialsSheet({
+                    displayName: (u && u.displayName) || 'Team member',
+                    username: (u && u.username) || '',
+                    password: pw,
+                    role: (u && u.role) || 'worker'
+                });
+                showToast('Password updated', 'success');
+            } else {
+                const msg = (res && res.message) || 'Could not set password';
+                if (res && res.code === 'functions-unavailable') {
+                    showToast('Deploy Cloud Functions first (see TEAM-ACCOUNTS.md)', 'error');
+                } else {
+                    showToast(msg, 'error');
+                }
+            }
+        };
 
         async function submitUserForm() {
             const db = CL_FIREBASE.getFirestore();
@@ -349,9 +553,15 @@
             const uid = document.getElementById('userForm-uid').value;
             const role = document.getElementById('userForm-role').value;
             const displayName = document.getElementById('uf-displayName').value.trim();
-            const username = document.getElementById('uf-username').value.trim();
+            const usernameRaw = document.getElementById('uf-username').value.trim();
+            const username = CL_FIREBASE.normalizeUsername
+                ? CL_FIREBASE.normalizeUsername(usernameRaw)
+                : usernameRaw.toLowerCase().replace(/\s+/g, '');
             if (!displayName || !username) {
-                showToast('Name and email are required', 'error'); return;
+                showToast('Name and username are required', 'error'); return;
+            }
+            if (!/^[a-z0-9._\-]+$/.test(username)) {
+                showToast('Username: letters, numbers, . _ - only', 'error'); return;
             }
 
             const perms = {};
@@ -379,18 +589,11 @@
                     if (!password || password.length < 6) {
                         showToast('Password must be at least 6 characters', 'error'); return;
                     }
-                    if (/\s/.test(username)) {
-                        showToast('Username cannot contain spaces', 'error'); return;
-                    }
-                    // Check username isn't already taken in Firestore
                     const existingSnap = await db.collection('users')
                         .where('username', '==', username).limit(1).get();
                     if (!existingSnap.empty) {
                         showToast('Username "' + username + '" is already taken', 'error'); return;
                     }
-                    // Firebase Auth still requires an email-shaped value.
-                    // Synthesize one and keep the bare username on the user
-                    // doc for the UI to display.
                     const authEmail = CL_FIREBASE.toAuthEmail(username);
                     const sec = getSecondaryApp();
                     let cred;
@@ -399,41 +602,59 @@
                     } catch (authErr) {
                         if (authErr.code === 'auth/email-already-in-use') {
                             showToast('Username "' + username + '" is already registered', 'error');
+                        } else if (authErr.code === 'auth/operation-not-allowed') {
+                            showToast('Enable Email/Password in Firebase Console → Authentication → Sign-in method', 'error');
                         } else {
                             showToast('Error: ' + (authErr.code || authErr.message), 'error');
                         }
                         return;
                     }
                     const newUid = cred.user.uid;
-                    await db.collection('users').doc(newUid).set({
-                        ...base,
-                        username,
-                        authEmail,
-                        createdBy: CL_FIREBASE.getCurrentUser().uid,
-                        createdAt: new Date().toISOString(),
-                        lastUpdated: new Date().toISOString()
-                    });
-                    await sec.auth().signOut();
-                    showToast('User created');
-                } else {
-                    // Manager is restricted: strip permission/role changes before writing.
-                    const patch = { lastUpdated: new Date().toISOString() };
-                    if (myProfile.role === 'owner') {
-                        Object.assign(patch, base);
-                    } else {
-                        // Manager path: only active flag persists.
-                        patch.active = base.active;
+                    try {
+                        await db.collection('users').doc(newUid).set({
+                            ...base,
+                            username,
+                            authEmail,
+                            createdBy: CL_FIREBASE.getCurrentUser().uid,
+                            createdAt: new Date().toISOString(),
+                            lastUpdated: new Date().toISOString()
+                        });
+                    } catch (profileErr) {
+                        console.error(profileErr);
+                        // Roll back orphan Auth user when possible
+                        if (CL_FIREBASE.deleteAuthUser) {
+                            await CL_FIREBASE.deleteAuthUser(newUid);
+                        }
+                        try { await sec.auth().signOut(); } catch (_) {}
+                        if (profileErr.code === 'permission-denied') {
+                            showToast('Firestore blocked the profile. Deploy firestore.rules from the repo.', 'error');
+                        } else {
+                            showToast('Profile save failed — Auth user rolled back if possible', 'error');
+                        }
+                        return;
                     }
-                    await db.collection('users').doc(uid).set(patch, { merge: true });
-                    showToast('Saved');
+                    try { await sec.auth().signOut(); } catch (_) {}
+                    await loadUsers();
+                    showCredentialsSheet({ displayName, username, password, role });
+                    showToast('Account created', 'success');
+                    return;
                 }
+
+                const patch = { lastUpdated: new Date().toISOString() };
+                if (myProfile.role === 'owner') {
+                    Object.assign(patch, base);
+                } else {
+                    patch.active = base.active;
+                }
+                await db.collection('users').doc(uid).set(patch, { merge: true });
+                showToast('Saved');
                 closeModal('userModal');
                 await loadUsers();
             } catch (err) {
                 console.error(err);
                 const code = err.code || '';
                 if (code === 'permission-denied' && mode === 'create') {
-                    showToast('Firestore blocked creating the user profile. In Firebase Console → Firestore Rules, allow owners to create users/{uid} (see firestore.rules in repo).', 'error');
+                    showToast('Firestore blocked creating the user profile. Deploy firestore.rules from the repo.', 'error');
                 } else {
                     showToast('Error: ' + (code || err.message || 'unknown'), 'error');
                 }

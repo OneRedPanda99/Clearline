@@ -71,8 +71,8 @@
                 <a id="moreManagerPanel" href="manager-panel.html" class="menu-list-item hidden">
                     <i class="fas fa-user-shield menu-list-icon menu-list-icon--amber"></i>
                     <div class="menu-list-body">
-                        <p class="menu-list-title">Manager panel</p>
-                        <p class="menu-list-sub">Owner tools</p>
+                        <p class="menu-list-title">Team</p>
+                        <p class="menu-list-sub">Create logins, passwords, assign jobs</p>
                     </div>
                     <i class="fas fa-chevron-right menu-list-chevron"></i>
                 </a>
@@ -129,7 +129,15 @@
         function applyRoleUI(profile) {
             if (!profile) return;
             const row = document.getElementById('moreManagerPanel');
-            if (row && profile.role === 'owner') row.classList.remove('hidden');
+            if (row && (profile.role === 'owner' || profile.role === 'manager')) {
+                row.classList.remove('hidden');
+                const sub = row.querySelector('.menu-list-sub');
+                if (sub) {
+                    sub.textContent = profile.role === 'owner'
+                        ? 'Create logins, passwords, assign jobs'
+                        : 'Your crew, passwords, assign jobs';
+                }
+            }
             const money = document.getElementById('moreMoney');
             if (money && profile.role === 'owner') money.classList.remove('hidden');
         }
