@@ -935,15 +935,15 @@ a.header-icon-btn {
     box-shadow: none;
 }
 
-/* De-AI visual pass: flatter radii on interactive elements (not cards) */
+/* Interactive defaults — M3 filled/tonal buttons keep stadium shape via their own rules */
 .tab-item,
 .action-btn,
-button:not(.tab-fab-circle):not(.header-action-btn),
+button:not(.tab-fab-circle):not(.header-action-btn):not(.btn-primary):not(.btn-secondary):not(.btn-danger):not(.btn-text):not(.jobs-filter-pill):not(.page-tab):not(.md-chip),
 a.btn,
 input,
 select,
 textarea {
-    border-radius: var(--radius-md, 8px);
+    border-radius: var(--md-radius-sm);
 }
 .tab-bar a.nav-active::before,
 .bottom-nav a.nav-active::before {
@@ -1195,13 +1195,13 @@ a.bg-blue-600:hover,
     box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
 }
 
-/* Navigate/Purple buttons - purple glow */
+/* Navigate / secondary actions — primary state layer (no purple) */
 .action-btn.text-purple-400:hover,
 button.text-purple-400:hover,
 a.text-purple-400:hover,
 a.bg-purple-600:hover,
 [class*="bg-purple"]:hover {
-    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+    box-shadow: 0 4px 15px color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent);
 }
 
 /* Photo remove button special hover */
@@ -1935,7 +1935,7 @@ input::placeholder, textarea::placeholder {
 .customer-card:active { transform: scale(0.99); }
 .customer-card.new       { border-left-color: var(--electric, #2e7bff); }
 .customer-card.quoted    { border-left-color: var(--warning, #f59e0b); }
-.customer-card.scheduled { border-left-color: #8b5cf6; }
+.customer-card.scheduled { border-left-color: var(--md-sys-color-secondary); }
 .customer-card.completed { border-left-color: var(--success, #10b981); }
 .customer-icon-row {
     display: grid;
@@ -2171,4 +2171,643 @@ input::placeholder, textarea::placeholder {
         border-color: var(--md-sys-color-outline-variant);
         box-shadow: none;
     }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Material Design 3 — Global CRM application layer
+   https://m3.material.io/foundations · https://m3.material.io/components
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Typography roles */
+.md-display-small { font-size: 36px; line-height: 44px; font-weight: 400; letter-spacing: 0; }
+.md-headline-small { font-size: 24px; line-height: 32px; font-weight: 400; }
+.md-title-large { font-size: 22px; line-height: 28px; font-weight: 500; }
+.md-title-medium { font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: 0.15px; }
+.md-title-small { font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: 0.1px; }
+.md-body-large { font-size: 16px; line-height: 24px; font-weight: 400; letter-spacing: 0.5px; }
+.md-body-medium { font-size: 14px; line-height: 20px; font-weight: 400; letter-spacing: 0.25px; }
+.md-body-small { font-size: 12px; line-height: 16px; font-weight: 400; letter-spacing: 0.4px; }
+.md-label-large { font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: 0.1px; }
+.md-label-medium { font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.5px; }
+.md-label-small { font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.5px; }
+
+.app-header {
+    background: color-mix(in srgb, var(--md-sys-color-surface) 92%, transparent);
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+.app-header h1 {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--md-sys-color-on-surface);
+}
+
+.tab-bar {
+    background: var(--md-sys-color-surface-container);
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+/* Global filled text fields (M3) */
+.content-wrapper input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]),
+.content-wrapper select,
+.content-wrapper textarea,
+.modal input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]),
+.modal select,
+.modal textarea,
+.form-grid input,
+.form-grid select,
+.form-grid textarea,
+.auth-input,
+.edit-field {
+    min-height: var(--md-tap-target);
+    padding: 12px 16px !important;
+    border-radius: var(--md-radius-xs) var(--md-radius-xs) 0 0 !important;
+    border: none !important;
+    border-bottom: 1px solid var(--md-sys-color-outline) !important;
+    background: var(--md-sys-color-surface-container-highest) !important;
+    color: var(--md-sys-color-on-surface) !important;
+    font-size: 16px !important;
+    font-family: inherit !important;
+    transition: border-color var(--md-duration-short) var(--md-easing-standard),
+                background-color var(--md-duration-short) var(--md-easing-standard),
+                box-shadow var(--md-duration-short) var(--md-easing-standard);
+}
+.content-wrapper textarea,
+.modal textarea,
+.form-grid textarea {
+    min-height: 96px;
+    border-radius: var(--md-radius-xs) !important;
+}
+.content-wrapper input:focus,
+.content-wrapper select:focus,
+.content-wrapper textarea:focus,
+.modal input:focus,
+.modal select:focus,
+.modal textarea:focus,
+.form-grid input:focus,
+.form-grid select:focus,
+.form-grid textarea:focus,
+.auth-input:focus,
+.edit-field:focus {
+    outline: none !important;
+    border-bottom: 2px solid var(--md-sys-color-primary) !important;
+    background: var(--md-sys-color-surface-bright) !important;
+    box-shadow: none !important;
+}
+
+/* Assistive / labels */
+.form-grid label,
+.setting-item label,
+label.text-xs {
+    color: var(--md-sys-color-on-surface-variant) !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.4px;
+}
+
+/* Normalize shared buttons to M3 shape */
+.btn-danger {
+    min-height: var(--md-tap-target);
+    border-radius: var(--md-radius-full);
+    background: var(--md-sys-color-error);
+    color: var(--md-sys-color-on-error);
+    box-shadow: none;
+}
+.btn-danger:hover { background: color-mix(in srgb, var(--md-sys-color-error) 88%, #000); }
+.btn-sm {
+    min-height: 40px;
+    padding: 8px 16px;
+    border-radius: var(--md-radius-full);
+}
+.btn-icon {
+    width: var(--md-tap-target);
+    height: var(--md-tap-target);
+    min-width: var(--md-tap-target);
+    border-radius: var(--md-radius-full);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Chips (assist / filter) */
+.md-chip,
+.pill,
+.quick-pill,
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: var(--md-radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    border: 1px solid var(--md-sys-color-outline);
+    background: var(--md-sys-color-surface-container-low);
+    color: var(--md-sys-color-on-surface-variant);
+}
+.md-chip--selected,
+.page-tab.active {
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+    border-color: transparent;
+}
+
+.page-tabs--pills {
+    background: var(--md-sys-color-surface-container-low);
+    padding: var(--md-space-1);
+    border-radius: var(--md-radius-full);
+}
+.page-tabs--pills .page-tab {
+    border-radius: var(--md-radius-full);
+    min-height: 40px;
+    border: none;
+    background: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+}
+.page-tabs--pills .page-tab.active {
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+}
+
+/* Lists */
+.menu-list-item {
+    min-height: 56px;
+    padding: 12px 16px;
+    gap: 16px;
+}
+.menu-list-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface);
+}
+.menu-list-sub {
+    font-size: 14px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+.list-item {
+    min-height: 56px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+/* Settings / switches */
+.setting-item {
+    min-height: 56px;
+    padding: 12px 16px;
+}
+.toggle {
+    width: 52px;
+    height: 32px;
+    border-radius: var(--md-radius-full);
+    background: var(--md-sys-color-surface-container-highest);
+    border: 2px solid var(--md-sys-color-outline);
+    position: relative;
+    transition: background-color var(--md-duration-short) var(--md-easing-standard),
+                border-color var(--md-duration-short) var(--md-easing-standard);
+}
+.toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--md-sys-color-outline);
+    transition: transform var(--md-duration-short) var(--md-easing-standard),
+                background-color var(--md-duration-short) var(--md-easing-standard);
+}
+.toggle.on {
+    background: var(--md-sys-color-primary);
+    border-color: var(--md-sys-color-primary);
+}
+.toggle.on::after {
+    transform: translateX(20px);
+    background: var(--md-sys-color-on-primary);
+}
+
+/* Stat / quick actions */
+.stat-card {
+    background: var(--md-sys-color-surface-container);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-radius-md);
+}
+.quick-btn {
+    min-height: 80px;
+    border-radius: var(--md-radius-md);
+    background: var(--md-sys-color-surface-container-high);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    color: var(--md-sys-color-on-surface);
+}
+
+/* Modal sheets */
+.modal {
+    background: var(--md-sys-color-scrim);
+}
+.modal .modal-content,
+.modal > div {
+    background: var(--md-sys-color-surface-container-low) !important;
+    border-radius: var(--md-radius-xl) var(--md-radius-xl) 0 0;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-bottom: none;
+}
+.modal-header {
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+.modal-header h2 {
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface);
+}
+
+/* FAB */
+.md-fab,
+.jobs-add-circle,
+.header-action-btn {
+    background: var(--md-sys-color-primary-container) !important;
+    color: var(--md-sys-color-on-primary-container) !important;
+    border-radius: var(--md-radius-lg) !important;
+    box-shadow: var(--shadow-md);
+}
+.jobs-add-circle {
+    background: var(--md-sys-color-primary) !important;
+    color: var(--md-sys-color-on-primary) !important;
+    border-radius: var(--md-radius-lg) !important;
+}
+
+/* Job / money rows as M3 list items */
+.money-row,
+.job-card {
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+.money-sub {
+    color: var(--md-sys-color-on-surface-variant) !important;
+}
+
+/* Auth card */
+.auth-card {
+    background: var(--md-sys-color-surface-container) !important;
+    border: 1px solid var(--md-sys-color-outline-variant) !important;
+    border-radius: var(--md-radius-xl) !important;
+    backdrop-filter: none !important;
+}
+
+/* Remap frequent Tailwind-ish full-width CTAs when class lists include bg-primary */
+button.w-full.bg-primary,
+a.w-full.bg-primary,
+button.bg-primary.py-3,
+button.bg-primary.py-4,
+a.bg-primary.py-3.rounded-xl,
+a.bg-primary.py-4.rounded-2xl {
+    background: var(--md-sys-color-primary) !important;
+    color: var(--md-sys-color-on-primary) !important;
+    border-radius: var(--md-radius-full) !important;
+    min-height: var(--md-tap-target);
+    border: none !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+    background-image: none !important;
+}
+button.bg-slate-600,
+button.bg-slate-700,
+a.bg-slate-600,
+a.bg-slate-700,
+button.w-full.bg-slate-600,
+button.w-full.bg-slate-700 {
+    background: var(--md-sys-color-secondary-container) !important;
+    color: var(--md-sys-color-on-secondary-container) !important;
+    border-radius: var(--md-radius-full) !important;
+    border: none !important;
+    min-height: var(--md-tap-target);
+    background-image: none !important;
+}
+button.bg-green-600,
+a.bg-green-600 {
+    background: var(--md-sys-color-tertiary) !important;
+    color: var(--md-sys-color-on-tertiary) !important;
+    border-radius: var(--md-radius-full) !important;
+    background-image: none !important;
+}
+button.bg-red-600,
+a.bg-red-600,
+button.bg-red-600\/20 {
+    border-radius: var(--md-radius-full) !important;
+}
+
+/* Estimate / waiver generators — pull into M3 surface/primary */
+.input-section,
+.results-section {
+    background: var(--md-sys-color-surface-container) !important;
+    border: 1px solid var(--md-sys-color-outline-variant) !important;
+    border-radius: var(--md-radius-md) !important;
+    color: var(--md-sys-color-on-surface) !important;
+}
+.calc-button,
+.download-btn,
+.save-btn {
+    background: var(--md-sys-color-primary) !important;
+    color: var(--md-sys-color-on-primary) !important;
+    border: none !important;
+    border-radius: var(--md-radius-full) !important;
+    min-height: var(--md-tap-target);
+    font-weight: 600 !important;
+}
+.add-service-btn,
+.share-btn,
+.clear-sig-btn {
+    background: var(--md-sys-color-secondary-container) !important;
+    color: var(--md-sys-color-on-secondary-container) !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--md-radius-full) !important;
+    min-height: 40px;
+}
+.form-group label {
+    color: var(--md-sys-color-on-surface-variant) !important;
+}
+
+/* Chat */
+.chat-bubble.me {
+    background: var(--md-sys-color-primary) !important;
+    color: var(--md-sys-color-on-primary) !important;
+    border-radius: 16px 16px 4px 16px !important;
+}
+.chat-bubble.them {
+    background: var(--md-sys-color-surface-container-highest) !important;
+    color: var(--md-sys-color-on-surface) !important;
+    border-radius: 16px 16px 16px 4px !important;
+}
+.quick-pill {
+    border-radius: var(--md-radius-sm) !important;
+    background: var(--md-sys-color-secondary-container) !important;
+    color: var(--md-sys-color-on-secondary-container) !important;
+    border: none !important;
+    min-height: 32px;
+}
+.chat-icon-btn {
+    width: var(--md-tap-target) !important;
+    height: var(--md-tap-target) !important;
+    border-radius: var(--md-radius-full) !important;
+    background: var(--md-sys-color-surface-container-highest) !important;
+    color: var(--md-sys-color-primary) !important;
+}
+.chat-view-job {
+    background: var(--md-sys-color-secondary-container) !important;
+    color: var(--md-sys-color-on-secondary-container) !important;
+    border-radius: var(--md-radius-full) !important;
+}
+
+/* Map / calendar sheets */
+.route-sheet,
+.day-detail {
+    background: var(--md-sys-color-surface-container) !important;
+    border-radius: var(--md-radius-xl) var(--md-radius-xl) 0 0 !important;
+}
+
+/* Reduce purple gradients (non-brand) */
+.from-primary.to-purple-600,
+.bg-gradient-to-r.from-primary {
+    background: var(--md-sys-color-primary) !important;
+    background-image: none !important;
+}
+
+/* Focus visible globally for a11y */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+}
+
+/* Dense content wrappers still use 4dp rhythm */
+.section-title {
+    margin-top: var(--md-space-4);
+}
+.section-title:first-child {
+    margin-top: 0;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   M3 completeness — list items, text buttons, filter chips, CTA remaps
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.btn-text {
+    background: transparent !important;
+    color: var(--md-sys-color-primary) !important;
+    border: none !important;
+    box-shadow: none !important;
+    min-height: 40px;
+    padding: 8px 12px;
+    border-radius: var(--md-radius-full);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.1px;
+    cursor: pointer;
+}
+.btn-text:hover { background: color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent) !important; }
+.btn-text:active { background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent) !important; }
+
+.m3-list-item {
+    display: flex;
+    align-items: center;
+    gap: var(--md-space-4);
+    min-height: 56px;
+    padding: var(--md-space-3) var(--md-space-4);
+    background: var(--md-sys-color-surface-container-low);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-radius-md);
+    color: var(--md-sys-color-on-surface);
+    transition: background-color var(--md-duration-short) var(--md-easing-standard);
+}
+.m3-list-item:active {
+    background: var(--md-sys-color-surface-container-high);
+}
+.m3-surface-card {
+    background: var(--md-sys-color-surface-container);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-radius-md);
+    padding: var(--md-space-4);
+    color: var(--md-sys-color-on-surface);
+}
+
+/* Standalone tonal / outlined / filled actions (not only inside hub grids) */
+button.m3-tonal,
+a.m3-tonal,
+button.m3-outlined,
+a.m3-outlined,
+button.m3-filled,
+a.m3-filled,
+button.m3-tonal-success,
+a.m3-tonal-success {
+    min-height: var(--md-tap-target);
+    padding: 0 var(--md-space-4);
+    border-radius: var(--md-radius-md);
+    font-size: 13px;
+    font-weight: 650;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    transition: filter var(--md-duration-short) var(--md-easing-standard),
+                transform var(--md-duration-short) var(--md-easing-standard);
+}
+button.m3-outlined,
+a.m3-outlined {
+    border: 1px solid var(--md-sys-color-outline) !important;
+    background: transparent;
+    color: var(--md-sys-color-on-surface);
+}
+button.m3-tonal:active,
+a.m3-tonal:active,
+button.m3-outlined:active,
+a.m3-outlined:active,
+button.m3-filled:active,
+a.m3-filled:active {
+    transform: scale(0.98);
+}
+
+/* Filter chips — M3 stadium shape */
+.jobs-filter-pill {
+    min-height: 32px !important;
+    padding: 0 16px !important;
+    border-radius: var(--md-radius-sm) !important;
+    border: 1px solid var(--md-sys-color-outline) !important;
+    background: var(--md-sys-color-surface-container-low) !important;
+    color: var(--md-sys-color-on-surface-variant) !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.5px;
+    box-shadow: none !important;
+}
+.jobs-filter-pill.active {
+    background: var(--md-sys-color-secondary-container) !important;
+    color: var(--md-sys-color-on-secondary-container) !important;
+    border-color: transparent !important;
+}
+
+/* Remap leftover Tailwind utility CTAs to M3 roles */
+button.bg-blue-600,
+a.bg-blue-600,
+button.bg-cyan-600,
+a.bg-cyan-600,
+a.bg-cyan-600\/80,
+button.bg-cyan-600\/80 {
+    background: var(--md-sys-color-primary) !important;
+    color: var(--md-sys-color-on-primary) !important;
+    border-radius: var(--md-radius-full) !important;
+    border: none !important;
+    min-height: var(--md-tap-target);
+    font-weight: 600 !important;
+    background-image: none !important;
+}
+button.bg-amber-500,
+a.bg-amber-500,
+button.bg-amber-600,
+a.bg-amber-600,
+button.bg-amber-600\/80,
+button.hover\:bg-amber-600 {
+    background: var(--warning) !important;
+    color: #111827 !important;
+    border-radius: var(--md-radius-full) !important;
+    border: none !important;
+    min-height: var(--md-tap-target);
+    font-weight: 600 !important;
+    background-image: none !important;
+}
+button.bg-sky-900\/40,
+button.bg-amber-900\/30,
+a.bg-amber-500\/20 {
+    background: var(--md-sys-color-secondary-container) !important;
+    color: var(--md-sys-color-on-secondary-container) !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--md-radius-md) !important;
+    min-height: var(--md-tap-target);
+    font-weight: 600 !important;
+}
+button.bg-red-600\/20,
+a.bg-red-600\/20 {
+    background: var(--md-sys-color-error-container) !important;
+    color: var(--md-sys-color-on-error-container) !important;
+    border-radius: var(--md-radius-full) !important;
+    border: none !important;
+    min-height: var(--md-tap-target);
+}
+button.bg-slate-800,
+a.bg-slate-800 {
+    background: var(--md-sys-color-surface-container-highest) !important;
+    color: var(--md-sys-color-on-surface) !important;
+    border: 1px solid var(--md-sys-color-outline-variant) !important;
+    border-radius: var(--md-radius-full) !important;
+    min-height: var(--md-tap-target);
+    font-weight: 600 !important;
+}
+
+/* Search fields — filled M3 */
+.search-field {
+    min-height: var(--md-tap-target) !important;
+    border-radius: var(--md-radius-xs) var(--md-radius-xs) 0 0 !important;
+    border: none !important;
+    border-bottom: 1px solid var(--md-sys-color-outline) !important;
+    background: var(--md-sys-color-surface-container-highest) !important;
+    color: var(--md-sys-color-on-surface) !important;
+}
+.search-field:focus {
+    border-bottom: 2px solid var(--md-sys-color-primary) !important;
+    outline: none !important;
+}
+
+/* Customer icon buttons — 48dp, tonal */
+.customer-icon-btn {
+    min-height: var(--md-tap-target) !important;
+    border-radius: var(--md-radius-md) !important;
+}
+.customer-icon-btn.phone {
+    background: var(--md-sys-color-tertiary-container) !important;
+    color: var(--md-sys-color-on-tertiary-container) !important;
+}
+.customer-icon-btn.sms {
+    background: var(--md-sys-color-secondary-container) !important;
+    color: var(--md-sys-color-on-secondary-container) !important;
+}
+.customer-icon-btn.edit {
+    background: var(--md-sys-color-surface-container-highest) !important;
+    color: var(--md-sys-color-on-surface) !important;
+}
+
+/* Modal close — 48dp M3 icon button */
+.modal-close-btn {
+    width: var(--md-tap-target) !important;
+    height: var(--md-tap-target) !important;
+    border-radius: var(--md-radius-full) !important;
+    background: var(--md-sys-color-surface-container-highest) !important;
+    color: var(--md-sys-color-on-surface-variant) !important;
+}
+
+/* Segmented tabs already present; ensure 48dp touch */
+.page-tab {
+    min-height: 40px;
+}
+
+/* Snackbar / toast if present */
+.toast, .snackbar {
+    background: var(--md-sys-color-inverse-surface, #e2e8f0) !important;
+    color: var(--md-sys-color-inverse-on-surface, #1a1c1f) !important;
+    border-radius: var(--md-radius-xs) !important;
+    min-height: 48px;
+    padding: 14px 16px;
+}
+
+/* Divider */
+.md-divider,
+.border-t.border-slate-700 {
+    border-color: var(--md-sys-color-outline-variant) !important;
 }

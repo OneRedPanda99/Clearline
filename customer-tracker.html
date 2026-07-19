@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="theme-color" content="#0b0e14">
+    <meta name="theme-color" content="#1a1c1f">
     <title>Customers - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
@@ -195,10 +195,10 @@
                 </div>
                 
                 <div class="flex gap-3 pt-2">
-                    <button type="button" onclick="closeCustomerModal()" class="flex-1 bg-slate-700 text-white py-3 rounded-xl font-semibold">
+                    <button type="button" onclick="closeCustomerModal()" class="btn-secondary" style="width:auto;flex:1">
                         Cancel
                     </button>
-                    <button type="submit" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold">
+                    <button type="submit" class="btn-primary" style="flex:1;width:auto">
                         Save Customer
                     </button>
                 </div>
@@ -593,10 +593,10 @@
                                         ${(() => { const t = getJobDisplayTotal(j); return t > 0 ? ` • $${t.toFixed(0)}` : ''; })()}
                                     </div>
                                     <div class="flex gap-2 mt-2">
-                                        <a href="jobs.html?highlight=${j.id}" class="flex-1 bg-primary/20 text-primary rounded-lg py-2 text-center text-sm">
+                                        <a href="jobs.html?highlight=${j.id}" class="btn-secondary btn-sm" style="flex:1;width:auto;text-align:center">
                                             <i class="fas fa-eye mr-1"></i>View
                                         </a>
-                                        <a href="jobs.html?highlight=${j.id}&edit=1" class="flex-1 bg-slate-700 text-gray-200 rounded-lg py-2 text-center text-sm">
+                                        <a href="jobs.html?highlight=${j.id}&edit=1" class="btn-secondary btn-sm" style="flex:1;width:auto;text-align:center">
                                             <i class="fas fa-edit mr-1"></i>Edit
                                         </a>
                                     </div>
@@ -661,29 +661,29 @@
                     
                     ${c.phone ? `
                     <div class="flex gap-3 pt-4 border-t border-slate-700">
-                        <a href="tel:${encodeURIComponent(c.phone)}" class="flex-1 bg-green-600 text-white py-3 rounded-xl text-center font-semibold">
+                        <a href="tel:${encodeURIComponent(c.phone)}" class="btn-primary" style="flex:1;width:auto;text-align:center;background:var(--md-sys-color-tertiary);color:var(--md-sys-color-on-tertiary)">
                             <i class="fas fa-phone mr-2"></i>Call
                         </a>
                     </div>
                     ` : ''}
                     
                     <div class="flex gap-3">
-                        <a href="#" onclick="prefillEstimate('${c.id}'); return false;" class="flex-1 bg-purple-600 text-white py-3 rounded-xl text-center font-semibold">
+                        <a href="#" onclick="prefillEstimate('${c.id}'); return false;" class="btn-secondary" style="flex:1;width:auto;text-align:center">
                             <i class="fas fa-plus mr-2"></i>Estimate
                         </a>
-                        <button onclick="prefillScheduleJob('${c.id}')" class="flex-1 bg-cyan-600/80 text-white py-3 rounded-xl font-semibold">
+                        <button onclick="prefillScheduleJob('${c.id}')" class="btn-primary" style="flex:1;width:auto">
                             <i class="fas fa-calendar mr-2"></i>Schedule Job
                         </button>
-                        <button onclick="prefillInvoice('${c.id}')" class="flex-1 bg-amber-600/80 text-white py-3 rounded-xl font-semibold">
+                        <button onclick="prefillInvoice('${c.id}')" class="btn-secondary" style="flex:1;width:auto">
                             <i class="fas fa-receipt mr-2"></i>Invoice
                         </button>
                     </div>
                     
                     <div class="flex gap-3">
-                        <button onclick="editCustomer('${c.id}'); closeDetailModal();" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold">
+                        <button onclick="editCustomer('${c.id}'); closeDetailModal();" class="btn-secondary" style="width:auto;flex:1">
                             <i class="fas fa-edit mr-2"></i>Edit
                         </button>
-                        <button onclick="deleteCustomer('${c.id}')" class="flex-1 bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold">
+                        <button onclick="deleteCustomer('${c.id}')" class="btn-danger" style="flex:1;width:auto;background:var(--md-sys-color-error-container);color:var(--md-sys-color-on-error-container)">
                             <i class="fas fa-trash mr-2"></i>Delete
                         </button>
                     </div>

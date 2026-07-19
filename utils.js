@@ -7,10 +7,11 @@ window.tailwind = window.tailwind || {
     theme: {
       extend: {
         colors: {
-          primary:   '#2e7bff',
-          secondary: '#4f8cff',
-          dark:      '#0f172a',
-          darker:    '#0b0e14',
+          /* Mapped to M3 Clearline roles in app.css */
+          primary:   '#4f8cff',
+          secondary: '#8ab4ff',
+          dark:      '#1a1c1f',
+          darker:    '#121417',
           accent:    '#4f8cff',
         }
       }

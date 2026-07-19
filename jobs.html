@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="theme-color" content="#0b0e14">
+    <meta name="theme-color" content="#1a1c1f">
     <title>Jobs - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
@@ -241,10 +241,10 @@
                     <label class="text-xs text-gray-400 block mb-1">Address <span class="text-gray-500">(optional)</span></label>
                     <input type="text" id="addLeadCustomerAddress" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="street-address">
                 </div>
-                <button type="button" onclick="confirmAddLead()" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-semibold">
+                <button type="button" onclick="confirmAddLead()" class="btn-primary" style="background:var(--warning);color:#111827">
                     <i class="fas fa-file-alt mr-2"></i>Create &amp; open estimate
                 </button>
-                <button type="button" onclick="closeAddLeadModal()" class="w-full bg-slate-600 text-white py-3 rounded-xl font-semibold">Cancel</button>
+                <button type="button" onclick="closeAddLeadModal()" class="btn-secondary">Cancel</button>
             </div>
         </div>
     </div>
@@ -1402,7 +1402,7 @@
                         <div class="min-w-0">
                             <p class="text-sm text-gray-300">Have the customer scan this, or send the link:</p>
                             <div class="flex flex-wrap gap-2 mt-2">
-                                ${job.customerPhone ? `<button type="button" onclick="sendReviewLink('${job.id}')" class="bg-amber-500 text-slate-900 px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-comment-dots mr-1"></i>Text link</button>` : ''}
+                                ${job.customerPhone ? `<button type="button" onclick="sendReviewLink('${job.id}')" class="btn-primary btn-sm" style="width:auto;background:var(--warning);color:#111827"><i class="fas fa-comment-dots mr-1"></i>Text link</button>` : ''}
                                 <a href="${escapeHtml(reviewUrl)}" target="_blank" rel="noopener" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-up-right-from-square mr-1"></i>Open</a>
                             </div>
                         </div>
@@ -1422,10 +1422,10 @@
                     </div>
                     ${payInfo.balance > 0 ? `
                         <div class="grid grid-cols-2 gap-2 mt-3">
-                            <button type="button" onclick="recordPayment('${job.id}')" class="bg-green-600 text-white py-3 rounded-xl font-semibold"><i class="fas fa-dollar-sign mr-1"></i>Record payment</button>
-                            <button type="button" onclick="markPaidInFull('${job.id}')" class="bg-slate-700 text-white py-3 rounded-xl font-semibold"><i class="fas fa-check mr-1"></i>Paid in full</button>
+                            <button type="button" onclick="recordPayment('${job.id}')" class="btn-primary" style="background:var(--md-sys-color-tertiary);color:var(--md-sys-color-on-tertiary)"><i class="fas fa-dollar-sign mr-1"></i>Record payment</button>
+                            <button type="button" onclick="markPaidInFull('${job.id}')" class="btn-secondary"><i class="fas fa-check mr-1"></i>Paid in full</button>
                         </div>
-                        ${job.customerPhone ? `<button type="button" onclick="sendPaymentReminder('${job.id}')" class="w-full mt-2 bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl font-semibold text-sm"><i class="fas fa-comment-sms mr-1"></i>Text balance reminder</button>` : ''}
+                        ${job.customerPhone ? `<button type="button" onclick="sendPaymentReminder('${job.id}')" class="btn-secondary w-full mt-2 btn-sm"><i class="fas fa-comment-sms mr-1"></i>Text balance reminder</button>` : ''}
                     ` : `<p class="text-center text-xs text-green-400 mt-3"><i class="fas fa-circle-check mr-1"></i>Paid in full</p>`}
                 </div>
             ` : '';
@@ -1537,14 +1537,14 @@
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">
-                        <button type="button" onclick="toggleJobDetailSection('timerSection')" class="bg-sky-900/40 border border-sky-500/30 text-sky-200 py-2.5 rounded-xl text-sm font-semibold">
+                        <button type="button" onclick="toggleJobDetailSection('timerSection')" class="m3-tonal">
                             <i class="fas fa-stopwatch mr-1"></i>Timer ${timerText}
                         </button>
                         ${payInfo
-                            ? `<button type="button" onclick="toggleJobDetailSection('paymentSection')" class="bg-amber-900/30 border border-amber-500/30 text-amber-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-dollar-sign mr-1"></i>Payment</button>`
+                            ? `<button type="button" onclick="toggleJobDetailSection('paymentSection')" class="m3-outlined"><i class="fas fa-dollar-sign mr-1"></i>Payment</button>`
                             : (job.status === 'scheduled'
-                                ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold text-center"><i class="fas fa-play mr-1"></i>Start job</a>`
-                                : `<button type="button" onclick="addToGoogleCalendar('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fab fa-google mr-1"></i>Calendar</button>`)}
+                                ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="m3-filled" style="display:inline-flex;align-items:center;justify-content:center;min-height:var(--md-tap-target);border-radius:var(--md-radius-md);font-size:13px;font-weight:650;text-decoration:none"><i class="fas fa-play mr-1"></i>Start job</a>`
+                                : `<button type="button" onclick="addToGoogleCalendar('${job.id}')" class="m3-outlined"><i class="fab fa-google mr-1"></i>Calendar</button>`)}
                     </div>
 
                     <div id="timerSection" class="hidden">
@@ -1556,8 +1556,8 @@
                                     ${job.jobDuration ? `<p class="text-xs text-gray-400">Saved: ${job.jobDuration}</p>` : ''}
                                 </div>
                                 <div class="flex gap-2">
-                                    <button type="button" onclick="toggleJobStopwatch('${job.id}')" class="${timerState.isRunning ? 'bg-amber-600' : 'bg-blue-600'} text-white px-4 py-2 rounded-lg font-semibold">${timerBtnText}</button>
-                                    <button type="button" onclick="resetJobStopwatch('${job.id}')" class="bg-slate-700 text-gray-200 px-3 py-2 rounded-lg font-semibold">Reset</button>
+                                    <button type="button" onclick="toggleJobStopwatch('${job.id}')" class="btn-primary btn-sm" style="width:auto;${timerState.isRunning ? 'background:var(--warning);color:#111827' : ''}">${timerBtnText}</button>
+                                    <button type="button" onclick="resetJobStopwatch('${job.id}')" class="btn-secondary btn-sm" style="width:auto">Reset</button>
                                 </div>
                             </div>
                             ${renderJobTimerChecklist(job, timerState)}
@@ -1577,11 +1577,11 @@
 
                     <div id="moreSection" class="hidden">
                         <div class="glass-card rounded-xl p-3 space-y-2">
-                            ${job.status === 'scheduled' ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="block bg-blue-600 text-white py-2.5 rounded-xl text-center font-semibold text-sm"><i class="fas fa-play mr-1"></i>Start job</a>` : ''}
-                            <button type="button" onclick="addToGoogleCalendar('${job.id}')" class="w-full bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fab fa-google mr-1"></i>Add to Google Calendar</button>
-                            <button type="button" onclick="createCustomerFromJob('${job.id}')" class="w-full bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold">${job.customerId ? '<i class="fas fa-user-check mr-1"></i>Open customer' : '<i class="fas fa-user-plus mr-1"></i>Link customer'}</button>
-                            ${(job.status === 'completed' && reviewUrl) ? `<button type="button" onclick="toggleJobDetailSection('reviewSection')" class="w-full bg-amber-900/30 border border-amber-500/30 text-amber-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-star mr-1"></i>Ask for review</button>` : ''}
-                            ${!payInfo ? `<button type="button" onclick="toggleJobDetailSection('timerSection')" class="w-full bg-sky-900/40 border border-sky-500/30 text-sky-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-stopwatch mr-1"></i>Open timer</button>` : ''}
+                            ${job.status === 'scheduled' ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="btn-primary"><i class="fas fa-play mr-1"></i>Start job</a>` : ''}
+                            <button type="button" onclick="addToGoogleCalendar('${job.id}')" class="btn-secondary"><i class="fab fa-google mr-1"></i>Add to Google Calendar</button>
+                            <button type="button" onclick="createCustomerFromJob('${job.id}')" class="btn-secondary">${job.customerId ? '<i class="fas fa-user-check mr-1"></i>Open customer' : '<i class="fas fa-user-plus mr-1"></i>Link customer'}</button>
+                            ${(job.status === 'completed' && reviewUrl) ? `<button type="button" onclick="toggleJobDetailSection('reviewSection')" class="btn-secondary"><i class="fas fa-star mr-1"></i>Ask for review</button>` : ''}
+                            ${!payInfo ? `<button type="button" onclick="toggleJobDetailSection('timerSection')" class="btn-secondary"><i class="fas fa-stopwatch mr-1"></i>Open timer</button>` : ''}
                             <p class="text-[11px] text-slate-500 pt-1">${jobIdShort}</p>
                         </div>
                     </div>
@@ -1589,15 +1589,15 @@
                     <div class="grid grid-cols-1 gap-2 pt-1">
                         <div id="jobActionStatus" class="text-xs text-slate-300"></div>
                         ${job.status !== 'completed' ? `
-                            <button onclick="markComplete('${job.id}'); closeJobModal();" class="bg-green-600 text-white py-3.5 rounded-xl font-semibold text-base">
+                            <button onclick="markComplete('${job.id}'); closeJobModal();" class="btn-primary" style="background:var(--md-sys-color-tertiary);color:var(--md-sys-color-on-tertiary)">
                                 <i class="fas fa-check-circle mr-1"></i>Mark complete
                             </button>
                         ` : `
-                            <button onclick="markScheduled('${job.id}'); closeJobModal();" class="bg-slate-700 text-white py-3.5 rounded-xl font-semibold text-base">
+                            <button onclick="markScheduled('${job.id}'); closeJobModal();" class="btn-secondary">
                                 <i class="fas fa-undo mr-1"></i>Reopen job
                             </button>
                         `}
-                        <button type="button" onclick="toggleJobDetailSection('moreSection')" class="bg-transparent text-slate-400 text-sm py-1">More options</button>
+                        <button type="button" onclick="toggleJobDetailSection('moreSection')" class="btn-text">More options</button>
                         <div id="cancelRow" class="hidden">
                             <input id="cancelReasonInput" type="text" placeholder="Cancel reason (required)" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-sm mb-2">
                             <button onclick="cancelJobWithReason('${job.id}');" class="text-red-300 text-sm underline underline-offset-2 bg-transparent border-none">Cancel this job</button>
@@ -1784,10 +1784,10 @@
                     </div>
                     <div class="edit-footer">
                         <div class="flex gap-2">
-                            <button onclick="openJobModal('${job.id}')" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold">
+                            <button onclick="openJobModal('${job.id}')" class="btn-secondary" style="width:auto;flex:1">
                                 Cancel
                             </button>
-                            <button onclick="saveJobEdit('${job.id}')" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold">
+                            <button onclick="saveJobEdit('${job.id}')" class="btn-primary" style="flex:1;width:auto">
                                 <i class="fas fa-save mr-2"></i>Save
                             </button>
                         </div>
@@ -2457,8 +2457,8 @@
                         <input type="text" id="ccAddress" value="${(job.address || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
                     </div>
                     <div class="flex gap-2 pt-2">
-                        <button onclick="openJobModal('${jobId}')" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold">Cancel</button>
-                        <button onclick="submitCreateCustomer('${jobId}')" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold">Create</button>
+                        <button onclick="openJobModal('${jobId}')" class="btn-secondary" style="width:auto;flex:1">Cancel</button>
+                        <button onclick="submitCreateCustomer('${jobId}')" class="btn-primary" style="flex:1;width:auto">Create</button>
                     </div>
                 </div>
             `;

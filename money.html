@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#0b0e14">
+    <meta name="theme-color" content="#1a1c1f">
     <title>Money - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js"></script>
@@ -14,9 +14,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .money-row {
-            display:flex; align-items:center; gap:10px;
-            padding: 12px 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display:flex; align-items:center; gap:var(--md-space-3);
+            min-height: 56px;
+            padding: var(--md-space-3) var(--md-space-2);
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
             text-decoration:none; color: inherit;
         }
         .money-row:last-child { border-bottom: none; }
@@ -25,28 +26,14 @@
         .money-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
         .pill { font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; }
         .pill.tax { background: rgba(251,191,36,0.14); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
-        .pill.pay { background: rgba(167,139,250,0.14); color: #a78bfa; border: 1px solid rgba(167,139,250,0.25); }
+        .pill.pay { background: color-mix(in srgb, var(--md-sys-color-secondary) 18%, transparent); color: var(--md-sys-color-secondary); border: 1px solid color-mix(in srgb, var(--md-sys-color-secondary) 30%, transparent); }
         .pill.exp { background: rgba(52,211,153,0.14); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
         .form-grid { display:grid; gap:10px; }
         .form-grid label { font-size: 12px; color:#94a3b8; display:block; margin-bottom:4px; }
         .form-grid input, .form-grid select, .form-grid textarea {
             width:100%; padding: 12px; border-radius: 12px;
         }
-        .btn-primary {
-            width:100%; padding: 12px; border-radius: 14px;
-            background: linear-gradient(135deg, #2e7bff, #1d4ed8);
-            border:none; color:#fff; font-weight: 800;
-        }
-        .btn-muted {
-            width:100%; padding: 12px; border-radius: 14px;
-            background: rgba(51,65,85,0.45);
-            border: 1px solid rgba(255,255,255,0.10); color:#e2e8f0; font-weight: 800;
-        }
-        .danger {
-            background: rgba(239,68,68,0.15);
-            border: 1px solid rgba(239,68,68,0.25);
-            color: #fecaca;
-        }
+        /* Buttons use shared M3 .btn-primary / .btn-secondary / .btn-danger from app.css */
     </style>
 </head>
 <body>
@@ -205,7 +192,7 @@
                         <input id="expDesc" placeholder="Gas, detergent, etc." value="${expense ? String(expense.description || '') : ''}">
                     </div>
                     <button class="btn-primary" type="button" onclick="saveExpense(${expense ? JSON.stringify(expense.id) : 'null'})">${isEdit ? 'Save changes' : 'Add expense'}</button>
-                    ${isEdit ? `<button class="btn-muted danger" type="button" onclick="deleteExpense(${JSON.stringify(expense.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
+                    ${isEdit ? `<button class="btn-danger" type="button" onclick="deleteExpense(${JSON.stringify(expense.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
                 </div>
             `;
             openModal('moneyModal');
@@ -277,7 +264,7 @@
                         <input id="payNotes" placeholder="Week ending..." value="${entry ? String(entry.notes || '') : ''}">
                     </div>
                     <button class="btn-primary" type="button" onclick="savePayroll(${entry ? JSON.stringify(entry.id) : 'null'})">${isEdit ? 'Save changes' : 'Add payroll'}</button>
-                    ${isEdit ? `<button class="btn-muted danger" type="button" onclick="deletePayroll(${JSON.stringify(entry.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
+                    ${isEdit ? `<button class="btn-danger" type="button" onclick="deletePayroll(${JSON.stringify(entry.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
                 </div>
             `;
             openModal('moneyModal');
