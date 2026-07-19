@@ -400,21 +400,23 @@
         }
 
         /**
-         * Revenue forecasts using common small-business methods:
-         * - This year: YTD completed + remaining booked pipeline this year
-         *   (also compute annualized run-rate = YTD / daysElapsed * 365)
-         * - Next year: trailing 12 months × (1 + YoY growth)
-         *   YoY = (this YTD − same period last year) / last-year YTD
+         * Weekly-pace forecast (how most operators think about it):
+         *   avg weekly = YTD revenue ÷ weeks so far
+         *   est this year = avg weekly × 52
+         *   est next year = that same weekly pace × 52
+         *     (× YoY growth when prior-year comps exist)
          */
         function calcForecasts(today = new Date()) {
             const jobs = CL_DATA.getJobs();
             const year = today.getFullYear();
-            const todayYmd = toYmd(today);
             const yearStart = new Date(year, 0, 1);
-            const yearEnd = new Date(year, 11, 31);
             const priorYearStart = new Date(year - 1, 0, 1);
             const priorSameDay = new Date(year - 1, today.getMonth(), today.getDate());
-            const ttmStart = addDays(today, -364);
+
+            const weekRange = periodRange('week', today);
+            const thisWeek = jobs
+                .filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, weekRange.start, weekRange.end))
+                .reduce((s, j) => s + jobRevenue(j), 0);
 
             const ytd = jobs
                 .filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, yearStart, today))
@@ -424,48 +426,28 @@
                 .filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, priorYearStart, priorSameDay))
                 .reduce((s, j) => s + jobRevenue(j), 0);
 
-            const bookedRest = jobs
-                .filter(j => {
-                    if (!isBookedPipeline(j)) return false;
-                    const d = parseYmd(j.jobDate);
-                    if (!d) return false;
-                    return d > today && d <= yearEnd;
-                })
-                .reduce((s, j) => s + jobRevenue(j), 0);
-
             const dayOfYear = Math.max(1, Math.floor((today - yearStart) / 86400000) + 1);
-            const daysInYear = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
-            const runRate = (ytd / dayOfYear) * daysInYear;
-
-            // Primary estimate operators actually use for the rest of the year:
-            // money already earned + jobs already on the books.
-            const estThisYear = ytd + bookedRest;
-
-            const ttm = jobs
-                .filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, ttmStart, today))
-                .reduce((s, j) => s + jobRevenue(j), 0);
+            const weeksSoFar = Math.max(1, Math.ceil(dayOfYear / 7));
+            const avgWeekly = ytd / weeksSoFar;
+            const estThisYear = avgWeekly * 52;
 
             let growth = null;
             if (priorYtd > 0) growth = (ytd - priorYtd) / priorYtd;
-            // If no prior-year comps, assume flat vs trailing twelve months.
             const growthUsed = growth === null ? 0 : growth;
-            const baselineNext = ttm > 0 ? ttm : estThisYear;
-            const estNextYear = baselineNext * (1 + growthUsed);
+            // Next year: keep this weekly pace, nudge by YoY if we have history.
+            const estNextYear = avgWeekly * 52 * (1 + growthUsed);
 
             return {
                 year,
                 nextYear: year + 1,
-                todayYmd,
+                thisWeek,
                 ytd,
-                bookedRest,
-                runRate,
+                weeksSoFar,
+                avgWeekly,
                 estThisYear,
                 priorYtd,
                 growth,
-                ttm,
-                estNextYear,
-                dayOfYear,
-                daysInYear
+                estNextYear
             };
         }
 
@@ -484,9 +466,9 @@
             const pnl = periodPnl(range.start, range.end);
             const fc = calcForecasts();
             const growthPct = fc.growth === null ? null : (fc.growth * 100);
-            const growthLabel = growthPct === null
-                ? 'no prior-year comps · assuming flat'
-                : `${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(0)}% YoY`;
+            const growthLine = growthPct === null
+                ? 'No last-year numbers yet — assuming the same weekly pace.'
+                : `Adjusted for ${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(0)}% vs this time last year.`;
 
             stats.innerHTML = `
                 <div class="page-tabs page-tabs--segmented" style="margin-bottom:12px;">
@@ -502,19 +484,25 @@
                     <div class="stat-card"><p class="value" style="color:${pnl.net >= 0 ? '#60a5fa' : '#f87171'};">${fmtMoney(pnl.net)}</p><p class="label">Net</p></div>
                 </div>
 
-                <p class="section-title">Revenue forecast</p>
+                <p class="section-title">If this keeps up</p>
                 <div class="glass-card rounded-xl p-4 mb-3" style="display:grid;gap:14px;">
                     <div>
+                        <p class="money-sub" style="margin:0;">This week</p>
+                        <p style="font-size:22px;font-weight:800;margin:2px 0 8px;color:#e2e8f0;">${fmtMoney(fc.thisWeek)}</p>
+                        <p class="money-sub" style="margin:0;">Average so far</p>
+                        <p style="font-size:22px;font-weight:800;margin:2px 0 4px;color:#e2e8f0;">${fmtMoney(fc.avgWeekly)}<span style="font-size:13px;font-weight:600;color:#94a3b8;"> / week</span></p>
+                        <p class="money-sub" style="margin:0;">YTD ${fmtMoney(fc.ytd)} across ${fc.weeksSoFar} week${fc.weeksSoFar === 1 ? '' : 's'}</p>
+                    </div>
+                    <div style="border-top:1px solid var(--md-sys-color-outline-variant);padding-top:12px;">
                         <p class="money-sub" style="margin:0;">Est. revenue ${fc.year}</p>
                         <p style="font-size:28px;font-weight:800;margin:2px 0 4px;color:#34d399;">${fmtMoney(fc.estThisYear)}</p>
-                        <p class="money-sub" style="margin:0;">YTD ${fmtMoney(fc.ytd)} + booked ${fmtMoney(fc.bookedRest)}</p>
-                        <p class="money-sub" style="margin:4px 0 0;">Run-rate check: ${fmtMoney(fc.runRate)} (YTD ÷ ${fc.dayOfYear} days × ${fc.daysInYear})</p>
+                        <p class="money-sub" style="margin:0;">${fmtMoney(fc.avgWeekly)}/week × 52 weeks</p>
                     </div>
                     <div style="border-top:1px solid var(--md-sys-color-outline-variant);padding-top:12px;">
                         <p class="money-sub" style="margin:0;">Est. revenue ${fc.nextYear}</p>
                         <p style="font-size:28px;font-weight:800;margin:2px 0 4px;color:var(--md-sys-color-primary);">${fmtMoney(fc.estNextYear)}</p>
-                        <p class="money-sub" style="margin:0;">Trailing 12 mo ${fmtMoney(fc.ttm)} × (1 + growth)</p>
-                        <p class="money-sub" style="margin:4px 0 0;">Growth: ${esc(growthLabel)}${fc.priorYtd > 0 ? ` · last year to-date ${fmtMoney(fc.priorYtd)}` : ''}</p>
+                        <p class="money-sub" style="margin:0;">${fmtMoney(fc.avgWeekly)}/week × 52${fc.growth === null ? '' : ` × ${(1 + fc.growth).toFixed(2)} growth`}</p>
+                        <p class="money-sub" style="margin:4px 0 0;">${esc(growthLine)}</p>
                     </div>
                 </div>
             `;
