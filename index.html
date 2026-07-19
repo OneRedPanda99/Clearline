@@ -120,28 +120,6 @@
                 <div id="upcomingHomeList" class="glass-card" style="overflow: hidden; padding: 4px 12px;"></div>
             </div>
 
-            <!-- Performance (all-time totals) -->
-            <p class="section-title">All-time performance</p>
-            <div class="stats-grid stats-grid--4">
-                <div class="stat-card" role="button" tabindex="0" onclick="window.location.href='jobs.html?tab=all'" style="cursor:pointer;">
-                    <p class="value" style="color: #60a5fa;">$<span id="estimatedTotal">0</span></p>
-                    <p class="label">Pipeline</p>
-                </div>
-                <div class="stat-card" role="button" tabindex="0" onclick="window.location.href='jobs.html?tab=completed'" style="cursor:pointer;">
-                    <p class="value" style="color: #34d399;">$<span id="revenue">0</span></p>
-                    <p class="label">Collected</p>
-                </div>
-                <div class="stat-card" role="button" tabindex="0" onclick="window.location.href='jobs.html?tab=booked'" style="cursor:pointer;">
-                    <p class="value" style="color: #fbbf24;">$<span id="pending">0</span></p>
-                    <p class="label">Open</p>
-                </div>
-                <div class="stat-card" role="button" tabindex="0" onclick="window.location.href='jobs.html?tab=all'" style="cursor:pointer;">
-                    <p class="value" style="color: var(--md-sys-color-secondary);" id="statTotalJobs">0</p>
-                    <p class="label">Jobs</p>
-                </div>
-            </div>
-            <p style="font-size:10px;color:#64748b;text-align:center;margin:-8px 0 16px;"><span id="estimatedTotalCount">0</span> jobs in pipeline · all time</p>
-
             <a id="managerPanelTile" href="manager-panel.html" class="quick-btn hidden" style="margin-bottom:20px;">
                 <i class="fas fa-user-shield" style="color: #fbbf24;"></i>
                 <span>Manager Panel</span>
@@ -357,22 +335,6 @@
         // Load and display data
         function loadDashboard() {
             const jobs = CL_DATA.getJobs();
-
-            const completedRevenue = jobs
-                .filter(j => j.status === 'completed')
-                .reduce((sum, j) => sum + getJobDisplayTotal(j), 0);
-            const pendingRevenue = jobs
-                .filter(j => j.status === 'new' || j.status === 'scheduled')
-                .reduce((sum, j) => sum + getJobDisplayTotal(j), 0);
-
-            document.getElementById('revenue').textContent = completedRevenue.toFixed(0);
-            document.getElementById('pending').textContent = pendingRevenue.toFixed(0);
-
-            const estimatedTotal = jobs.reduce((sum, j) => sum + getJobDisplayTotal(j), 0);
-            document.getElementById('estimatedTotal').textContent = estimatedTotal.toFixed(0);
-            document.getElementById('estimatedTotalCount').textContent = jobs.length;
-            const tj = document.getElementById('statTotalJobs');
-            if (tj) tj.textContent = jobs.length;
 
             const today = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
             const fmtShort = (iso) => {
