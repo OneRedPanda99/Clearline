@@ -836,38 +836,53 @@ a.header-icon-btn {
 .coming-row {
     display: flex;
     gap: 12px;
-    align-items: stretch;
+    align-items: center;
     padding: 12px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .coming-row:last-child {
     border-bottom: none;
 }
-.coming-date {
-    width: 56px;
+.coming-nav {
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
     flex-shrink: 0;
-    background: rgba(46, 123, 255, 0.15);
-    border-radius: 10px;
-    display: flex;
-    flex-direction: column;
+    border-radius: var(--md-radius-md, 12px);
+    border: none;
+    background: var(--md-sys-color-primary, #4f8cff);
+    color: var(--md-sys-color-on-primary, #fff);
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 6px 4px;
-    font-size: 10px;
-    font-weight: 800;
-    line-height: 1.2;
-    color: #93c5fd;
-    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--md-sys-color-primary, #4f8cff) 35%, transparent);
+    transition: transform var(--md-duration-short, 120ms) var(--md-easing-standard, ease),
+                filter var(--md-duration-short, 120ms) var(--md-easing-standard, ease);
+}
+.coming-nav:active {
+    transform: scale(0.94);
+}
+.coming-nav i {
+    font-size: 16px;
+}
+.coming-nav--maps {
+    background: var(--md-sys-color-tertiary-container, #0f3d2c);
+    color: var(--md-sys-color-on-tertiary-container, #a7f3d0);
+    box-shadow: none;
 }
 .coming-main {
     flex: 1;
     min-width: 0;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    border-radius: 8px;
+    padding: 2px 0;
 }
 .coming-actions {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 6px;
+    display: none; /* status lives once under the name */
 }
 .btn-outline-amber,
 .btn-outline-blue {
@@ -2794,4 +2809,33 @@ a.bg-slate-800 {
 .md-divider,
 .border-t.border-slate-700 {
     border-color: var(--md-sys-color-outline-variant) !important;
+}
+
+/* Page enter / exit transitions (internal navigations via clNavigate) */
+@keyframes cl-page-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes cl-page-out {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(6px); }
+}
+.app-content {
+    animation: cl-page-in 220ms var(--md-easing-standard, cubic-bezier(0.2, 0, 0, 1)) both;
+}
+body.cl-page-exit .app-content,
+body.cl-page-exit .app-header,
+body.cl-page-exit .tab-bar,
+body.cl-page-exit .bottom-nav {
+    animation: cl-page-out 160ms var(--md-easing-standard, cubic-bezier(0.2, 0, 0, 1)) forwards;
+    pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    .app-content,
+    body.cl-page-exit .app-content,
+    body.cl-page-exit .app-header,
+    body.cl-page-exit .tab-bar,
+    body.cl-page-exit .bottom-nav {
+        animation: none !important;
+    }
 }

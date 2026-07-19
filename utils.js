@@ -446,3 +446,49 @@ window.CL_CONFIG = (function() {
     return { phone: '', phoneDisplay: '', email: '', name: 'Clearline', address: '', reviewUrl: '' };
   }
 })();
+
+/**
+ * Soft page transition for in-app navigations.
+ * External / tel / mailto links skip the exit animation.
+ */
+window.clNavigate = function(href, opts) {
+  if (!href) return;
+  const options = opts || {};
+  const raw = String(href);
+  const isHash = raw.charAt(0) === '#';
+  const isExternal = /^(https?:|tel:|mailto:|sms:)/i.test(raw)
+    || options.external
+    || options.blank
+    || /^\/\//.test(raw);
+  if (isHash) {
+    location.hash = raw;
+    return;
+  }
+  if (isExternal) {
+    if (options.blank || /^(https?:)/i.test(raw)) {
+      window.open(raw, '_blank', 'noopener');
+    } else {
+      location.href = raw;
+    }
+    return;
+  }
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || document.body.classList.contains('cl-page-exit')) {
+    location.href = raw;
+    return;
+  }
+  document.body.classList.add('cl-page-exit');
+  setTimeout(() => { location.href = raw; }, 170);
+};
+
+/** Mark same-app HTML links for animated navigation (opt-in via data-cl-nav). */
+document.addEventListener('click', function(e) {
+  const a = e.target.closest && e.target.closest('a[data-cl-nav]');
+  if (!a) return;
+  if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  if (a.target === '_blank') return;
+  const href = a.getAttribute('href');
+  if (!href || href.charAt(0) === '#') return;
+  e.preventDefault();
+  window.clNavigate(href);
+}, true);
