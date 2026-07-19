@@ -43,8 +43,22 @@
         <div class="content-wrapper">
             <p class="text-sm text-gray-400 mb-3" id="greeting">Loading...</p>
 
-            <p class="section-title mb-2">This Week</p>
-            <div id="weekList" class="space-y-2 mb-4"></div>
+            <div id="salesmanQuickAdd" class="hidden mb-4">
+                <p class="section-title mb-2">Quick Actions</p>
+                <div class="flex gap-2">
+                    <a href="customer-tracker.html?action=add" class="btn-primary" style="flex:1;width:auto;text-align:center;font-size:13px">
+                        <i class="fas fa-user-plus mr-1"></i>Add Customer
+                    </a>
+                    <a href="jobs.html?addLead=1" class="btn-primary" style="flex:1;width:auto;text-align:center;font-size:13px">
+                        <i class="fas fa-bullseye mr-1"></i>Add Lead
+                    </a>
+                </div>
+            </div>
+
+            <div id="weekSection">
+                <p class="section-title mb-2">This Week</p>
+                <div id="weekList" class="space-y-2 mb-4"></div>
+            </div>
 
             <div id="estimatorQuickAdd" class="hidden mb-4">
                 <p class="section-title mb-2">Quick Actions</p>
@@ -120,16 +134,24 @@
         function applyNav(profile) {
             const p = profile.permissions || {};
             const isEstimator = profile.workerType === 'estimator';
+            const isSalesman = profile.workerType === 'salesman';
 
             if (isEstimator) {
                 document.getElementById('estimatorQuickAdd').classList.remove('hidden');
                 if (p.canCreateJobs) document.getElementById('quickAddLink').classList.remove('hidden');
                 if (p.canUseEstimateForm) document.getElementById('estFormLink').classList.remove('hidden');
             }
+            if (isSalesman) {
+                // A salesman only creates customers/leads — they're rarely
+                // assigned to a job, so "This Week" is usually just noise.
+                document.getElementById('salesmanQuickAdd').classList.remove('hidden');
+                document.getElementById('weekSection').classList.add('hidden');
+            }
 
             // Quick-grid on page body. permission-based shortcuts.
             const items = [];
             if (isEstimator) items.push({ href: 'jobs.html', label: 'Jobs', icon: 'fa-briefcase', color: '#fb923c' });
+            if (isSalesman) items.push({ href: 'customer-tracker.html', label: 'Customers', icon: 'fa-users', color: '#34d399' });
             if (p.canViewCalendar) items.push({ href: 'calendar.html', label: 'Calendar', icon: 'fa-calendar-alt', color: 'var(--md-sys-color-secondary)' });
             if (p.canViewMap) items.push({ href: 'map.html', label: 'Map', icon: 'fa-map-marked-alt', color: '#f87171' });
             const grid = document.getElementById('navGrid');

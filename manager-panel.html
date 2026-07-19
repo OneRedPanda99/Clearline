@@ -166,7 +166,7 @@
         const PERMISSION_KEYS = [
             ['canCreateCustomers', 'Create customers'],
             ['canEditOwnCustomers', 'Edit own customers'],
-            ['canCreateJobs', 'Create jobs (Estimator only)'],
+            ['canCreateJobs', 'Create jobs / leads'],
             ['canAttachJobToCustomer', 'Attach job to customer'],
             ['canEditOwnJobs', 'Edit own jobs'],
             ['canUseEstimateForm', 'Use Estimate form'],
@@ -413,10 +413,12 @@
                     <div class="grid grid-cols-2 gap-2">
                         <div>
                             <label class="text-xs text-gray-400 block mb-1">Worker Type</label>
-                            <select id="uf-workerType" class="w-full p-3 rounded-lg edit-field" ${readOnlyFlags ? 'disabled' : ''}>
+                            <select id="uf-workerType" class="w-full p-3 rounded-lg edit-field" ${readOnlyFlags ? 'disabled' : ''} ${isCreate ? 'onchange="applyWorkerTypePermDefaults()"' : ''}>
                                 <option value="assigned" ${u.workerType === 'assigned' ? 'selected' : ''}>Assigned</option>
                                 <option value="estimator" ${u.workerType === 'estimator' ? 'selected' : ''}>Estimator</option>
+                                <option value="salesman" ${u.workerType === 'salesman' ? 'selected' : ''}>Salesman</option>
                             </select>
+                            ${u.workerType === 'salesman' || isCreate ? '<p class="text-[11px] text-gray-500 mt-1">Salesman: creates customers &amp; leads only — no job/pricing access needed. Grant "Create customers" + "Create jobs" below.</p>' : ''}
                         </div>
                         <div>
                             <label class="text-xs text-gray-400 block mb-1">Assigned Manager</label>
@@ -570,6 +572,20 @@
 
         function collectAssignedEquipment() {
             return [...document.querySelectorAll('#equipCheckList [data-equip]:checked')].map(cb => cb.getAttribute('data-equip'));
+        }
+
+        // Convenience default when creating a new Salesman: they need to
+        // create customers/leads but nothing else, so pre-check just those
+        // two permission boxes instead of making the Owner hunt for them.
+        // Only fires on create — never silently changes an existing worker's
+        // permissions just because their type field is touched.
+        function applyWorkerTypePermDefaults() {
+            const wt = document.getElementById('uf-workerType');
+            if (!wt || wt.value !== 'salesman') return;
+            ['canCreateCustomers', 'canCreateJobs'].forEach(key => {
+                const cb = document.querySelector(`[data-perm="${key}"]`);
+                if (cb) cb.checked = true;
+            });
         }
 
         async function submitUserForm() {
