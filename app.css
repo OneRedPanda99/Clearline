@@ -2221,13 +2221,31 @@ label.text-xs {
 
 /* Normalize shared buttons to M3 shape */
 .btn-danger {
+    width: 100%;
     min-height: var(--md-tap-target);
-    border-radius: var(--md-radius-full);
+    padding: var(--md-space-3) var(--md-space-5);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     background: var(--md-sys-color-error);
     color: var(--md-sys-color-on-error);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border: none;
+    border-radius: var(--md-radius-full);
+    cursor: pointer;
     box-shadow: none;
+    transition: background-color var(--md-duration-short) var(--md-easing-standard),
+                transform var(--md-duration-short) var(--md-easing-standard);
 }
 .btn-danger:hover { background: color-mix(in srgb, var(--md-sys-color-error) 88%, #000); }
+.btn-danger:active { transform: scale(0.98); }
+.btn-danger:focus-visible {
+    outline: 2px solid var(--md-sys-color-error);
+    outline-offset: 2px;
+}
 .btn-sm {
     min-height: 40px;
     padding: 8px 16px;
