@@ -248,9 +248,31 @@ const CL_FIREBASE = (function() {
             // guard against pullInProgress themselves — that guard used to
             // just drop the notification, which could leave a device
             // permanently unaware of a delete/update from another device.
-            db.collection('jobs').onSnapshot(() => {
-                syncFromCloud();
-            }, onSnapErr('jobs'));
+            //
+            // `jobs/{id}` reads are role-scoped in firestore.rules (a
+            // Manager/Worker can only read their own team's/assigned jobs).
+            // An unfiltered onSnapshot() can't be proven to satisfy that
+            // rule for every possible document, so Firestore rejects it
+            // outright with permission-denied for non-Owner roles. Mirror
+            // the same where() scoping _fetchJobsForRole() already uses for
+            // the one-shot fetch, just as real-time listeners instead.
+            const role = userProfile && userProfile.role;
+            const uid = currentUser.uid;
+            if (role === 'owner') {
+                db.collection('jobs').onSnapshot(() => {
+                    syncFromCloud();
+                }, onSnapErr('jobs'));
+            } else {
+                const field = role === 'manager' ? 'assignedManager' : 'assignedTo';
+                db.collection('jobs').where(field, '==', uid).onSnapshot(() => {
+                    syncFromCloud();
+                }, onSnapErr('jobs'));
+                db.collection('jobs').where('createdBy', '==', uid).onSnapshot(() => {
+                    syncFromCloud();
+                }, onSnapErr('jobs'));
+            }
+            // `customers` reads are `allow read: if signedIn()` — not
+            // resource-scoped, so an unfiltered listener is fine for any role.
             db.collection('customers').onSnapshot(() => {
                 syncFromCloud();
             }, onSnapErr('customers'));
