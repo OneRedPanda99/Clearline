@@ -1351,17 +1351,25 @@
                                 </div>
                             </div>
                         `).join('')}
-                        ${(job.documents.waivers || []).map((doc, i) => `
+                        ${(job.documents.waivers || []).map((doc, i) => {
+                            const waiverLabel = waiverDisplayName(doc, i);
+                            return `
                             <div class="m3-doc-row">
-                                <span class="text-sm truncate" style="color:var(--md-sys-color-on-tertiary-container)"><i class="fas fa-file-signature mr-1"></i>Waiver ${i + 1}</span>
-                                <a href="waiver.html?jobId=${encodeURIComponent(job.id)}" class="m3-doc-secondary">Open</a>
-                            </div>
-                        `).join('')}
+                                <button type="button" class="text-left min-w-0 flex-1 m3-tap" style="background:transparent;border:none;color:inherit;padding:0;" onclick="openWaiverPdf('${job.id}', '${doc.id}')">
+                                    <p class="text-sm font-semibold truncate" style="color:var(--md-sys-color-on-tertiary-container)"><i class="fas fa-file-signature mr-1"></i>${escapeHtml(waiverLabel)}</p>
+                                    <p class="text-[11px]" style="color:var(--md-sys-color-on-surface-variant)">Tap to open PDF</p>
+                                </button>
+                                <div class="flex items-center gap-1 flex-shrink-0">
+                                    <button type="button" class="m3-doc-primary" onclick="openWaiverPdf('${job.id}', '${doc.id}')">Open</button>
+                                    <button type="button" class="m3-doc-secondary" style="color:var(--md-sys-color-error);" onclick="deleteDocument('${job.id}', 'waivers', '${doc.id}')">Delete</button>
+                                </div>
+                            </div>`;
+                        }).join('')}
                     </div>
                 </div>
             ` : `
                 <div class="glass-card rounded-xl p-3 text-center text-sm" style="color:var(--md-sys-color-on-surface-variant)">
-                    <p>No estimates or invoices yet</p>
+                    <p>No documents yet</p>
                 </div>
             `;
 
@@ -1533,6 +1541,27 @@
             qp.set('view', '1');
             if (mode === 'invoice') qp.set('mode', 'invoice');
             window.location.href = 'estimate.html?' + qp.toString();
+        };
+
+        /** Stable display name for a saved waiver doc. */
+        function waiverDisplayName(doc, index) {
+            if (doc && doc.name) return doc.name;
+            const raw = (doc && doc.customerName) || 'Customer';
+            const namePart = String(raw).trim().replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 36) || 'Customer';
+            let d = doc && doc.waiverDate ? new Date(doc.waiverDate + 'T12:00:00') : (doc && doc.createdAt ? new Date(doc.createdAt) : new Date());
+            if (isNaN(d.getTime())) d = new Date();
+            const stamp = `${d.getMonth() + 1}${d.getDate()}${d.getFullYear()}`;
+            return `Waiver_${namePart}_${stamp}` || (`Waiver_${(index || 0) + 1}`);
+        }
+
+        /** Open a saved waiver as a PDF (view page generates/opens PDF). */
+        window.openWaiverPdf = function(jobId, docId) {
+            if (!jobId || !docId) return;
+            const qp = new URLSearchParams();
+            qp.set('jobId', jobId);
+            qp.set('docId', docId);
+            qp.set('view', '1');
+            window.location.href = 'waiver.html?' + qp.toString();
         };
 
         // ── Edit Job ────────────────────────────────────────────
@@ -2380,10 +2409,15 @@
             if (idx < 0) { showToast('Document not found', 'error'); return; }
             job.documents[docType].splice(idx, 1);
             CL_DATA.updateJob(job.id, { documents: job.documents });
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
             loadData();
-            closeDocumentModal();
             showToast('Document deleted');
+            if (typeof closeDocumentModal === 'function') {
+                try { closeDocumentModal(); } catch (e) { /* optional modal */ }
+            }
+            openJobModal(jobId);
         }
+        window.deleteDocument = deleteDocument;
 
         // Refresh on visibility
         document.addEventListener('visibilitychange', () => {

@@ -12,310 +12,312 @@
     <script src="firebase-sync.js?v=4"></script>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="app.css?v=6">
+    <link rel="stylesheet" href="app.css?v=9">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
-            font-family: Arial, sans-serif;
-            background: white;
-            color: black;
-            padding: 0;
+            background: #0f1115;
+            color: #e2e8f0;
             line-height: 1.4;
         }
-        
+
         .main-content {
-            padding: 16px 20px 90px;
-        }
-        
-        .container {
-            max-width: 900px;
+            padding: 12px 12px 110px;
+            max-width: 820px;
             margin: 0 auto;
+        }
+
+        .waiver-sheet {
+            background: #fff;
+            color: #111;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+        }
+
+        .waiver-content {
+            padding: 22px 20px 18px;
+            font-size: 12px;
+        }
+
+        .waiver-header {
+            text-align: center;
+            border-bottom: 2px solid #111;
+            padding-bottom: 14px;
+            margin-bottom: 18px;
+        }
+
+        .waiver-header h1 {
+            font-size: 22px;
+            margin-bottom: 4px;
+            color: #111;
+        }
+
+        .waiver-header h2 {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            color: #333;
+        }
+
+        .waiver-parties {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 30px;
+            gap: 16px;
+            margin-bottom: 18px;
         }
-        
-        .input-section {
-            border: 1px solid black;
-            padding: 20px;
+
+        .waiver-party h3 {
+            font-size: 11px;
+            border-bottom: 1px solid #111;
+            padding-bottom: 5px;
+            margin-bottom: 8px;
+            letter-spacing: 0.04em;
         }
-        
-        .input-section h2 {
-            border-bottom: 2px solid black;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            font-size: 16px;
+
+        .waiver-party p {
+            margin: 3px 0;
+            font-size: 12px;
+            color: #222;
         }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-            font-size: 14px;
-        }
-        
-        .form-group input, .form-group select, .form-group textarea {
+
+        .waiver-field {
             width: 100%;
+            border: none;
+            border-bottom: 1px solid #94a3b8;
+            background: transparent;
+            color: #111;
+            font: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 4px 2px;
+            border-radius: 0;
+            outline: none;
+        }
+
+        .waiver-field:focus {
+            border-bottom-color: #2563eb;
+            background: rgba(37, 99, 235, 0.06);
+        }
+
+        textarea.waiver-field {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
             padding: 8px;
-            border: 1px solid black;
-            font-size: 14px;
-            font-family: Arial, sans-serif;
-        }
-        
-        .form-group textarea {
+            font-weight: 500;
+            min-height: 52px;
             resize: vertical;
-            height: 60px;
+            line-height: 1.35;
         }
-        
-        .signature-container {
-            border: 2px solid black;
-            background: #f9f9f9;
-            margin-bottom: 15px;
-        }
-        
-        .signature-canvas {
-            width: 100%;
-            height: 120px;
-            cursor: crosshair;
-            touch-action: none;
+
+        .waiver-field-label {
             display: block;
+            font-size: 10px;
+            color: #64748b;
+            margin-top: 2px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
-        
-        .signature-label {
+
+        .waiver-text {
+            margin-bottom: 16px;
+        }
+
+        .waiver-text h3 {
+            font-size: 13px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 4px;
+            color: #111;
+        }
+
+        .waiver-text p,
+        .waiver-text li {
+            margin-bottom: 8px;
+            text-align: justify;
+            font-size: 11px;
+            line-height: 1.5;
+            color: #222;
+        }
+
+        .waiver-text ul {
+            margin: 8px 0;
+            padding-left: 18px;
+        }
+
+        .signature-pad {
+            border: 2px solid #111;
+            background: #f8fafc;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .signature-pad-head {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 8px;
-            background: #eee;
-            border-bottom: 1px solid black;
+            padding: 8px 10px;
+            background: #e2e8f0;
+            border-bottom: 1px solid #111;
+            font-size: 12px;
+            font-weight: 700;
+            color: #111;
         }
-        
+
         .clear-sig-btn {
-            background: #dc3545;
-            color: white;
+            background: #dc2626;
+            color: #fff;
             border: none;
             padding: 5px 10px;
             cursor: pointer;
             font-size: 12px;
+            border-radius: 6px;
         }
-        
-        .calc-button {
+
+        .signature-canvas {
             width: 100%;
-            background: black;
-            color: white;
-            border: none;
-            padding: 12px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        
-        .calc-button:hover {
-            background: #333;
-        }
-        
-        .save-btn {
-            width: 100%;
-            background: #10b981;
-            color: white;
-            border: none;
-            padding: 12px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        
-        .save-btn:hover {
-            background: #059669;
-        }
-        
-        .results-section {
-            border: 1px solid black;
-            min-height: 500px;
-        }
-        
-        .waiver-content {
-            padding: 30px;
-            font-size: 12px;
-        }
-        
-        .waiver-header {
-            text-align: center;
-            border-bottom: 2px solid black;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .waiver-header h1 {
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-        
-        .waiver-header h2 {
-            font-size: 16px;
-            font-weight: normal;
-        }
-        
-        .waiver-parties {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .waiver-party h3 {
-            font-size: 12px;
-            border-bottom: 1px solid black;
-            padding-bottom: 5px;
-            margin-bottom: 8px;
-        }
-        
-        .waiver-party p {
-            margin: 3px 0;
-            font-size: 12px;
-        }
-        
-        .waiver-text {
-            margin-bottom: 20px;
-        }
-        
-        .waiver-text h3 {
-            font-size: 14px;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #ccc;
-            padding-bottom: 5px;
-        }
-        
-        .waiver-text p {
-            margin-bottom: 10px;
-            text-align: justify;
-            font-size: 11px;
-            line-height: 1.5;
-        }
-        
-        .waiver-text ul {
-            margin: 10px 0;
-            padding-left: 20px;
-        }
-        
-        .waiver-text li {
-            margin-bottom: 5px;
-            font-size: 11px;
-        }
-        
-        .signature-display {
-            margin-top: 30px;
-            border-top: 2px solid black;
-            padding-top: 20px;
-        }
-        
-        .signature-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 30px;
-            margin-bottom: 20px;
-        }
-        
-        .signature-line {
-            border-bottom: 1px solid black;
-            min-height: 50px;
-            position: relative;
-        }
-        
-        .signature-line img {
-            max-height: 45px;
-            position: absolute;
-            bottom: 5px;
-        }
-        
-        .signature-line span {
+            height: 180px;
+            cursor: crosshair;
+            touch-action: none;
             display: block;
-            font-size: 10px;
-            color: #666;
-            margin-top: 5px;
+            background: #fff;
         }
-        
-        .date-line {
-            border-bottom: 1px solid black;
-            padding-bottom: 5px;
-            font-size: 14px;
-        }
-        
-        .date-line span {
+
+        .signature-view-img {
             display: block;
-            font-size: 10px;
-            color: #666;
-            margin-top: 5px;
+            max-width: 100%;
+            max-height: 160px;
+            margin: 8px 0;
         }
-        
-        .share-buttons {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 15px;
-        }
-        
-        .share-btn {
-            padding: 10px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
+
+        .waiver-actions {
             display: flex;
             align-items: center;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .waiver-save-btn {
+            flex: 1;
+            min-height: 48px;
+            background: #059669;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             gap: 8px;
-            font-size: 14px;
         }
-        
-        .share-btn.download {
-            background: black;
-            color: white;
+
+        .waiver-save-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
         }
-        
-        .share-btn:hover {
-            opacity: 0.9;
+
+        .waiver-share-btn {
+            width: 48px;
+            height: 48px;
+            flex-shrink: 0;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 23, 42, 0.2);
+            background: #0f172a;
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
         }
-        
-        @media (max-width: 800px) {
-            .container {
+
+        .waiver-status {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #94a3b8;
+        }
+
+        .view-toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .view-toolbar a,
+        .view-toolbar button {
+            min-height: 40px;
+            padding: 0 12px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 650;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .view-toolbar .vt-back { background: #334155; color: #e2e8f0; }
+        .view-toolbar .vt-print { background: #0f3d2c; color: #a7f3d0; }
+
+        .view-only .waiver-field,
+        .view-only .clear-sig-btn,
+        .view-only .signature-pad-head button {
+            pointer-events: none;
+        }
+
+        @media (max-width: 700px) {
+            .waiver-parties {
                 grid-template-columns: 1fr;
             }
+            .signature-canvas {
+                height: 160px;
+            }
         }
-        
+
         @media print {
-            .tab-bar, nav.tab-bar, .app-header, header {
+            .tab-bar, nav.tab-bar, .app-header, header,
+            .waiver-actions, .view-toolbar, .waiver-status,
+            .clear-sig-btn, .no-print {
                 display: none !important;
-            }
-            .input-section, .share-buttons, button:not(.print-include) {
-                display: none !important;
-            }
-            .results-section {
-                display: block !important;
-                border: none !important;
-                width: 100% !important;
             }
             body {
                 background: #fff !important;
-                padding: 0 !important;
+                color: #000 !important;
             }
-            .container {
-                grid-template-columns: 1fr !important;
+            .main-content {
+                padding: 0 !important;
+                max-width: none !important;
+            }
+            .waiver-sheet {
+                border: none !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
             }
             .waiver-content {
                 padding: 10mm !important;
+            }
+            .waiver-field, textarea.waiver-field {
+                border: none !important;
+                background: transparent !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+            }
+            .signature-pad {
+                border: none !important;
+                background: transparent !important;
+            }
+            .signature-pad-head {
+                display: none !important;
             }
             @page {
                 size: letter portrait;
@@ -327,125 +329,207 @@
 <body>
     <header class="app-header">
         <div class="app-header-inner">
-            <a href="jobs.html" class="header-btn header-btn-left">
+            <a href="jobs.html" class="header-btn header-btn-left" id="headerBack">
                 <i class="fas fa-chevron-left"></i>
             </a>
-            <h1>Service Waiver</h1>
+            <h1 id="pageTitle">Service Waiver</h1>
         </div>
     </header>
-    
+
     <main class="app-content">
         <div class="main-content">
-            <div class="container">
-                <div class="input-section">
-                    <h2>LIABILITY WAIVER FORM</h2>
-                    
-                    <form id="waiverForm">
-                        <div class="form-group">
-                            <label for="customerName">Customer Name:</label>
-                            <input type="text" id="customerName" placeholder="Full legal name" required>
+            <div class="view-toolbar no-print" id="viewToolbar" hidden>
+                <a class="vt-back" id="viewBackBtn" href="jobs.html"><i class="fas fa-arrow-left"></i> Job</a>
+                <button type="button" class="vt-print" onclick="openWaiverPdf()"><i class="fas fa-file-pdf"></i> Open PDF</button>
+            </div>
+
+            <div class="waiver-sheet" id="waiverSheet">
+                <div id="waiverPreview" class="waiver-content">
+                    <div class="waiver-header">
+                        <h1 id="bizName">Clearline</h1>
+                        <h2>SERVICE LIABILITY WAIVER</h2>
+                    </div>
+
+                    <div class="waiver-parties">
+                        <div class="waiver-party">
+                            <h3>SERVICE PROVIDER</h3>
+                            <p><strong id="bizNameSide">Clearline</strong></p>
+                            <p id="bizPhoneLine" hidden></p>
+                            <p id="bizEmailLine" hidden></p>
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="customerAddress">Property Address:</label>
-                            <textarea id="customerAddress" placeholder="Service address"></textarea>
+                        <div class="waiver-party">
+                            <h3>CUSTOMER</h3>
+                            <input type="text" id="customerName" class="waiver-field" placeholder="Customer full name" autocomplete="name">
+                            <span class="waiver-field-label">Name</span>
+                            <textarea id="customerAddress" class="waiver-field" placeholder="Property address" rows="2"></textarea>
+                            <span class="waiver-field-label">Address</span>
+                            <input type="tel" id="customerPhone" class="waiver-field" placeholder="Phone number" autocomplete="tel">
+                            <span class="waiver-field-label">Phone</span>
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="customerPhone">Phone Number:</label>
-                            <input type="tel" id="customerPhone" placeholder="Contact number">
+                    </div>
+
+                    <div class="waiver-text">
+                        <h3>SERVICE DESCRIPTION</h3>
+                        <textarea id="serviceDescription" class="waiver-field" placeholder="Describe services to be performed" rows="2"></textarea>
+                    </div>
+
+                    <div class="waiver-text">
+                        <h3>TERMS AND CONDITIONS</h3>
+                        <p>By signing this waiver, the Customer acknowledges and agrees to the following:</p>
+                        <ul>
+                            <li><strong>Assumption of Risk:</strong> Customer understands that pressure washing and related services involve inherent risks including but not limited to potential water damage, surface damage, and property damage.</li>
+                            <li><strong>Pre-existing Conditions:</strong> Customer acknowledges that the Service Provider is not responsible for any pre-existing damage, deterioration, loose paint, unstable surfaces, or conditions that may be revealed or affected by the cleaning process.</li>
+                            <li><strong>Property Access:</strong> Customer grants permission for the Service Provider to access the property and perform the agreed-upon services.</li>
+                            <li><strong>Liability Waiver:</strong> Customer releases and holds harmless the Service Provider from any claims, damages, or liability arising from the services performed, except in cases of gross negligence.</li>
+                            <li><strong>Payment:</strong> Customer agrees to pay for services rendered as quoted or invoiced.</li>
+                        </ul>
+                    </div>
+
+                    <div class="waiver-text">
+                        <h3>ACKNOWLEDGMENT</h3>
+                        <p>I, <strong id="ackName">________________</strong>, have read and understand this liability waiver. I agree to its terms and acknowledge that I am signing this document voluntarily.</p>
+                    </div>
+
+                    <div class="waiver-text">
+                        <h3>SIGNATURE</h3>
+                        <div class="grid grid-cols-1 gap-3" style="display:grid;grid-template-columns:1fr;gap:12px;">
+                            <div>
+                                <label class="waiver-field-label" for="waiverDate" style="margin-top:0;">Date</label>
+                                <input type="date" id="waiverDate" class="waiver-field" required>
+                            </div>
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="serviceDescription">Service Description:</label>
-                            <textarea id="serviceDescription" placeholder="Describe services to be performed"></textarea>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="waiverDate">Date:</label>
-                            <input type="date" id="waiverDate" required>
-                        </div>
-                        
-                        <div class="signature-container">
-                            <div class="signature-label">
-                                <span><strong>Customer Signature</strong></span>
+
+                        <div id="signatureLive" class="signature-pad no-print-chrome">
+                            <div class="signature-pad-head no-print">
+                                <span>Customer signature</span>
                                 <button type="button" class="clear-sig-btn" onclick="clearSignature()">Clear</button>
                             </div>
-                            <canvas id="signatureCanvas" class="signature-canvas"></canvas>
+                            <canvas id="signatureCanvas" class="signature-canvas" aria-label="Customer signature pad"></canvas>
                         </div>
-                        
-                        <button type="button" class="calc-button" onclick="renderWaiverPreview(false)">
-                            <i class="fas fa-file-signature" style="margin-right: 8px;"></i>Refresh Waiver Preview
-                        </button>
-                        
-                        <button type="button" class="save-btn" onclick="saveToJob()" id="saveBtn">
-                            <i class="fas fa-save" style="margin-right: 8px;"></i>Sign & Save to Job
-                        </button>
-                        <div id="waiverStatus" style="margin-top:10px;font-size:13px;color:#334155;"></div>
-                    </form>
-                </div>
-                
-                <div class="results-section">
-                    <div id="waiverPreview" class="waiver-content">
-                        <div style="text-align: center; color: #666; padding: 50px;">
-                            <i class="fas fa-file-signature" style="font-size: 48px; margin-bottom: 15px;"></i>
-                            <p>Fill out customer details to preview the waiver. Customer reviews first, then signs.</p>
+                        <div id="signatureSaved" hidden>
+                            <img id="signatureSavedImg" class="signature-view-img" alt="Customer signature">
+                            <span class="waiver-field-label">Customer signature</span>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <div class="waiver-actions no-print" id="editActions">
+                <button type="button" class="waiver-save-btn" id="saveBtn" onclick="saveToJob()">
+                    <i class="fas fa-file-signature"></i>
+                    Sign &amp; Save to Job
+                </button>
+                <button type="button" class="waiver-share-btn" id="shareBtn" onclick="shareOrPrintWaiver()" title="Print / Save as PDF" aria-label="Print or save as PDF">
+                    <i class="fas fa-share-alt"></i>
+                </button>
+            </div>
+            <div id="waiverStatus" class="waiver-status no-print"></div>
         </div>
     </main>
 
-    <!-- Bottom Tab Bar -->
-    <nav class="tab-bar">
+    <nav class="tab-bar no-print">
         <div class="tab-bar-inner">
-            <a href="index.html" class="tab-item">
-                <i class="fas fa-home"></i>
-                <span>Home</span>
-            </a>
-            <a href="jobs.html" class="tab-item">
-                <i class="fas fa-briefcase"></i>
-                <span>Jobs</span>
-            </a>
-            <a href="calendar.html" class="tab-item">
-                <i class="fas fa-calendar-alt"></i>
-                <span>Calendar</span>
-            </a>
-            <a href="customer-tracker.html" class="tab-item">
-                <i class="fas fa-users"></i>
-                <span>Customers</span>
-            </a>
-            <a href="more.html" class="tab-item">
-                <i class="fas fa-ellipsis-h"></i>
-                <span>More</span>
-            </a>
+            <a href="index.html" class="tab-item"><i class="fas fa-home"></i><span>Home</span></a>
+            <a href="jobs.html" class="tab-item"><i class="fas fa-briefcase"></i><span>Jobs</span></a>
+            <a href="calendar.html" class="tab-item"><i class="fas fa-calendar-alt"></i><span>Calendar</span></a>
+            <a href="customer-tracker.html" class="tab-item"><i class="fas fa-users"></i><span>Customers</span></a>
+            <a href="more.html" class="tab-item"><i class="fas fa-ellipsis-h"></i><span>More</span></a>
         </div>
     </nav>
 
     <script>
-        // Get job ID from URL if present
         const urlParams = new URLSearchParams(window.location.search);
         const jobId = urlParams.get('jobId');
+        const docId = urlParams.get('docId');
+        const viewMode = urlParams.get('view') === '1';
         let currentJob = null;
-        
-        // Signature canvas setup
+        let currentWaiverDoc = null;
+
         const canvas = document.getElementById('signatureCanvas');
         const ctx = canvas.getContext('2d');
         let isDrawing = false;
         let lastX = 0;
         let lastY = 0;
-        
+
+        function escapeHtml(str) {
+            return String(str == null ? '' : str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function getBusinessInfo() {
+            try {
+                const settings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
+                return {
+                    name: settings.businessName || 'Clearline',
+                    phone: settings.businessPhone || '',
+                    email: settings.businessEmail || ''
+                };
+            } catch (e) {
+                return { name: 'Clearline', phone: '', email: '' };
+            }
+        }
+
+        function setWaiverStatus(message, isError = false) {
+            const el = document.getElementById('waiverStatus');
+            if (!el) return;
+            el.textContent = message || '';
+            el.style.color = isError ? '#fca5a5' : '#6ee7b7';
+        }
+
+        function syncAckName() {
+            const name = document.getElementById('customerName').value.trim();
+            document.getElementById('ackName').textContent = name || '________________';
+        }
+
+        function applyBusinessHeader() {
+            const business = getBusinessInfo();
+            document.getElementById('bizName').textContent = business.name;
+            document.getElementById('bizNameSide').textContent = business.name;
+            const phoneLine = document.getElementById('bizPhoneLine');
+            const emailLine = document.getElementById('bizEmailLine');
+            if (business.phone) {
+                phoneLine.hidden = false;
+                phoneLine.textContent = 'Phone: ' + business.phone;
+            } else {
+                phoneLine.hidden = true;
+            }
+            if (business.email) {
+                emailLine.hidden = false;
+                emailLine.textContent = 'Email: ' + business.email;
+            } else {
+                emailLine.hidden = true;
+            }
+        }
+
+        /** Waiver_Beverly_Johnston_7192026 */
+        function buildWaiverName(customerName, dateStr) {
+            const raw = String(customerName || 'Customer').trim() || 'Customer';
+            const namePart = raw
+                .replace(/[^a-zA-Z0-9]+/g, '_')
+                .replace(/^_+|_+$/g, '')
+                .slice(0, 36) || 'Customer';
+            let d = dateStr ? new Date(dateStr + 'T12:00:00') : new Date();
+            if (isNaN(d.getTime())) d = new Date();
+            const stamp = `${d.getMonth() + 1}${d.getDate()}${d.getFullYear()}`;
+            return `Waiver_${namePart}_${stamp}`;
+        }
+
         function initCanvas() {
+            if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width;
-            canvas.height = rect.height;
+            const w = Math.max(280, Math.floor(rect.width));
+            const h = Math.max(140, Math.floor(rect.height));
+            canvas.width = w;
+            canvas.height = h;
             ctx.strokeStyle = '#000';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2.25;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
         }
-        
+
         function getPos(e) {
             const rect = canvas.getBoundingClientRect();
             const touch = e.touches ? e.touches[0] : e;
@@ -454,16 +538,17 @@
                 y: (touch.clientY - rect.top) * (canvas.height / rect.height)
             };
         }
-        
+
         function startDrawing(e) {
+            if (viewMode) return;
             isDrawing = true;
             const pos = getPos(e);
             lastX = pos.x;
             lastY = pos.y;
         }
-        
+
         function draw(e) {
-            if (!isDrawing) return;
+            if (!isDrawing || viewMode) return;
             e.preventDefault();
             const pos = getPos(e);
             ctx.beginPath();
@@ -473,11 +558,11 @@
             lastX = pos.x;
             lastY = pos.y;
         }
-        
+
         function stopDrawing() {
             isDrawing = false;
         }
-        
+
         canvas.addEventListener('mousedown', startDrawing);
         canvas.addEventListener('mousemove', draw);
         canvas.addEventListener('mouseup', stopDrawing);
@@ -485,236 +570,283 @@
         canvas.addEventListener('touchstart', startDrawing, { passive: false });
         canvas.addEventListener('touchmove', draw, { passive: false });
         canvas.addEventListener('touchend', stopDrawing);
-        
+
         function clearSignature() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
-        
+
         function getSignatureImage() {
-            // Check if canvas has content
             const pixelData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
             const hasContent = pixelData.some((val, i) => i % 4 === 3 && val > 0);
             return hasContent ? canvas.toDataURL('image/png') : null;
         }
-        
-        function getBusinessInfo() {
-            const settings = JSON.parse(localStorage.getItem('cl-settings') || '{}');
-            return {
-                name: settings.businessName || 'Clearline',
-                phone: settings.businessPhone || '',
-                email: settings.businessEmail || ''
-            };
-        }
 
-        function setWaiverStatus(message, isError = false) {
-            const el = document.getElementById('waiverStatus');
-            if (!el) return;
-            el.textContent = message || '';
-            el.style.color = isError ? '#b91c1c' : '#065f46';
-        }
-        
-        function renderWaiverPreview(includeSignature = false) {
-            const business = getBusinessInfo();
-            const customerName = document.getElementById('customerName').value.trim();
-            const customerAddress = document.getElementById('customerAddress').value.trim();
-            const customerPhone = document.getElementById('customerPhone').value.trim();
-            const serviceDescription = document.getElementById('serviceDescription').value.trim();
-            const waiverDate = document.getElementById('waiverDate').value;
-            const signatureImg = includeSignature ? getSignatureImage() : null;
-            
-            const formattedDate = waiverDate ? new Date(waiverDate + 'T12:00:00').toLocaleDateString('en-US', {
-                year: 'numeric', month: 'long', day: 'numeric'
-            }) : new Date().toLocaleDateString('en-US', {
-                year: 'numeric', month: 'long', day: 'numeric'
-            });
-            
-            document.getElementById('waiverPreview').innerHTML = `
-                <div class="waiver-header">
-                    <h1>${business.name}</h1>
-                    <h2>SERVICE LIABILITY WAIVER</h2>
-                </div>
-                
-                <div class="waiver-parties">
-                    <div class="waiver-party">
-                        <h3>SERVICE PROVIDER</h3>
-                        <p><strong>${business.name}</strong></p>
-                        ${business.phone ? `<p>Phone: ${business.phone}</p>` : ''}
-                        ${business.email ? `<p>Email: ${business.email}</p>` : ''}
-                    </div>
-                    <div class="waiver-party">
-                        <h3>CUSTOMER</h3>
-                        <p><strong>${customerName}</strong></p>
-                        ${customerAddress ? `<p>${customerAddress.replace(/\n/g, '<br>')}</p>` : ''}
-                        ${customerPhone ? `<p>Phone: ${customerPhone}</p>` : ''}
-                    </div>
-                </div>
-                
-                ${serviceDescription ? `
-                <div class="waiver-text">
-                    <h3>SERVICE DESCRIPTION</h3>
-                    <p>${serviceDescription}</p>
-                </div>
-                ` : ''}
-                
-                <div class="waiver-text">
-                    <h3>TERMS AND CONDITIONS</h3>
-                    <p>By signing this waiver, the Customer acknowledges and agrees to the following:</p>
-                    <ul>
-                        <li><strong>Assumption of Risk:</strong> Customer understands that pressure washing and related services involve inherent risks including but not limited to potential water damage, surface damage, and property damage.</li>
-                        <li><strong>Pre-existing Conditions:</strong> Customer acknowledges that the Service Provider is not responsible for any pre-existing damage, deterioration, loose paint, unstable surfaces, or conditions that may be revealed or affected by the cleaning process.</li>
-                        <li><strong>Property Access:</strong> Customer grants permission for the Service Provider to access the property and perform the agreed-upon services.</li>
-                        <li><strong>Liability Waiver:</strong> Customer releases and holds harmless the Service Provider from any claims, damages, or liability arising from the services performed, except in cases of gross negligence.</li>
-                        <li><strong>Payment:</strong> Customer agrees to pay for services rendered as quoted or invoiced.</li>
-                    </ul>
-                </div>
-                
-                <div class="waiver-text">
-                    <h3>ACKNOWLEDGMENT</h3>
-                    <p>I, <strong>${customerName || '________________'}</strong>, have read and understand this liability waiver. I agree to its terms and acknowledge that I am signing this document voluntarily.</p>
-                </div>
-                <div style="background:#eff6ff;border:1px solid #bfdbfe;padding:10px;border-radius:6px;margin-top:12px;">
-                    <strong>Flow:</strong> Customer reads this waiver first, then signs in the signature box. Tap <em>Sign & Save to Job</em> to attach signature.
-                </div>
-                
-                <div class="signature-display">
-                    <div class="signature-row">
-                        <div>
-                            <div class="signature-line">
-                                ${signatureImg ? `<img src="${signatureImg}" alt="Customer Signature">` : ''}
-                            </div>
-                            <span>Customer Signature</span>
-                        </div>
-                        <div>
-                            <div class="date-line">${formattedDate}</div>
-                            <span>Date</span>
-                        </div>
-                    </div>
-                    <p style="font-size: 10px; color: #666; margin-top: 15px; text-align: center;">
-                        Document generated on ${new Date().toLocaleString()}
-                    </p>
-                </div>
-                
-                <div class="share-buttons">
-                    <button class="share-btn download" onclick="window.print()">
-                        <i class="fas fa-print"></i> Print / Save PDF
-                    </button>
-                </div>
-            `;
-            
-        }
-
-        function generateWaiver() {
-            renderWaiverPreview(false);
-        }
-        
-        async function saveToJob() {
-            if (!jobId) {
-                setWaiverStatus('No job is linked to this waiver screen.', true);
-                return;
-            }
-            const signatureImg = getSignatureImage();
-            if (!signatureImg) {
-                setWaiverStatus('Have the customer sign in the signature box, then save.', true);
-                return;
-            }
-            if (!document.getElementById('customerName').value.trim()) {
-                setWaiverStatus('Enter customer name before saving.', true);
-                return;
-            }
-            // Ensure preview includes the latest signature before capture.
-            renderWaiverPreview(true);
-            setWaiverStatus('Saving signed waiver to this job...');
-            
+        async function captureWaiverImage() {
             const preview = document.getElementById('waiverPreview');
-            
+            const actions = document.getElementById('editActions');
+            const padHead = preview.querySelector('.signature-pad-head');
+            if (actions) actions.style.visibility = 'hidden';
+            if (padHead) padHead.style.visibility = 'hidden';
             try {
-                // Generate image of the waiver
-                const canvas = await html2canvas(preview, {
+                return await html2canvas(preview, {
                     scale: 2,
                     useCORS: true,
                     backgroundColor: '#ffffff'
                 });
-                
-                const pdfDataUrl = canvas.toDataURL('image/png');
-                
-                // Get waiver data
+            } finally {
+                if (actions) actions.style.visibility = '';
+                if (padHead) padHead.style.visibility = '';
+            }
+        }
+
+        async function buildPdfFromCanvas(canvasEl, fileName) {
+            const { jsPDF } = window.jspdf || {};
+            if (!jsPDF) throw new Error('PDF library missing');
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+            const pageW = pdf.internal.pageSize.getWidth();
+            const pageH = pdf.internal.pageSize.getHeight();
+            const margin = 28;
+            const maxW = pageW - margin * 2;
+            const maxH = pageH - margin * 2;
+            const ratio = Math.min(maxW / canvasEl.width, maxH / canvasEl.height);
+            const w = canvasEl.width * ratio;
+            const h = canvasEl.height * ratio;
+            const x = (pageW - w) / 2;
+            const y = margin;
+            const img = canvasEl.toDataURL('image/jpeg', 0.92);
+            pdf.addImage(img, 'JPEG', x, y, w, h);
+            return { pdf, fileName: (fileName || 'Waiver') + '.pdf' };
+        }
+
+        async function buildPdfFromDataUrl(dataUrl, fileName) {
+            const { jsPDF } = window.jspdf || {};
+            if (!jsPDF) throw new Error('PDF library missing');
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+            const pageW = pdf.internal.pageSize.getWidth();
+            const pageH = pdf.internal.pageSize.getHeight();
+            const margin = 28;
+            const maxW = pageW - margin * 2;
+            const maxH = pageH - margin * 2;
+
+            const img = new Image();
+            img.src = dataUrl;
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+            });
+            const ratio = Math.min(maxW / img.width, maxH / img.height);
+            const w = img.width * ratio;
+            const h = img.height * ratio;
+            const x = (pageW - w) / 2;
+            pdf.addImage(dataUrl, 'PNG', x, margin, w, h);
+            return { pdf, fileName: (fileName || 'Waiver') + '.pdf' };
+        }
+
+        async function openWaiverPdf() {
+            try {
+                setWaiverStatus('Opening PDF...');
+                let built;
+                if (currentWaiverDoc && currentWaiverDoc.pdfDataUrl) {
+                    built = await buildPdfFromDataUrl(
+                        currentWaiverDoc.pdfDataUrl,
+                        currentWaiverDoc.name || buildWaiverName(currentWaiverDoc.customerName, currentWaiverDoc.waiverDate)
+                    );
+                } else {
+                    const shot = await captureWaiverImage();
+                    built = await buildPdfFromCanvas(
+                        shot,
+                        buildWaiverName(
+                            document.getElementById('customerName').value,
+                            document.getElementById('waiverDate').value
+                        )
+                    );
+                }
+                const blob = built.pdf.output('blob');
+                const url = URL.createObjectURL(blob);
+                const sheet = document.getElementById('waiverSheet');
+                sheet.innerHTML = `<iframe title="${escapeHtml(built.fileName)}" src="${url}" style="width:100%;min-height:75vh;height:75vh;border:none;background:#fff;"></iframe>`;
+                setWaiverStatus(built.fileName);
+                // Keep a download/open-in-tab fallback on the toolbar button label path
+                const printBtn = document.querySelector('#viewToolbar .vt-print');
+                if (printBtn) {
+                    printBtn.onclick = () => window.open(url, '_blank');
+                    printBtn.innerHTML = '<i class="fas fa-up-right-from-square"></i> Open in tab';
+                }
+            } catch (err) {
+                console.error(err);
+                setWaiverStatus('Could not open PDF. Try Print instead.', true);
+                window.print();
+            }
+        }
+
+        async function shareOrPrintWaiver() {
+            try {
+                const shot = await captureWaiverImage();
+                const name = buildWaiverName(
+                    document.getElementById('customerName').value,
+                    document.getElementById('waiverDate').value
+                );
+                const built = await buildPdfFromCanvas(shot, name);
+                const blob = built.pdf.output('blob');
+                const file = new File([blob], built.fileName, { type: 'application/pdf' });
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ title: name, files: [file] });
+                    return;
+                }
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = built.fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                setWaiverStatus('PDF downloaded');
+            } catch (err) {
+                console.error(err);
+                window.print();
+            }
+        }
+
+        async function saveToJob() {
+            if (!jobId) {
+                setWaiverStatus('Open this page from a job to save the signed waiver.', true);
+                return;
+            }
+            const customerName = document.getElementById('customerName').value.trim();
+            if (!customerName) {
+                setWaiverStatus('Tap the name field and enter the customer name.', true);
+                document.getElementById('customerName').focus();
+                return;
+            }
+            const signatureImg = getSignatureImage();
+            if (!signatureImg) {
+                setWaiverStatus('Have the customer sign on the page, then save.', true);
+                return;
+            }
+
+            setWaiverStatus('Saving signed waiver to this job...');
+            try {
+                const shot = await captureWaiverImage();
+                const pdfDataUrl = shot.toDataURL('image/png');
+                const waiverDate = document.getElementById('waiverDate').value;
+                const name = buildWaiverName(customerName, waiverDate);
                 const waiverData = {
                     id: Date.now().toString(),
+                    name,
                     createdAt: new Date().toISOString(),
-                    customerName: document.getElementById('customerName').value,
-                    customerAddress: document.getElementById('customerAddress').value,
-                    serviceDescription: document.getElementById('serviceDescription').value,
-                    waiverDate: document.getElementById('waiverDate').value,
+                    customerName,
+                    customerAddress: document.getElementById('customerAddress').value.trim(),
+                    customerPhone: document.getElementById('customerPhone').value.trim(),
+                    serviceDescription: document.getElementById('serviceDescription').value.trim(),
+                    waiverDate,
                     signature: signatureImg,
-                    pdfDataUrl: pdfDataUrl
+                    pdfDataUrl
                 };
-                
-                // Save to job
-                const jobs = CL_DATA.getJobs();
-                const job = jobs.find(j => j.id === jobId);
-                
-                if (job) {
-                    if (!job.documents) {
-                        job.documents = { estimates: [], invoices: [], waivers: [] };
-                    }
-                    if (!job.documents.waivers) {
-                        job.documents.waivers = [];
-                    }
-                    job.documents.waivers.push(waiverData);
-                    CL_DATA.updateJob(job.id, { documents: job.documents });
-                    
-                    setWaiverStatus('Signed waiver saved to the job.');
-                    window.location.href = `jobs.html`;
-                } else {
+
+                const job = CL_DATA.findJob(jobId);
+                if (!job) {
                     setWaiverStatus('Job was not found. Open waiver from a job and try again.', true);
+                    return;
                 }
+                if (!job.documents) job.documents = { estimates: [], invoices: [], waivers: [] };
+                if (!Array.isArray(job.documents.waivers)) job.documents.waivers = [];
+                job.documents.waivers.push(waiverData);
+                CL_DATA.updateJob(job.id, { documents: job.documents });
+                if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
+
+                setWaiverStatus('Signed waiver saved.');
+                window.location.href = `jobs.html?highlight=${encodeURIComponent(jobId)}`;
             } catch (err) {
                 console.error('Error saving waiver:', err);
                 setWaiverStatus('Could not save waiver. Please try again.', true);
             }
         }
-        
-        // Pre-fill from job if we have one
-        document.addEventListener('DOMContentLoaded', () => {
-            initCanvas();
-            
-            // Set today's date
-            document.getElementById('waiverDate').value = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
-            
+
+        function enterViewMode(doc) {
+            currentWaiverDoc = doc;
+            document.body.classList.add('view-only');
+            document.getElementById('pageTitle').textContent = doc.name || 'Waiver';
+            document.getElementById('viewToolbar').hidden = false;
+            document.getElementById('editActions').hidden = true;
+            document.getElementById('signatureLive').hidden = true;
+            document.getElementById('signatureSaved').hidden = false;
+            if (doc.signature) {
+                document.getElementById('signatureSavedImg').src = doc.signature;
+            } else if (doc.pdfDataUrl) {
+                // Fall back to full captured image if signature alone is missing
+                document.getElementById('waiverPreview').innerHTML =
+                    `<img src="${doc.pdfDataUrl}" alt="${escapeHtml(doc.name || 'Waiver')}" style="width:100%;display:block;">`;
+            }
+
+            ['customerName', 'customerAddress', 'customerPhone', 'serviceDescription', 'waiverDate'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.readOnly = true;
+            });
+
             if (jobId) {
-                const jobs = CL_DATA.getJobs();
-                currentJob = jobs.find(j => j.id === jobId);
-                
+                document.getElementById('viewBackBtn').href = `jobs.html?highlight=${encodeURIComponent(jobId)}`;
+                document.getElementById('headerBack').href = `jobs.html?highlight=${encodeURIComponent(jobId)}`;
+            }
+
+            // Open as PDF shortly after load so "Open" feels like a PDF open.
+            setTimeout(() => { openWaiverPdf(); }, 350);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            applyBusinessHeader();
+            initCanvas();
+            document.getElementById('waiverDate').value = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
+
+            if (jobId) {
+                currentJob = CL_DATA.findJob(jobId);
                 if (currentJob) {
                     document.getElementById('customerName').value = currentJob.customerName || '';
                     document.getElementById('customerAddress').value = currentJob.address || '';
-                    document.getElementById('customerPhone').value = currentJob.customerPhone || '';
+                    document.getElementById('customerPhone').value =
+                        (window.formatPhoneUS ? formatPhoneUS(currentJob.customerPhone || '') : (currentJob.customerPhone || ''));
                     document.getElementById('serviceDescription').value = currentJob.serviceType || '';
+                    document.getElementById('headerBack').href = `jobs.html?highlight=${encodeURIComponent(jobId)}`;
                 }
             } else {
                 const saveBtn = document.getElementById('saveBtn');
                 saveBtn.disabled = true;
-                saveBtn.textContent = 'Save requires a job';
-                saveBtn.style.opacity = '0.6';
-                saveBtn.style.cursor = 'not-allowed';
+                saveBtn.innerHTML = '<i class="fas fa-ban"></i> Save requires a job';
                 setWaiverStatus('Open this page from a job to save the signed waiver.', true);
             }
-            ['customerName', 'customerAddress', 'customerPhone', 'serviceDescription', 'waiverDate'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.addEventListener('input', () => renderWaiverPreview(false));
-                if (el) el.addEventListener('change', () => renderWaiverPreview(false));
+
+            if (viewMode && jobId && docId) {
+                const job = CL_DATA.findJob(jobId);
+                const doc = job && job.documents && Array.isArray(job.documents.waivers)
+                    ? job.documents.waivers.find(d => d && d.id === docId)
+                    : null;
+                if (doc) {
+                    document.getElementById('customerName').value = doc.customerName || '';
+                    document.getElementById('customerAddress').value = doc.customerAddress || '';
+                    document.getElementById('customerPhone').value = doc.customerPhone || '';
+                    document.getElementById('serviceDescription').value = doc.serviceDescription || '';
+                    if (doc.waiverDate) document.getElementById('waiverDate').value = doc.waiverDate;
+                    syncAckName();
+                    enterViewMode(doc);
+                } else {
+                    setWaiverStatus('That waiver was not found on this job.', true);
+                }
+            }
+
+            document.getElementById('customerName').addEventListener('input', syncAckName);
+            document.getElementById('customerPhone').addEventListener('blur', function() {
+                if (window.formatPhoneUS) this.value = formatPhoneUS(this.value);
             });
-            renderWaiverPreview(false);
-            
-            setActiveNav();
+            syncAckName();
+            if (typeof setActiveNav === 'function') setActiveNav();
         });
-        
-        // Resize canvas on window resize
+
         window.addEventListener('resize', () => {
+            if (viewMode) return;
             const imgData = canvas.toDataURL();
             initCanvas();
             const img = new Image();
-            img.onload = () => ctx.drawImage(img, 0, 0);
+            img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             img.src = imgData;
         });
     </script>
