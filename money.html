@@ -467,7 +467,7 @@
             const fc = calcForecasts();
             const growthPct = fc.growth === null ? null : (fc.growth * 100);
             const growthLine = growthPct === null
-                ? 'No last-year numbers yet — assuming the same weekly pace.'
+                ? 'No last-year numbers yet. assuming the same weekly pace.'
                 : `Adjusted for ${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(0)}% vs this time last year.`;
 
             stats.innerHTML = `

@@ -275,7 +275,7 @@
         }
 
         // ── Route Planning ── (internal, uses Directions API so we can draw
-        // the polyline on this map). Needs numeric coordinates — prompts
+        // the polyline on this map). Needs numeric coordinates. prompts
         // explicitly if the cache is empty.
         async function planRoute() {
             const jobsWithAddr = filteredJobs.filter(j => j.address);
@@ -412,7 +412,7 @@
                 showToast('No jobs with addresses in the current filter', 'info');
                 return;
             }
-            // Try cache only — don't prompt here; the destination page handles it.
+            // Try cache only. don't prompt here; the destination page handles it.
             const loc = userLoc || await getCachedLocation({ prompt: false });
             const originQs = loc ? `origin=${encodeURIComponent(loc.lat + ',' + loc.lng)}&` : '';
             if (jobsWithAddr.length === 1) {

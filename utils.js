@@ -1,7 +1,7 @@
-// ─── Clearline — Shared Utilities ───────────────────────────────────
+// ─── Clearline Shared Utilities ───────────────────────────────────
 'use strict';
 
-/** Unified Tailwind tokens — load utils.js before cdn.tailwindcss.com */
+/** Unified Tailwind tokens. Load utils.js before cdn.tailwindcss.com */
 window.tailwind = window.tailwind || {
   config: {
     theme: {
@@ -73,7 +73,7 @@ window.safeSet = function(key, value) {
   } catch (e) {
     console.error(`[safeSet] Failed to write localStorage key "${key}":`, e);
     // Handle quota exceeded or private-mode restrictions gracefully
-    showToast('Storage error — data may not be saved.', 'error');
+    showToast('Storage error. Data may not be saved.', 'error');
     return false;
   }
 };
@@ -144,7 +144,7 @@ window.showToast = function(message, type = 'success') {
 
 /**
  * Global sync-status badge. Renders a single small pill in the top-right that
- * reflects cloud sync state, so the user always knows their data is safe —
+ * reflects cloud sync state, so the user always knows their data is safe.
  * the #1 trust signal. Driven by the `cl-sync-state` events firebase-sync.js
  * emits ('saving' | 'saved' | 'offline' | 'error'). Auto-mounts on every page
  * that loads utils.js; no per-page markup required.
@@ -221,7 +221,7 @@ window.showToast = function(message, type = 'success') {
 })();
 
 /**
- * Active nav tab highlighter — call on every page.
+ * Active nav tab highlighter. Call on every page.
  * Looks for <a> tags in .tab-bar and marks the one matching current URL.
  */
 window.setActiveNav = function() {
@@ -372,7 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /**
  * Derive the financial value to display for a job. The legacy `quoteAmount`
- * field on the job itself is no longer the source of truth — instead we
+ * field on the job itself is no longer the source of truth. Instead we
  * prefer the grand total stored on any linked invoice (highest priority)
  * or estimate (fallback) inside `job.documents`. This keeps job cards,
  * stat totals, and the Home "Estimated Total" in lockstep with whatever
@@ -428,7 +428,7 @@ window.getJobDisplayTotal = function(job) {
   return window._rawJobDisplayTotal(job);
 };
 
-// Business config — loaded from settings (set via Settings page)
+// Business config. Loaded from settings (set via Settings page)
 // Falls back to empty strings if no settings saved yet.
 window.CL_CONFIG = (function() {
   try {
