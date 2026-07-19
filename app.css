@@ -2206,10 +2206,6 @@ input::placeholder, textarea::placeholder {
     border: none;
     cursor: pointer;
 }
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-}
 
 /* Prefer focus rings over mouse-only hover tricks on touch devices */
 @media (hover: none) {
