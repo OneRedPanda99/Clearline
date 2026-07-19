@@ -33,6 +33,36 @@
         .form-grid input, .form-grid select, .form-grid textarea {
             width:100%; padding: 12px; border-radius: 12px;
         }
+        .money-pie-grid {
+            display: grid;
+            gap: 12px;
+        }
+        @media (min-width: 720px) {
+            .money-pie-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        .money-pie {
+            width: 148px;
+            height: 148px;
+            border-radius: 50%;
+            margin: 8px auto 14px;
+            border: 6px solid var(--md-sys-color-surface-container-low, #1e2126);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+        }
+        .money-pie-legend { display: grid; gap: 8px; }
+        .money-pie-legend-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+        .money-pie-swatch {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            flex-shrink: 0;
+        }
+        .money-pie-legend-label { color: #e2e8f0; font-weight: 650; }
+        .money-pie-legend-val { margin-left: auto; color: #94a3b8; font-weight: 600; }
         /* Buttons use shared M3 .btn-primary / .btn-secondary / .btn-danger from app.css */
     </style>
 </head>
@@ -56,10 +86,9 @@
             </div>
 
             <div class="page-tabs page-tabs--pills">
-                <button type="button" class="page-tab active" id="tabOverview" onclick="setTab('overview')">Overview</button>
-                <button type="button" class="page-tab" id="tabExpenses" onclick="setTab('expenses')">Expenses</button>
+                <button type="button" class="page-tab active" id="tabExpenses" onclick="setTab('expenses')">Expenses</button>
                 <button type="button" class="page-tab" id="tabPayroll" onclick="setTab('payroll')">Payroll</button>
-                <button type="button" class="page-tab" id="tabTaxes" onclick="setTab('taxes')">Taxes</button>
+                <button type="button" class="page-tab" id="tabRevenue" onclick="setTab('revenue')">Revenue</button>
             </div>
 
             <div id="statsRow" class="mb-3"></div>
@@ -81,7 +110,7 @@
 
     <script>
         let myProfile = null;
-        let currentTab = 'overview';
+        let currentTab = 'expenses';
         let moneyPeriod = 'week'; // week | month | year
         let editing = null; // { kind: 'expense'|'payroll', id }
 
@@ -136,7 +165,7 @@
 
         function setTab(tab) {
             currentTab = tab;
-            ['overview','expenses','payroll','taxes'].forEach(t => {
+            ['expenses','payroll','revenue'].forEach(t => {
                 const el = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
                 if (el) el.classList.toggle('active', t === tab);
             });
@@ -162,7 +191,8 @@
                 addBtn.classList.add('hidden');
             } else {
                 banner.classList.add('hidden');
-                addBtn.classList.remove('hidden');
+                // + is for expenses/payroll only
+                addBtn.classList.toggle('hidden', currentTab === 'revenue');
             }
         }
 
@@ -170,6 +200,7 @@
             if (!ensureOwner()) { showToast('Owner only', 'error'); return; }
             editing = null;
             if (currentTab === 'payroll') openPayrollModal();
+            else if (currentTab === 'revenue') { setTab('expenses'); openExpenseModal(); }
             else openExpenseModal();
         }
 
@@ -451,31 +482,127 @@
             };
         }
 
-        function renderStats() {
-            const stats = document.getElementById('statsRow');
-            if (currentTab !== 'overview') {
-                stats.innerHTML = '';
-                return;
+        function pieStyle(parts) {
+            const total = parts.reduce((s, p) => s + Math.max(0, Number(p.value) || 0), 0);
+            if (total <= 0) {
+                return 'conic-gradient(var(--md-sys-color-surface-container-highest) 0deg 360deg)';
             }
-            if (!ensureOwner()) {
-                stats.innerHTML = '';
-                return;
-            }
+            let acc = 0;
+            const stops = [];
+            parts.forEach(p => {
+                const v = Math.max(0, Number(p.value) || 0);
+                const start = (acc / total) * 360;
+                acc += v;
+                const end = (acc / total) * 360;
+                stops.push(`${p.color} ${start.toFixed(2)}deg ${end.toFixed(2)}deg`);
+            });
+            return `conic-gradient(${stops.join(', ')})`;
+        }
 
+        function renderPieCard(title, parts) {
+            const total = parts.reduce((s, p) => s + Math.max(0, Number(p.value) || 0), 0);
+            const legend = parts.map(p => {
+                const pct = total > 0 ? Math.round((Math.max(0, Number(p.value) || 0) / total) * 100) : 0;
+                return `<div class="money-pie-legend-row">
+                    <span class="money-pie-swatch" style="background:${p.color}"></span>
+                    <span class="money-pie-legend-label">${esc(p.label)}</span>
+                    <span class="money-pie-legend-val">${p.money ? fmtMoney(p.value) : String(p.value || 0)} · ${pct}%</span>
+                </div>`;
+            }).join('');
+            return `
+                <div class="glass-card rounded-xl p-4">
+                    <p class="section-title" style="margin-top:0;">${esc(title)}</p>
+                    <div class="money-pie" style="background:${pieStyle(parts)};" role="img" aria-label="${esc(title)}"></div>
+                    <div class="money-pie-legend">${legend || '<p class="money-sub">No data yet</p>'}</div>
+                </div>`;
+        }
+
+        function allTimePipeline() {
+            const jobs = CL_DATA.getJobs();
+            const collected = jobs.filter(isCompletedJob).reduce((s, j) => s + jobRevenue(j), 0);
+            const open = jobs
+                .filter(j => j && (j.status === 'new' || j.status === 'scheduled' || j.status === 'in_progress' || j.status === 'booked'))
+                .reduce((s, j) => s + jobRevenue(j), 0);
+            const pipeline = collected + open;
+            return { jobs: jobs.length, collected, open, pipeline };
+        }
+
+        function expenseCategoryParts(limit = 6) {
+            const expenses = CL_DATA.getExpenses();
+            const by = {};
+            expenses.forEach(e => {
+                const id = e.taxCategory || 'other';
+                by[id] = (by[id] || 0) + Number(e.amount || 0);
+            });
+            const colors = ['#34d399', '#60a5fa', '#fbbf24', '#f87171', '#8ab4ff', '#a7f3d0', '#94a3b8'];
+            return Object.entries(by)
+                .map(([id, value]) => ({
+                    id,
+                    label: (TAX_CATS.find(c => c.id === id)?.label || 'Other'),
+                    value,
+                    money: true
+                }))
+                .sort((a, b) => b.value - a.value)
+                .slice(0, limit)
+                .map((p, i) => ({ ...p, color: colors[i % colors.length] }));
+        }
+
+        function jobStatusParts() {
+            const jobs = CL_DATA.getJobs();
+            const counts = { completed: 0, scheduled: 0, lead: 0, other: 0 };
+            jobs.forEach(j => {
+                if (isCompletedJob(j)) counts.completed += 1;
+                else if (j.status === 'scheduled' || j.status === 'in_progress' || j.status === 'booked') counts.scheduled += 1;
+                else if (j.status === 'new') counts.lead += 1;
+                else counts.other += 1;
+            });
+            return [
+                { label: 'Completed', value: counts.completed, color: '#34d399', money: false },
+                { label: 'Booked', value: counts.scheduled, color: '#60a5fa', money: false },
+                { label: 'Leads', value: counts.lead, color: '#fbbf24', money: false },
+                { label: 'Other', value: counts.other, color: '#94a3b8', money: false },
+            ].filter(p => p.value > 0);
+        }
+
+        function renderStats() {
+            // Period controls live inside Revenue metrics now.
+            document.getElementById('statsRow').innerHTML = '';
+        }
+
+        function renderRevenue() {
             const range = periodRange(moneyPeriod);
             const pnl = periodPnl(range.start, range.end);
             const fc = calcForecasts();
+            const all = allTimePipeline();
             const growthPct = fc.growth === null ? null : (fc.growth * 100);
             const growthLine = growthPct === null
-                ? 'No last-year numbers yet. assuming the same weekly pace.'
+                ? 'No last-year numbers yet. Assuming the same weekly pace.'
                 : `Adjusted for ${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(0)}% vs this time last year.`;
 
-            stats.innerHTML = `
+            const moneyPie = renderPieCard('Money in pipeline', [
+                { label: 'Collected', value: all.collected, color: '#34d399', money: true },
+                { label: 'Open', value: all.open, color: '#fbbf24', money: true },
+            ]);
+            const statusPie = renderPieCard('Jobs by status', jobStatusParts());
+            const spendPie = renderPieCard('Spend by category', expenseCategoryParts());
+
+            const jobs = CL_DATA.getJobs().filter(j => isCompletedJob(j) && j.jobDate);
+            const expenses = CL_DATA.getExpenses().filter(e => e.date);
+            const payroll = CL_DATA.getPayroll().filter(p => p.date);
+            const revByMonth = rollupByMonth(jobs, j => j.jobDate, j => jobRevenue(j));
+            const expByMonth = rollupByMonth(expenses, e => e.date, e => e.amount);
+            const payByMonth = rollupByMonth(payroll, p => p.date, p => (p.grossPay || (Number(p.hours||0)*Number(p.rate||0))));
+            const idx = (pairs) => new Map(pairs.map(([k,v]) => [k, v]));
+            const iRev = idx(revByMonth), iExp = idx(expByMonth), iPay = idx(payByMonth);
+            const months = Array.from(new Set([ ...iRev.keys(), ...iExp.keys(), ...iPay.keys() ])).sort().reverse().slice(0, 6);
+
+            return `
                 <div class="page-tabs page-tabs--segmented" style="margin-bottom:12px;">
                     <button type="button" class="page-tab ${moneyPeriod === 'week' ? 'active' : ''}" onclick="setMoneyPeriod('week')">Week</button>
                     <button type="button" class="page-tab ${moneyPeriod === 'month' ? 'active' : ''}" onclick="setMoneyPeriod('month')">Month</button>
                     <button type="button" class="page-tab ${moneyPeriod === 'year' ? 'active' : ''}" onclick="setMoneyPeriod('year')">Year</button>
                 </div>
+
                 <p class="section-title" style="margin-top:0;">${esc(range.label)}</p>
                 <div class="stats-grid stats-grid--4 mb-3">
                     <div class="stat-card"><p class="value" style="color:#34d399;">${fmtMoney(pnl.rev)}</p><p class="label">Revenue</p></div>
@@ -487,51 +614,38 @@
                 <p class="section-title">If this keeps up</p>
                 <div class="glass-card rounded-xl p-4 mb-3" style="display:grid;gap:14px;">
                     <div>
-                        <p class="money-sub" style="margin:0;">This week</p>
-                        <p style="font-size:22px;font-weight:800;margin:2px 0 8px;color:#e2e8f0;">${fmtMoney(fc.thisWeek)}</p>
-                        <p class="money-sub" style="margin:0;">Average so far</p>
-                        <p style="font-size:22px;font-weight:800;margin:2px 0 4px;color:#e2e8f0;">${fmtMoney(fc.avgWeekly)}<span style="font-size:13px;font-weight:600;color:#94a3b8;"> / week</span></p>
+                        <p class="money-sub" style="margin:0;">This week ${fmtMoney(fc.thisWeek)}</p>
+                        <p style="font-size:22px;font-weight:800;margin:2px 0 4px;color:#e2e8f0;">${fmtMoney(fc.avgWeekly)}<span style="font-size:13px;font-weight:600;color:#94a3b8;"> / week avg</span></p>
                         <p class="money-sub" style="margin:0;">YTD ${fmtMoney(fc.ytd)} across ${fc.weeksSoFar} week${fc.weeksSoFar === 1 ? '' : 's'}</p>
                     </div>
                     <div style="border-top:1px solid var(--md-sys-color-outline-variant);padding-top:12px;">
-                        <p class="money-sub" style="margin:0;">Est. revenue ${fc.year}</p>
-                        <p style="font-size:28px;font-weight:800;margin:2px 0 4px;color:#34d399;">${fmtMoney(fc.estThisYear)}</p>
-                        <p class="money-sub" style="margin:0;">${fmtMoney(fc.avgWeekly)}/week × 52 weeks</p>
+                        <p class="money-sub" style="margin:0;">Est. ${fc.year}</p>
+                        <p style="font-size:26px;font-weight:800;margin:2px 0 4px;color:#34d399;">${fmtMoney(fc.estThisYear)}</p>
+                        <p class="money-sub" style="margin:0;">${fmtMoney(fc.avgWeekly)}/week × 52</p>
                     </div>
                     <div style="border-top:1px solid var(--md-sys-color-outline-variant);padding-top:12px;">
-                        <p class="money-sub" style="margin:0;">Est. revenue ${fc.nextYear}</p>
-                        <p style="font-size:28px;font-weight:800;margin:2px 0 4px;color:var(--md-sys-color-primary);">${fmtMoney(fc.estNextYear)}</p>
-                        <p class="money-sub" style="margin:0;">${fmtMoney(fc.avgWeekly)}/week × 52${fc.growth === null ? '' : ` × ${(1 + fc.growth).toFixed(2)} growth`}</p>
-                        <p class="money-sub" style="margin:4px 0 0;">${esc(growthLine)}</p>
+                        <p class="money-sub" style="margin:0;">Est. ${fc.nextYear}</p>
+                        <p style="font-size:26px;font-weight:800;margin:2px 0 4px;color:var(--md-sys-color-primary);">${fmtMoney(fc.estNextYear)}</p>
+                        <p class="money-sub" style="margin:0;">${esc(growthLine)}</p>
                     </div>
                 </div>
-            `;
-        }
 
-        function renderOverview() {
-            const jobs = CL_DATA.getJobs().filter(j => isCompletedJob(j) && j.jobDate);
-            const expenses = CL_DATA.getExpenses().filter(e => e.date);
-            const payroll = CL_DATA.getPayroll().filter(p => p.date);
+                <p class="section-title">All-time</p>
+                <div class="stats-grid stats-grid--4 mb-3">
+                    <div class="stat-card"><p class="value" style="color:#60a5fa;">${fmtMoney(all.pipeline)}</p><p class="label">Pipeline</p></div>
+                    <div class="stat-card"><p class="value" style="color:#34d399;">${fmtMoney(all.collected)}</p><p class="label">Collected</p></div>
+                    <div class="stat-card"><p class="value" style="color:#fbbf24;">${fmtMoney(all.open)}</p><p class="label">Open</p></div>
+                    <div class="stat-card"><p class="value" style="color:var(--md-sys-color-secondary);">${all.jobs}</p><p class="label">Jobs</p></div>
+                </div>
 
-            const revByMonth = rollupByMonth(jobs, j => j.jobDate, j => jobRevenue(j));
-            const expByMonth = rollupByMonth(expenses, e => e.date, e => e.amount);
-            const payByMonth = rollupByMonth(payroll, p => p.date, p => (p.grossPay || (Number(p.hours||0)*Number(p.rate||0))));
+                <div class="money-pie-grid mb-3">
+                    ${moneyPie}
+                    ${statusPie}
+                    ${spendPie}
+                </div>
 
-            const idx = (pairs) => new Map(pairs.map(([k,v]) => [k, v]));
-            const iRev = idx(revByMonth), iExp = idx(expByMonth), iPay = idx(payByMonth);
-            const months = Array.from(new Set([ ...iRev.keys(), ...iExp.keys(), ...iPay.keys() ])).sort().reverse().slice(0, 6);
-
-            if (!months.length) {
-                return `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
-                    <i class="fas fa-chart-line text-3xl mb-2"></i>
-                    <p>No completed jobs or costs yet</p>
-                    <p class="text-xs text-gray-500 mt-1">Period totals and forecasts update as you finish jobs and log expenses.</p>
-                </div>`;
-            }
-
-            return `
                 <p class="section-title">Recent months</p>
-                <div class="glass-card" style="overflow:hidden;">
+                ${months.length ? `<div class="glass-card" style="overflow:hidden;">
                     ${months.map(m => {
                         const rev = iRev.get(m) || 0;
                         const exp = iExp.get(m) || 0;
@@ -548,21 +662,29 @@
                             </div>
                         `;
                     }).join('')}
-                </div>
+                </div>` : `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
+                    <p>No monthly history yet</p>
+                    <p class="text-xs text-gray-500 mt-1">Finish jobs and log costs to build this chart.</p>
+                </div>`}
             `;
+        }
+
+        function renderOverview() {
+            return renderRevenue();
         }
 
         function renderExpenses() {
             const expenses = CL_DATA.getExpenses().slice().sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')) || String(b.lastUpdated||'').localeCompare(String(a.lastUpdated||'')));
+            let listHtml;
             if (!expenses.length) {
-                return `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
+                listHtml = `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
                     <i class="fas fa-receipt text-3xl mb-2"></i>
                     <p>No expenses yet</p>
                     <p class="text-xs text-gray-500 mt-1">Tap + to add your first expense.</p>
                 </div>`;
-            }
-            const catLabel = (id) => (TAX_CATS.find(c => c.id === id)?.label || 'Other');
-            return `<div class="glass-card" style="overflow:hidden;">
+            } else {
+                const catLabel = (id) => (TAX_CATS.find(c => c.id === id)?.label || 'Other');
+                listHtml = `<div class="glass-card" style="overflow:hidden;">
                 ${expenses.map(e => `
                     <a href="#" class="money-row" onclick="event.preventDefault(); openExpenseModal(${JSON.stringify(e)});">
                         <span class="money-dot" style="background: rgba(52,211,153,0.55);"></span>
@@ -578,6 +700,8 @@
                     </a>
                 `).join('')}
             </div>`;
+            }
+            return listHtml + `<div style="margin-top:16px;">${renderTaxes()}</div>`;
         }
 
         function renderPayroll() {
@@ -698,8 +822,7 @@
 
             if (currentTab === 'expenses') body.innerHTML = renderExpenses();
             else if (currentTab === 'payroll') body.innerHTML = renderPayroll();
-            else if (currentTab === 'taxes') body.innerHTML = renderTaxes();
-            else body.innerHTML = renderOverview();
+            else body.innerHTML = renderRevenue();
         }
 
         function start(profile) {
