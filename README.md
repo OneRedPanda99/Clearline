@@ -20,4 +20,4 @@ UI follows **[Material Design 3 foundations](https://m3.material.io/foundations)
 - Offline-first PWA with localStorage + Firestore
 - Price calculator and pre-job checklist
 - Before/after photo capture
-- Material Design 3 shell (buttons, fields, lists, sheets, nav)
+- Material Design 3 across the CRM (tokens, buttons, fields, chips, lists, sheets, nav, job hub)
