@@ -1445,6 +1445,7 @@
                             ${payInfo || job.status === 'scheduled' ? `<button type="button" onclick="addToGoogleCalendar('${job.id}')" class="btn-secondary"><i class="fab fa-google mr-1"></i>Add to Google Calendar</button>` : ''}
                             <button type="button" onclick="createCustomerFromJob('${job.id}')" class="btn-secondary">${job.customerId ? '<i class="fas fa-user-check mr-1"></i>Open customer' : '<i class="fas fa-user-plus mr-1"></i>Link customer'}</button>
                             ${(job.status === 'completed' && reviewUrl) ? `<button type="button" onclick="toggleJobDetailSection('reviewSection')" class="btn-secondary"><i class="fas fa-star mr-1"></i>Ask for review</button>` : ''}
+                            <button type="button" onclick="confirmDeleteJob('${job.id}')" class="btn-danger"><i class="fas fa-trash mr-1"></i>Delete job</button>
                             <p class="text-[11px] text-slate-500 pt-1">${jobIdShort}</p>
                         </div>
                     </div>
@@ -1463,7 +1464,7 @@
                         <button type="button" onclick="toggleJobDetailSection('moreSection')" class="btn-text">More options</button>
                         <div id="cancelRow" class="hidden">
                             <input id="cancelReasonInput" type="text" placeholder="Cancel reason (required)" class="w-full mb-2">
-                            <button type="button" onclick="cancelJobWithReason('${job.id}');" class="btn-danger">Confirm cancel</button>
+                            <button type="button" onclick="cancelJobWithReason('${job.id}');" class="btn-secondary">Mark cancelled</button>
                         </div>
                     </div>
                 </div>
@@ -1901,12 +1902,23 @@
             const snapshot = CL_DATA.findJob(id);
             if (!snapshot) return;
             CL_DATA.deleteJob(id);
+            closeJobModal();
             loadData();
             updateStats();
             renderJobs();
             showUndoToast('Job deleted', () => restoreDeletedJob(snapshot));
             removeJobFromGoogleCalendar(snapshot).catch(() => {});
         }
+        window.deleteJob = deleteJob;
+
+        function confirmDeleteJob(id) {
+            const job = CL_DATA.findJob(id);
+            if (!job) return;
+            const name = job.customerName || 'this job';
+            if (!confirm(`Delete job for ${name}? You can undo for a few seconds.`)) return;
+            deleteJob(id);
+        }
+        window.confirmDeleteJob = confirmDeleteJob;
 
         function deleteJobDocument(jobId, docType, docId) {
             const job = CL_DATA.findJob(jobId);
@@ -1954,13 +1966,16 @@
             const job = CL_DATA.findJob(id);
             if (!job) return;
             const notes = [job.notes || '', `Cancelled: ${clean}`].filter(Boolean).join('\n');
-            CL_DATA.updateJob(id, { status: 'completed', notes });
+            // Mark lost (not completed) so it leaves the active pipeline without deleting history.
+            CL_DATA.updateJob(id, { status: 'lost', lostReason: clean, lostAt: new Date().toISOString(), notes });
             loadData();
             updateStats();
             renderJobs();
             syncJobToCalendarIfEnabled(id);
             closeJobModal();
+            showToast('Job marked cancelled');
         }
+        window.cancelJobWithReason = cancelJobWithReason;
 
         function restoreDeletedJob(job) {
             // Remove the tombstone so the restored job won't be re-deleted on
