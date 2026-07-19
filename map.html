@@ -60,11 +60,11 @@
         <div class="bg-darker px-4 py-2 border-b border-slate-700">
             <div class="max-w-lg mx-auto flex gap-2 items-center flex-wrap">
                 <label class="text-gray-400 text-sm">Start:</label>
-                <input type="time" id="startTime" value="08:00" class="bg-slate-700 text-white px-2 py-1 rounded text-sm" style="min-height:36px;">
+                <input type="time" id="startTime" value="08:00" class="text-sm" style="min-height:36px;">
                 <button onclick="locateMe(true)" id="locateMeBtn" class="btn-secondary btn-sm" style="width:auto">
                     <i class="fas fa-location-crosshairs mr-1"></i> Locate me
                 </button>
-                <button onclick="planRoute()" id="planRouteBtn" class="flex-1 bg-gradient-to-r from-primary to-purple-600 text-white py-2 rounded-lg font-semibold text-sm hidden">
+                <button onclick="planRoute()" id="planRouteBtn" class="btn-primary flex-1 hidden" style="width:auto">
                     <i class="fas fa-route mr-1"></i> Plan Route
                 </button>
                 <button onclick="openRouteInGoogleMaps()" id="openGmapsBtn" class="btn-primary btn-sm hidden" style="width:auto;background:var(--md-sys-color-tertiary);color:var(--md-sys-color-on-tertiary)">
@@ -248,7 +248,7 @@
                 const jobTotal = getJobDisplayTotal(job);
                 return `<div class="m3-list-item" onclick="focusJob(${i})" style="cursor:pointer">
                     <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold" style="background:${isToday ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-secondary-container)'};color:${isToday ? 'var(--md-sys-color-on-primary)' : 'var(--md-sys-color-on-secondary-container)'}">${i + 1}</div>
-                    <div class="flex-1"><p class="font-semibold">${job.customerName || 'Job'}</p><p class="text-sm ${isToday ? 'text-primary' : 'text-purple-400'}">${isToday ? 'TODAY' : dateStr} ${job.jobTime || ''}</p></div>
+                    <div class="flex-1"><p class="font-semibold">${job.customerName || 'Job'}</p><p class="text-sm ${isToday ? 'text-primary' : 'text-secondary'}">${isToday ? 'TODAY' : dateStr} ${job.jobTime || ''}</p></div>
                     ${jobTotal > 0 ? `<span class="text-green-400 font-bold">$${jobTotal.toFixed(0)}</span>` : ''}
                 </div>`;
             }).join('');
@@ -314,7 +314,7 @@
                 // Draw polyline
                 if (routePolyline) map.removeLayer(routePolyline);
                 const points = decodePolyline(route.overview_polyline.points);
-                routePolyline = L.polyline(points, { color: '#8b5cf6', weight: 4, opacity: 0.8 }).addTo(map);
+                routePolyline = L.polyline(points, { color: '#4f8cff', weight: 4, opacity: 0.8 }).addTo(map);
                 map.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
 
                 // Build route summary
@@ -370,7 +370,7 @@
                         <div class="flex gap-4 mt-2 text-sm">
                             <span class="text-primary">Arrive: ${arriveTime}</span>
                             <span class="text-gray-400">Job: ${durationMin} min</span>
-                            <span class="text-purple-400">Leave: ${formatTime(leaveTime)}</span>
+                            <span class="text-secondary">Leave: ${formatTime(leaveTime)}</span>
                         </div>
                     </div>`;
                     currentTime = leaveTime;

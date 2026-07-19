@@ -11,12 +11,7 @@
     <script src="utils.js"></script>
     <script src="data-migration.js"></script>
     <script src="firebase-sync.js?v=4"></script>
-    <script>
-        window.tailwind = { config: { theme: { extend: { colors: {
-            primary: '#0ea5e9', secondary: '#38bdf8', dark: '#0f172a', darker: '#020617', accent: '#06b6d4'
-        } } } } };
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="app.css">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -25,7 +20,7 @@
         .perm-row input[type=checkbox] { width: 18px; height: 18px; accent-color: #0ea5e9; }
         .user-card { border-left: 4px solid transparent; }
         .user-card.owner { border-left-color: #fbbf24; }
-        .user-card.manager { border-left-color: #a78bfa; }
+        .user-card.manager { border-left-color: var(--md-sys-color-secondary); }
         .user-card.worker { border-left-color: #38bdf8; }
         .user-card.inactive { opacity: 0.55; }
     </style>
@@ -164,7 +159,7 @@
                 return true;
             }
             if (profile.role === 'manager') {
-                banner.innerHTML = '<i class="fas fa-user-tie text-purple-300 mr-1"></i>Signed in as Manager. Managing your team only.';
+                banner.innerHTML = '<i class="fas fa-user-tie text-secondary mr-1"></i>Signed in as Manager. Managing your team only.';
                 document.getElementById('workersLabel').textContent = 'Your Team';
                 return true;
             }

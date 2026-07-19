@@ -17,20 +17,6 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .job-card {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            border-radius: 10px !important;
-        }
-        .job-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.25);
-            border-color: rgba(255,255,255,0.15);
-        }
-        .job-card:active {
-            transform: scale(0.98) translateY(0);
-            opacity: 0.95;
-        }
         .edit-scroll {
             max-height: calc(100dvh - 260px);
             max-height: calc(100vh - 260px);
@@ -40,14 +26,9 @@
         .edit-footer {
             position: sticky;
             bottom: 0;
-            background: #1e293b;
+            background: var(--md-sys-color-surface-container);
             padding-top: 10px;
             padding-bottom: 6px;
-        }
-        .edit-field {
-            background: #334155;
-            border: 1px solid #475569;
-            color: #f8fafc;
         }
         .photo-grid {
             display: grid;
@@ -58,12 +39,10 @@
             width: 100%;
             aspect-ratio: 1 / 1;
             object-fit: cover;
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--md-radius-sm);
+            border: 1px solid var(--md-sys-color-outline-variant);
         }
-        .photo-tile {
-            position: relative;
-        }
+        .photo-tile { position: relative; }
         .photo-remove {
             position: absolute;
             top: 4px;
@@ -77,40 +56,12 @@
             font-size: 12px;
             cursor: pointer;
         }
-        /* Ensure modal styling stays consistent */
-        .modal {
-            display: none;
-            align-items: flex-end;
-            justify-content: center;
-            background: rgba(2, 6, 23, 0.85);
-            animation: modalFadeIn 0.2s ease;
-        }
+        /* Page needs flex show/hide; chrome comes from app.css */
+        .modal { display: none; align-items: flex-end; justify-content: center; }
         .modal.show,
         .modal.modal-open,
-        .modal:not([hidden]) {
-            display: flex !important;
-        }
-        .modal-content {
-            width: 100%;
-            max-width: 560px;
-            border-radius: 10px 10px 0 0;
-            animation: modalSlideUp 0.25s ease;
-        }
-        @keyframes modalFadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes modalSlideUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .quick-actions-row {
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-        .quick-actions-row::-webkit-scrollbar {
-            display: none;
-        }
+        .modal:not([hidden]) { display: flex !important; }
+        .modal-content { width: 100%; max-width: 560px; }
     </style>
 </head>
 <body>
@@ -217,29 +168,29 @@
                 <p class="text-sm text-gray-400">Creates a <strong class="text-gray-200">lead</strong> with an estimate visit on your calendar (Jobs → Leads). When they book work, move them to Scheduled.</p>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Estimate visit date</label>
-                    <input type="date" id="addLeadJobDate" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white">
+                    <input type="date" id="addLeadJobDate" class="w-full">
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Time</label>
-                    <input type="time" id="addLeadJobTime" value="11:30" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white">
+                    <input type="time" id="addLeadJobTime" value="11:30" class="w-full">
                 </div>
                 <input type="hidden" id="addLeadCustomerId" value="">
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Customer name <span class="text-gray-500">(optional)</span></label>
-                    <input type="text" id="addLeadCustomerName" list="addLeadCustomerOptions" oninput="syncLeadCustomerSelection()" placeholder="e.g. Smith" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="name">
+                    <input type="text" id="addLeadCustomerName" list="addLeadCustomerOptions" oninput="syncLeadCustomerSelection()" placeholder="e.g. Smith" class="w-full" autocomplete="name">
                     <datalist id="addLeadCustomerOptions"></datalist>
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Phone <span class="text-gray-500">(optional)</span></label>
-                    <input type="tel" id="addLeadCustomerPhone" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="tel">
+                    <input type="tel" id="addLeadCustomerPhone" class="w-full" autocomplete="tel">
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Email <span class="text-gray-500">(optional)</span></label>
-                    <input type="email" id="addLeadCustomerEmail" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="email">
+                    <input type="email" id="addLeadCustomerEmail" class="w-full" autocomplete="email">
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Address <span class="text-gray-500">(optional)</span></label>
-                    <input type="text" id="addLeadCustomerAddress" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-white" autocomplete="street-address">
+                    <input type="text" id="addLeadCustomerAddress" class="w-full" autocomplete="street-address">
                 </div>
                 <button type="button" onclick="confirmAddLead()" class="btn-primary" style="background:var(--warning);color:#111827">
                     <i class="fas fa-file-alt mr-2"></i>Create &amp; open estimate
@@ -273,86 +224,6 @@
     </div>
 
     <script>
-        // Maps API Key (from config.js)
-        const MAPS_API_KEY = window.CL_SECRETS?.mapsApiKey || '';
-        let userLocation = null;
-
-        // Hydrate user location from the shared 30-minute cache.
-        // Never triggers a geolocation prompt on page load.
-        function getUserLocation() {
-            getCachedLocation({ prompt: false }).then(loc => {
-                if (loc) userLocation = loc;
-            });
-        }
-
-        // Calculate distance (miles) between two points
-        function calcDistance(lat1, lng1, lat2, lng2) {
-            const R = 3959;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLng = (lng2 - lng1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLng/2) * Math.sin(dLng/2);
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        }
-
-        // Estimate drive time
-        function estimateDriveTime(miles) {
-            const mins = Math.round((miles / 30) * 60);
-            return mins < 60 ? `${mins} min` : `${Math.floor(mins/60)}h ${mins%60}m`;
-        }
-
-        // Geocode cache — addresses rarely move; caching 24h saves a billable
-        // Maps Geocoding API call every time a job modal opens. (#7)
-        const GEOCODE_CACHE_KEY = 'cl-geocode-cache';
-        const GEOCODE_TTL_MS = 24 * 60 * 60 * 1000;
-        function getGeocodeCache() { return safeGet(GEOCODE_CACHE_KEY, {}) || {}; }
-        function cachedGeocode(address) {
-            const cache = getGeocodeCache();
-            const entry = cache[address];
-            if (entry && typeof entry.ts === 'number' && (Date.now() - entry.ts) < GEOCODE_TTL_MS) {
-                return { lat: entry.lat, lng: entry.lng };
-            }
-            return null;
-        }
-        function saveGeocode(address, lat, lng) {
-            const cache = getGeocodeCache();
-            cache[address] = { lat, lng, ts: Date.now() };
-            safeSet(GEOCODE_CACHE_KEY, cache);
-        }
-
-        // Get distance to job address (with geocode cache).
-        async function getDistanceToAddress(address) {
-            if (!userLocation || !address) return null;
-            let coords = cachedGeocode(address);
-            if (!coords) {
-                try {
-                    if (MAPS_API_KEY) {
-                        const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${MAPS_API_KEY}`);
-                        const data = await res.json();
-                        if (data.status === 'OK' && data.results[0]) {
-                            const loc = data.results[0].geometry.location;
-                            coords = { lat: loc.lat, lng: loc.lng };
-                            saveGeocode(address, coords.lat, coords.lng);
-                        }
-                    }
-                    if (!coords) {
-                        const free = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(address)}`, {
-                            headers: { 'Accept': 'application/json' }
-                        });
-                        const arr = await free.json();
-                        if (Array.isArray(arr) && arr[0]) {
-                            coords = { lat: parseFloat(arr[0].lat), lng: parseFloat(arr[0].lon) };
-                            if (!Number.isNaN(coords.lat) && !Number.isNaN(coords.lng)) saveGeocode(address, coords.lat, coords.lng);
-                        }
-                    }
-                } catch (e) { console.log('Geocode error:', e); }
-            }
-            if (!coords) return null;
-            const dist = calcDistance(userLocation.lat, userLocation.lng, coords.lat, coords.lng);
-            return { distance: dist.toFixed(1), time: estimateDriveTime(dist) };
-        }
-
         // Parse free-form jobTime into {h, m}. Accepts 'HH:MM', 'HH:MM AM/PM',
         // 'H', '9 pm', etc. Returns null for unparseable values. (#15)
         function parseJobTime(raw) {
@@ -482,11 +353,6 @@
             if (job) openJobModal(jobId);
         }
 
-        function scrollJobQuickActions(dir) {
-            const row = document.getElementById('jobQuickActionsRow');
-            if (!row) return;
-            row.scrollBy({ left: dir * 220, behavior: 'smooth' });
-        }
 
         function latestEstimateForJob(job) {
             if (!job || !job.documents || !Array.isArray(job.documents.estimates)) return null;
@@ -567,7 +433,7 @@
                                 ${cp ? `
                                     <div class="mt-2 flex items-center gap-2">
                                         <input type="text" value="${at}" placeholder="HH:MM:SS" class="w-32 p-2 rounded bg-slate-800 border border-slate-700 text-xs text-white" id="cp-input-${job.id}-${item.id}">
-                                        <button type="button" onclick="setServiceCheckpointFromInput('${job.id}', '${item.id}', document.getElementById('cp-input-${job.id}-${item.id}').value)" class="text-xs bg-slate-700 text-slate-100 px-2 py-1 rounded">Set time</button>
+                                        <button type="button" onclick="setServiceCheckpointFromInput('${job.id}', '${item.id}', document.getElementById('cp-input-${job.id}-${item.id}').value)" class="btn-secondary btn-sm" style="width:auto;min-height:32px;font-size:12px">Set time</button>
                                     </div>
                                 ` : ''}
                             </div>
@@ -945,7 +811,6 @@
             loadUsers();
             updateStats();
             renderJobs();
-            getUserLocation(); // Get user location for distance estimates
             checkGoogleAuth(); // Check if Calendar is connected via Firebase
             if (accessToken && tokenExpiry > Date.now()) {
                 initGapiClient(); // Init Calendar API if connected
@@ -1577,11 +1442,9 @@
 
                     <div id="moreSection" class="hidden">
                         <div class="glass-card rounded-xl p-3 space-y-2">
-                            ${job.status === 'scheduled' ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="btn-primary"><i class="fas fa-play mr-1"></i>Start job</a>` : ''}
-                            <button type="button" onclick="addToGoogleCalendar('${job.id}')" class="btn-secondary"><i class="fab fa-google mr-1"></i>Add to Google Calendar</button>
+                            ${payInfo || job.status === 'scheduled' ? `<button type="button" onclick="addToGoogleCalendar('${job.id}')" class="btn-secondary"><i class="fab fa-google mr-1"></i>Add to Google Calendar</button>` : ''}
                             <button type="button" onclick="createCustomerFromJob('${job.id}')" class="btn-secondary">${job.customerId ? '<i class="fas fa-user-check mr-1"></i>Open customer' : '<i class="fas fa-user-plus mr-1"></i>Link customer'}</button>
                             ${(job.status === 'completed' && reviewUrl) ? `<button type="button" onclick="toggleJobDetailSection('reviewSection')" class="btn-secondary"><i class="fas fa-star mr-1"></i>Ask for review</button>` : ''}
-                            ${!payInfo ? `<button type="button" onclick="toggleJobDetailSection('timerSection')" class="btn-secondary"><i class="fas fa-stopwatch mr-1"></i>Open timer</button>` : ''}
                             <p class="text-[11px] text-slate-500 pt-1">${jobIdShort}</p>
                         </div>
                     </div>
@@ -1599,26 +1462,14 @@
                         `}
                         <button type="button" onclick="toggleJobDetailSection('moreSection')" class="btn-text">More options</button>
                         <div id="cancelRow" class="hidden">
-                            <input id="cancelReasonInput" type="text" placeholder="Cancel reason (required)" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-sm mb-2">
-                            <button onclick="cancelJobWithReason('${job.id}');" class="text-red-300 text-sm underline underline-offset-2 bg-transparent border-none">Cancel this job</button>
+                            <input id="cancelReasonInput" type="text" placeholder="Cancel reason (required)" class="w-full mb-2">
+                            <button type="button" onclick="cancelJobWithReason('${job.id}');" class="btn-danger">Confirm cancel</button>
                         </div>
                     </div>
                 </div>
             `;
 
             openModal('jobModal');
-
-            // Calculate distance estimate if address exists
-            if (job.address) {
-                getDistanceToAddress(job.address).then(result => {
-                    const el = document.getElementById('distanceEstimate');
-                    if (el && result) {
-                        el.innerHTML = `<i class="fas fa-car mr-1"></i>${result.distance} mi • ~${result.time} drive`;
-                    } else if (el) {
-                        el.textContent = '';
-                    }
-                });
-            }
         }
 
         function closeJobModal() {
@@ -2375,28 +2226,6 @@
             }
         }
 
-        function viewDocument(jobId, docType, index) {
-            const job = jobs.find(j => j.id === jobId);
-            if (!job || !job.documents || !job.documents[docType] || !job.documents[docType][index]) {
-                setJobDocStatus('Document not found.', true);
-                return;
-            }
-            const doc = job.documents[docType][index];
-            // Estimates/invoices → full printable view. Waivers stay on their page.
-            if (docType === 'estimates' && doc.id) {
-                openEstimateView(jobId, doc.id, 'estimate');
-                return;
-            }
-            if (docType === 'invoices' && doc.id) {
-                openEstimateView(jobId, doc.id, 'invoice');
-                return;
-            }
-            if (docType === 'waivers') {
-                window.location.href = 'waiver.html?jobId=' + encodeURIComponent(jobId);
-                return;
-            }
-            setJobDocStatus('Document not found.', true);
-        }
 
         // ── Create Customer from Job ─────────────────────────────
         function createCustomerFromJob(jobId) {

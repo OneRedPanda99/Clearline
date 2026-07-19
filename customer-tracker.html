@@ -17,17 +17,7 @@
     <script src="data-migration.js"></script>
     <script src="firebase-sync.js?v=4"></script>
     <style>
-        .status-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        .status-new { background: rgba(46, 123, 255, 0.2); color: #93c5fd; }
-        .status-quoted { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-        .status-scheduled { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
-        .status-completed { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        /* status chips from app.css */
         .filter-btn { transition: all 0.2s; }
         .filter-btn.active { background: rgba(46, 123, 255, 0.18); border-color: rgba(46, 123, 255, 0.55); color: #93c5fd; }
         .reminder-urgent { animation: pulse 2s infinite; }
@@ -66,7 +56,7 @@
                 <p class="label">Customers</p>
             </div>
             <div class="stat-card">
-                <p class="value" style="color:#a78bfa;" id="ctStatActive">0</p>
+                <p class="value" style="color: var(--md-sys-color-secondary);" id="ctStatActive">0</p>
                 <p class="label">Active jobs</p>
             </div>
             <div class="stat-card">

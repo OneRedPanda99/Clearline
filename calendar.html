@@ -80,18 +80,7 @@
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .status-badge {
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        .status-new { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-        .status-followup,
-        .status-quoted { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-        .status-scheduled { background: rgba(46, 123, 255, 0.2); color: #7fb0ff; }
-        .status-completed { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        /* status chips from app.css */
         .section-title {
             font-size: 11px;
             font-weight: 600;
@@ -324,25 +313,25 @@
                 <input type="hidden" id="addLeadVisitDateStr" value="">
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Time</label>
-                    <input type="time" id="addLeadVisitTime" value="11:30" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white">
+                    <input type="time" id="addLeadVisitTime" value="11:30" class="w-full">
                 </div>
                 <input type="hidden" id="addLeadVisitCustomerId" value="">
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Customer name <span class="text-gray-500">(optional)</span></label>
-                    <input type="text" id="addLeadVisitName" list="addLeadVisitCustomerOptions" oninput="syncLeadVisitCustomerSelection()" placeholder="Name" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="name">
+                    <input type="text" id="addLeadVisitName" list="addLeadVisitCustomerOptions" oninput="syncLeadVisitCustomerSelection()" placeholder="Name" class="w-full" autocomplete="name">
                     <datalist id="addLeadVisitCustomerOptions"></datalist>
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Phone <span class="text-gray-500">(optional)</span></label>
-                    <input type="tel" id="addLeadVisitPhone" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="tel">
+                    <input type="tel" id="addLeadVisitPhone" class="w-full" autocomplete="tel">
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Email <span class="text-gray-500">(optional)</span></label>
-                    <input type="email" id="addLeadVisitEmail" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="email">
+                    <input type="email" id="addLeadVisitEmail" class="w-full" autocomplete="email">
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 block mb-1">Address <span class="text-gray-500">(optional)</span></label>
-                    <input type="text" id="addLeadVisitAddress" class="w-full p-3 rounded-lg bg-slate-700/80 border border-slate-600 text-white" autocomplete="street-address">
+                    <input type="text" id="addLeadVisitAddress" class="w-full" autocomplete="street-address">
                 </div>
                 <button type="button" onclick="confirmAddLeadVisit()" class="btn-primary" style="background:var(--warning);color:#111827">
                     <i class="fas fa-file-alt mr-2"></i>Create &amp; open estimate
