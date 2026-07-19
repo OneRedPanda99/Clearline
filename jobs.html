@@ -1443,166 +1443,165 @@
             const assignedManagerName = job.assignedManager ? (allManagers.find(m => m.uid === job.assignedManager)?.displayName || 'Manager') : '';
             const assignedWorkerName = job.assignedTo ? (allWorkers.find(w => w.uid === job.assignedTo)?.displayName || 'Worker') : '';
 
+            const estCount = (job.documents && job.documents.estimates) ? job.documents.estimates.length : 0;
+            const invCount = (job.documents && job.documents.invoices) ? job.documents.invoices.length : 0;
+            const waiverCount = (job.documents && job.documents.waivers) ? job.documents.waivers.length : 0;
+            const hasDocs = estCount + invCount + waiverCount > 0;
+            const serviceLine = escapeHtml(job.serviceType || 'Service TBD');
+            const whenLine = `${formattedDate}${job.jobTime ? ' · ' + job.jobTime : ''}`;
+            const assigneeLine = [assignedManagerName && ('Mgr ' + assignedManagerName), assignedWorkerName && ('Wrk ' + assignedWorkerName)].filter(Boolean).join(' · ');
+
+            const docsHtml = hasDocs ? `
+                <div class="glass-card rounded-xl p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="section-title" style="margin:0;padding:0;">Documents</p>
+                        <span class="text-[11px] text-slate-400">${estCount} est · ${invCount} inv · ${waiverCount} waiver</span>
+                    </div>
+                    <div id="jobDocStatus" class="text-xs text-slate-300 mb-2"></div>
+                    <div class="space-y-2">
+                        ${(job.documents.estimates || []).map((doc, i) => `
+                            <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2.5 rounded-lg">
+                                <button type="button" class="text-left min-w-0 flex-1" onclick="openEstimateView('${job.id}', '${doc.id}', 'estimate')">
+                                    <p class="text-sm text-cyan-300 font-semibold truncate"><i class="fas fa-file-invoice mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || ('Estimate ' + (i + 1)))}</p>
+                                    <p class="text-[11px] text-slate-400">Tap to view PDF</p>
+                                </button>
+                                <div class="flex items-center gap-1 flex-shrink-0">
+                                    <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}&view=1" class="text-xs bg-cyan-600 text-white px-2.5 py-1.5 rounded-lg font-semibold">View</a>
+                                    <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg font-semibold">Edit</a>
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${(job.documents.invoices || []).map((doc, i) => `
+                            <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2.5 rounded-lg">
+                                <button type="button" class="text-left min-w-0 flex-1" onclick="openEstimateView('${job.id}', '${doc.id}', 'invoice')">
+                                    <p class="text-sm text-amber-300 font-semibold truncate"><i class="fas fa-file-invoice-dollar mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || ('Invoice ' + (i + 1)))}</p>
+                                    <p class="text-[11px] text-slate-400">Tap to view PDF</p>
+                                </button>
+                                <div class="flex items-center gap-1 flex-shrink-0">
+                                    <a href="estimate.html?mode=invoice&jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}&view=1" class="text-xs bg-amber-500 text-slate-900 px-2.5 py-1.5 rounded-lg font-semibold">View</a>
+                                    <a href="invoice.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg font-semibold">Edit</a>
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${(job.documents.waivers || []).map((doc, i) => `
+                            <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2.5 rounded-lg">
+                                <span class="text-sm text-emerald-300 truncate"><i class="fas fa-file-signature mr-1"></i>Waiver ${i + 1}</span>
+                                <a href="waiver.html?jobId=${encodeURIComponent(job.id)}" class="text-xs bg-emerald-600/30 border border-emerald-500/40 text-emerald-200 px-2.5 py-1.5 rounded-lg font-semibold">Open</a>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : `
+                <div class="glass-card rounded-xl p-3 text-center text-slate-400 text-sm">
+                    <p>No estimates or invoices yet</p>
+                </div>
+            `;
+
             document.getElementById('modalContent').innerHTML = `
                 <div class="space-y-3">
                     <div class="glass-card rounded-2xl p-4 border border-white/10">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex items-start gap-3 min-w-0">
-                                <div class="w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl text-slate-200 flex-shrink-0" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.14);">${firstLetter || 'J'}</div>
+                                <div class="w-11 h-11 rounded-lg flex items-center justify-center font-bold text-lg text-slate-200 flex-shrink-0" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.14);">${firstLetter || 'J'}</div>
                                 <div class="min-w-0">
-                                    <p class="text-2xl font-bold truncate">${escapeHtml(job.customerName || 'Customer')}</p>
-                                    <span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${statusPill}">${statusLabel}</span>
+                                    <p class="text-xl font-bold truncate">${escapeHtml(job.customerName || 'Customer')}</p>
+                                    <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide ${statusPill}">${statusLabel}</span>
+                                    <p class="text-xs text-slate-400 mt-1 truncate">${serviceLine} · ${whenLine}</p>
+                                    ${job.address ? `<p class="text-xs text-slate-300 mt-0.5 truncate"><i class="fas fa-map-marker-alt mr-1 text-blue-400"></i>${escapeHtml(job.address)}</p>` : ''}
+                                    ${assigneeLine ? `<p class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(assigneeLine)}</p>` : ''}
                                 </div>
                             </div>
-                            ${amount > 0 ? `<div class="text-right"><p class="text-3xl font-bold text-green-400">$${amount.toFixed(2)}</p><p class="text-xs text-gray-400 -mt-1">Job total</p></div>` : ''}
-                        </div>
-                        <div class="mt-3 text-sm text-gray-300 flex flex-wrap gap-x-3 gap-y-1">
-                            ${job.customerPhone ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="text-gray-300 hover:text-white"><i class="fas fa-phone mr-1"></i>${escapeHtml(job.customerPhone)}</a>` : ''}
-                            ${job.address ? `<span><i class="fas fa-map-marker-alt mr-1 text-blue-400"></i>${escapeHtml(job.address)}</span>` : ''}
-                        </div>
-                        <div class="mt-3 pt-3 border-t border-slate-700 grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                                <p class="text-xs text-gray-400 mb-1">Scheduled</p>
-                                <p class="font-semibold">${formattedDate}</p>
-                                ${job.jobTime ? `<p class="text-gray-300 mt-1"><i class="far fa-clock mr-1 text-slate-300"></i>${job.jobTime}</p>` : ''}
-                            </div>
-                            <div class="border-l border-slate-700 pl-3">
-                                <p class="text-xs text-gray-400 mb-1">Job ID</p>
-                                <p class="font-semibold">${jobIdShort}</p>
-                                ${(assignedManagerName || assignedWorkerName) ? `<p class="text-xs text-gray-300 mt-1">${assignedManagerName ? `Mgr: ${escapeHtml(assignedManagerName)}` : ''}${assignedManagerName && assignedWorkerName ? ' · ' : ''}${assignedWorkerName ? `Wrk: ${escapeHtml(assignedWorkerName)}` : ''}</p>` : ''}
-                            </div>
+                            ${amount > 0 ? `<div class="text-right flex-shrink-0"><p class="text-2xl font-bold text-green-400">$${amount.toFixed(2)}</p></div>` : ''}
                         </div>
                     </div>
 
-                    ${(job.address || job.customerPhone) ? `
-                    <div class="grid grid-cols-1 gap-2">
-                        ${job.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="bg-blue-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-location-arrow mr-2"></i>Navigate</a>` : (job.customerPhone ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="bg-green-600 text-white py-3 rounded-xl text-center font-semibold"><i class="fas fa-phone mr-2"></i>Call customer</a>` : `<span class="bg-slate-700/40 text-slate-500 py-3 rounded-xl text-center font-semibold">No navigation target</span>`)}
-                    </div>
-                    ` : ''}
-
-                    ${paymentCard}
-
-                    ${reviewCard}
-
-                    <div class="glass-card rounded-xl p-3 border border-sky-500/30">
-                        <div class="flex justify-between items-center gap-3">
-                            <div>
-                                <p class="text-xs text-gray-400 uppercase tracking-wide">Job Stopwatch</p>
-                                <p class="text-2xl font-extrabold text-sky-300">${timerText}</p>
-                                ${job.jobDuration ? `<p class="text-xs text-gray-400">Last saved duration: ${job.jobDuration}</p>` : ''}
-                            </div>
-                            <div class="flex gap-2">
-                                <button type="button" onclick="toggleJobStopwatch('${job.id}')" class="${timerState.isRunning ? 'bg-amber-600' : 'bg-blue-600'} text-white px-4 py-2 rounded-lg font-semibold">${timerBtnText}</button>
-                                <button type="button" onclick="resetJobStopwatch('${job.id}')" class="bg-slate-700 text-gray-200 px-4 py-2 rounded-lg font-semibold">Reset</button>
-                            </div>
-                        </div>
-                        ${renderJobTimerChecklist(job, timerState)}
+                    <div class="grid grid-cols-3 gap-2">
+                        ${job.address
+                            ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="bg-blue-600 text-white py-3 rounded-xl text-center font-semibold text-sm"><i class="fas fa-location-arrow block mb-1"></i>Navigate</a>`
+                            : `<span class="bg-slate-800/50 text-slate-500 py-3 rounded-xl text-center font-semibold text-sm"><i class="fas fa-location-arrow block mb-1"></i>Navigate</span>`}
+                        ${job.customerPhone
+                            ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="bg-emerald-600 text-white py-3 rounded-xl text-center font-semibold text-sm"><i class="fas fa-phone block mb-1"></i>Call</a>`
+                            : `<span class="bg-slate-800/50 text-slate-500 py-3 rounded-xl text-center font-semibold text-sm"><i class="fas fa-phone block mb-1"></i>Call</span>`}
+                        ${job.customerPhone
+                            ? `<a href="job-chat.html?jobId=${encodeURIComponent(job.id)}" class="bg-slate-700 text-white py-3 rounded-xl text-center font-semibold text-sm"><i class="fas fa-comment-dots block mb-1"></i>Text</a>`
+                            : `<span class="bg-slate-800/50 text-slate-500 py-3 rounded-xl text-center font-semibold text-sm"><i class="fas fa-comment-dots block mb-1"></i>Text</span>`}
                     </div>
 
-                    <div class="glass-card rounded-xl overflow-hidden">
-                        <div class="list-item">
-                            <i class="fas fa-screwdriver-wrench text-blue-400 mr-3"></i>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs text-gray-400">Service</p>
-                                <p class="font-semibold">${escapeHtml(job.serviceType || 'No service details — tap Edit Job to add')}</p>
-                            </div>
-                            <i class="fas fa-chevron-right text-gray-500"></i>
-                        </div>
-                        <div class="list-item">
-                            <i class="fas fa-map-marker-alt text-green-400 mr-3"></i>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs text-gray-400">Address</p>
-                                <p class="font-semibold">${escapeHtml(job.address || '-')}</p>
-                            </div>
-                            <i class="fas fa-chevron-right text-gray-500"></i>
-                        </div>
-                        <div class="list-item">
-                            <i class="fas fa-calendar-alt text-slate-300 mr-3"></i>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs text-gray-400">Scheduled</p>
-                                <p class="font-semibold">${formattedDate}${job.jobTime ? ` at ${job.jobTime}` : ''}</p>
-                            </div>
-                            <i class="fas fa-chevron-right text-gray-500"></i>
-                        </div>
+                    ${docsHtml}
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="openDocumentForm('estimate', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-plus mr-1"></i>Estimate</button>
+                        <button type="button" onclick="openDocumentForm('invoice', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-plus mr-1"></i>Invoice</button>
+                        <button type="button" onclick="openDocumentForm('waiver', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-file-signature mr-1"></i>Waiver</button>
+                        <button type="button" onclick="editJob('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-pen mr-1"></i>Edit job</button>
                     </div>
 
-                    <div>
-                        <p class="section-title mb-2">Quick Actions</p>
-                        <div class="flex items-center gap-1">
-                            <button type="button" onclick="scrollJobQuickActions(-1)" class="hidden md:inline-flex bg-slate-800 border border-slate-700 text-slate-200 px-2 py-2 rounded-lg text-xs" aria-label="Scroll actions left"><i class="fas fa-chevron-left"></i></button>
-                            <div id="jobQuickActionsRow" class="quick-actions-row flex gap-2 overflow-x-auto pb-1 scroll-smooth">
-                                ${job.status === 'scheduled' ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-play mr-1"></i>Start Job</a>` : `<span class="bg-slate-800/50 border border-slate-700 text-slate-500 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">Start Job</span>`}
-                                <button onclick="openDocumentForm('estimate', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-invoice mr-1"></i>Add Estimate</button>
-                                <button onclick="openDocumentForm('invoice', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-invoice-dollar mr-1"></i>Add Invoice</button>
-                                <button onclick="openDocumentForm('waiver', '${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-file-signature mr-1"></i>Add Waiver</button>
-                                <button onclick="addToGoogleCalendar('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fab fa-google mr-1"></i>Add to GCal</button>
-                                <button onclick="createCustomerFromJob('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">${job.customerId ? `<i class="fas fa-user-check mr-1"></i>${escapeHtml(job.customerName || 'Customer')}` : '<i class="fas fa-user-plus mr-1"></i>Link Customer'}</button>
-                                ${job.customerPhone ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-phone mr-1"></i>Call</a>` : '<span class="bg-slate-800/50 border border-slate-700 text-slate-500 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">No phone</span>'}
-                                ${job.customerPhone ? `<a href="sms:${encodeURIComponent(job.customerPhone)}" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"><i class="fas fa-comment-dots mr-1"></i>Text</a>` : ''}
-                            </div>
-                            <button type="button" onclick="scrollJobQuickActions(1)" class="hidden md:inline-flex bg-slate-800 border border-slate-700 text-slate-200 px-2 py-2 rounded-lg text-xs" aria-label="Scroll actions right"><i class="fas fa-chevron-right"></i></button>
-                        </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="toggleJobDetailSection('timerSection')" class="bg-sky-900/40 border border-sky-500/30 text-sky-200 py-2.5 rounded-xl text-sm font-semibold">
+                            <i class="fas fa-stopwatch mr-1"></i>Timer ${timerText}
+                        </button>
+                        ${payInfo
+                            ? `<button type="button" onclick="toggleJobDetailSection('paymentSection')" class="bg-amber-900/30 border border-amber-500/30 text-amber-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-dollar-sign mr-1"></i>Payment</button>`
+                            : (job.status === 'scheduled'
+                                ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold text-center"><i class="fas fa-play mr-1"></i>Start job</a>`
+                                : `<button type="button" onclick="addToGoogleCalendar('${job.id}')" class="bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fab fa-google mr-1"></i>Calendar</button>`)}
                     </div>
 
-                    ${job.documents && (job.documents.estimates?.length || job.documents.invoices?.length || job.documents.waivers?.length) ? `
-                    <div class="glass-card rounded-xl p-3">
-                        <p class="section-title mb-2">Saved Documents</p>
-                        <div id="jobDocStatus" class="text-xs text-slate-300 mb-2"></div>
-                        <div class="space-y-2">
-                            ${(job.documents.estimates || []).map((doc, i) => `
-                                <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded-lg">
-                                    <span class="text-sm text-cyan-300 truncate"><i class="fas fa-file-invoice mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || `Estimate ${i + 1}`)}</span>
-                                    <div class="flex items-center gap-1">
-                                        <a href="estimate.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-cyan-600/20 border border-cyan-500/40 text-cyan-200 px-2 py-1 rounded">Edit</a>
-                                        <button type="button" onclick="deleteJobDocument('${job.id}', 'estimates', '${doc.id}')" class="text-xs bg-red-600/20 border border-red-500/40 text-red-200 px-2 py-1 rounded">Delete</button>
-                                    </div>
+                    <div id="timerSection" class="hidden">
+                        <div class="glass-card rounded-xl p-3 border border-sky-500/30">
+                            <div class="flex justify-between items-center gap-3">
+                                <div>
+                                    <p class="text-xs text-gray-400 uppercase tracking-wide">Stopwatch</p>
+                                    <p class="text-2xl font-extrabold text-sky-300">${timerText}</p>
+                                    ${job.jobDuration ? `<p class="text-xs text-gray-400">Saved: ${job.jobDuration}</p>` : ''}
                                 </div>
-                            `).join('')}
-                            ${(job.documents.invoices || []).map((doc, i) => `
-                                <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded-lg">
-                                    <span class="text-sm text-amber-300 truncate"><i class="fas fa-file-invoice-dollar mr-1"></i>${escapeHtml((doc.summary && (doc.summary.number || doc.summary.customerName)) || `Invoice ${i + 1}`)}</span>
-                                    <a href="invoice.html?jobId=${encodeURIComponent(job.id)}&docId=${encodeURIComponent(doc.id)}" class="text-xs bg-amber-600/20 border border-amber-500/40 text-amber-200 px-2 py-1 rounded">Edit</a>
+                                <div class="flex gap-2">
+                                    <button type="button" onclick="toggleJobStopwatch('${job.id}')" class="${timerState.isRunning ? 'bg-amber-600' : 'bg-blue-600'} text-white px-4 py-2 rounded-lg font-semibold">${timerBtnText}</button>
+                                    <button type="button" onclick="resetJobStopwatch('${job.id}')" class="bg-slate-700 text-gray-200 px-3 py-2 rounded-lg font-semibold">Reset</button>
                                 </div>
-                            `).join('')}
-                            ${(job.documents.waivers || []).map((doc, i) => `
-                                <div class="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded-lg">
-                                    <span class="text-sm text-emerald-300 truncate"><i class="fas fa-file-signature mr-1"></i>Waiver ${i + 1}</span>
-                                    <a href="waiver.html?jobId=${encodeURIComponent(job.id)}" class="text-xs bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 px-2 py-1 rounded">Open</a>
-                                </div>
-                            `).join('')}
+                            </div>
+                            ${renderJobTimerChecklist(job, timerState)}
                         </div>
                     </div>
-                    ` : ''}
+
+                    ${payInfo ? `<div id="paymentSection" class="hidden">${paymentCard}</div>` : '<div id="paymentSection" class="hidden"></div>'}
+
+                    ${(job.status === 'completed' && reviewUrl) ? `<div id="reviewSection" class="hidden">${reviewCard}</div>` : ''}
 
                     ${job.notes ? `
-                        <div>
-                            <p class="section-title mb-2">Notes</p>
-                            <div class="glass-card rounded-xl p-3 text-sm">
-                                <p style="white-space:pre-wrap;">${escapeHtml(job.notes)}</p>
-                                <p class="text-xs text-gray-400 mt-2">Added by you</p>
-                            </div>
-                        </div>
+                        <details class="glass-card rounded-xl p-3">
+                            <summary class="text-sm font-semibold text-slate-200 cursor-pointer">Notes</summary>
+                            <p class="text-sm mt-2" style="white-space:pre-wrap;">${escapeHtml(job.notes)}</p>
+                        </details>
                     ` : ''}
 
+                    <div id="moreSection" class="hidden">
+                        <div class="glass-card rounded-xl p-3 space-y-2">
+                            ${job.status === 'scheduled' ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="block bg-blue-600 text-white py-2.5 rounded-xl text-center font-semibold text-sm"><i class="fas fa-play mr-1"></i>Start job</a>` : ''}
+                            <button type="button" onclick="addToGoogleCalendar('${job.id}')" class="w-full bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fab fa-google mr-1"></i>Add to Google Calendar</button>
+                            <button type="button" onclick="createCustomerFromJob('${job.id}')" class="w-full bg-slate-800 border border-slate-700 text-slate-200 py-2.5 rounded-xl text-sm font-semibold">${job.customerId ? '<i class="fas fa-user-check mr-1"></i>Open customer' : '<i class="fas fa-user-plus mr-1"></i>Link customer'}</button>
+                            ${(job.status === 'completed' && reviewUrl) ? `<button type="button" onclick="toggleJobDetailSection('reviewSection')" class="w-full bg-amber-900/30 border border-amber-500/30 text-amber-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-star mr-1"></i>Ask for review</button>` : ''}
+                            ${!payInfo ? `<button type="button" onclick="toggleJobDetailSection('timerSection')" class="w-full bg-sky-900/40 border border-sky-500/30 text-sky-200 py-2.5 rounded-xl text-sm font-semibold"><i class="fas fa-stopwatch mr-1"></i>Open timer</button>` : ''}
+                            <p class="text-[11px] text-slate-500 pt-1">${jobIdShort}</p>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-1 gap-2 pt-1">
-                        <div id="jobActionStatus" class="text-xs text-slate-300 mb-1"></div>
-                        <input id="cancelReasonInput" type="text" placeholder="Cancel reason (required for cancel)" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-sm">
+                        <div id="jobActionStatus" class="text-xs text-slate-300"></div>
                         ${job.status !== 'completed' ? `
-                            <button onclick="markComplete('${job.id}'); closeJobModal();" class="bg-green-600 text-white py-4 rounded-xl font-semibold text-lg">
-                                <i class="fas fa-check-circle mr-1"></i>Mark as Complete
+                            <button onclick="markComplete('${job.id}'); closeJobModal();" class="bg-green-600 text-white py-3.5 rounded-xl font-semibold text-base">
+                                <i class="fas fa-check-circle mr-1"></i>Mark complete
                             </button>
                         ` : `
-                            <button onclick="markScheduled('${job.id}'); closeJobModal();" class="bg-slate-700 text-white py-4 rounded-xl font-semibold text-lg">
-                                <i class="fas fa-undo mr-1"></i>Reopen Job
+                            <button onclick="markScheduled('${job.id}'); closeJobModal();" class="bg-slate-700 text-white py-3.5 rounded-xl font-semibold text-base">
+                                <i class="fas fa-undo mr-1"></i>Reopen job
                             </button>
                         `}
-                        <div class="grid grid-cols-2 gap-2">
-                        <button onclick="editJob('${job.id}')" class="bg-slate-600 text-white py-3 rounded-xl font-semibold">
-                            <i class="fas fa-pen mr-1"></i>Edit Job
-                        </button>
-                        ${job.customerPhone ? `<a href="tel:${job.customerPhone}" class="bg-slate-700 text-white py-3 rounded-xl font-semibold text-center"><i class="fas fa-phone mr-1"></i>Call</a>` : `<span class="bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-xl font-semibold text-center">No phone</span>`}
+                        <button type="button" onclick="toggleJobDetailSection('moreSection')" class="bg-transparent text-slate-400 text-sm py-1">More options</button>
+                        <div id="cancelRow" class="hidden">
+                            <input id="cancelReasonInput" type="text" placeholder="Cancel reason (required)" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-sm mb-2">
+                            <button onclick="cancelJobWithReason('${job.id}');" class="text-red-300 text-sm underline underline-offset-2 bg-transparent border-none">Cancel this job</button>
                         </div>
-                        <button onclick="cancelJobWithReason('${job.id}');" class="text-red-300 text-sm text-left underline underline-offset-2 py-1 px-1 bg-transparent border-none">Cancel job</button>
                     </div>
                 </div>
             `;
@@ -1626,6 +1625,33 @@
             document.body.classList.remove('modal-open');
             closeModal('jobModal');
         }
+
+        window.toggleJobDetailSection = function(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const opening = el.classList.contains('hidden');
+            // Accordion: close sibling expandable panels
+            ['timerSection', 'paymentSection', 'reviewSection', 'moreSection'].forEach((sid) => {
+                const s = document.getElementById(sid);
+                if (s && sid !== id) s.classList.add('hidden');
+            });
+            el.classList.toggle('hidden', !opening);
+            const cancelRow = document.getElementById('cancelRow');
+            if (cancelRow) {
+                cancelRow.classList.toggle('hidden', !(opening && id === 'moreSection'));
+            }
+        };
+
+        /** One-tap PDF/view for a saved estimate or invoice. */
+        window.openEstimateView = function(jobId, docId, mode) {
+            if (!jobId || !docId) return;
+            const qp = new URLSearchParams();
+            qp.set('jobId', jobId);
+            qp.set('docId', docId);
+            qp.set('view', '1');
+            if (mode === 'invoice') qp.set('mode', 'invoice');
+            window.location.href = 'estimate.html?' + qp.toString();
+        };
 
         // ── Edit Job ────────────────────────────────────────────
         function editJob(id) {
@@ -2355,77 +2381,21 @@
                 setJobDocStatus('Document not found.', true);
                 return;
             }
-
             const doc = job.documents[docType][index];
-            const docContent = document.getElementById('documentContent');
-            const docTitle = document.getElementById('documentModal-title');
-
-            const typeNames = { estimates: 'Estimate', invoices: 'Invoice', waivers: 'Waiver' };
-            docTitle.textContent = `${typeNames[docType]} ${index + 1}`;
-
-            // Estimates/invoices are editable; waivers stay view-only.
-            const editPage = docType === 'estimates' ? 'estimate.html'
-                           : docType === 'invoices' ? 'invoice.html'
-                           : null;
-            const editHref = editPage ? `${editPage}?jobId=${encodeURIComponent(jobId)}&docId=${encodeURIComponent(doc.id)}` : null;
-
-            // Prefer the compact formState preview; fall back to the legacy PNG
-            // when an older entry still has one.
-            let preview = '';
-            if (doc.pdfDataUrl) {
-                preview = `
-                    <div class="text-center">
-                        <img src="${doc.pdfDataUrl}" alt="Document" style="max-width: 100%; border: 1px solid #475569; border-radius: 8px;">
-                    </div>`;
-            } else if (doc.formState || doc.summary) {
-                const s = doc.summary || {};
-                const fs = doc.formState || {};
-                const services = Array.isArray(fs.services) ? fs.services : [];
-                preview = `
-                    <div class="bg-slate-700/40 p-4 rounded-xl">
-                        <p class="text-xl font-bold">${s.customerName || fs.customerName || job.customerName || 'Customer'}</p>
-                        ${s.number ? `<p class="text-xs text-gray-400">#${s.number}</p>` : ''}
-                        ${services.length ? `
-                            <ul class="mt-3 text-sm space-y-1">
-                                ${services.map(x => `<li>• ${x.description || 'Service'} — ${x.squareFootage || '?'} sq ft</li>`).join('')}
-                            </ul>
-                        ` : ''}
-                        ${s.total != null ? `<p class="mt-3 text-2xl font-bold text-green-400">$${Number(s.total).toFixed(2)}</p>` : ''}
-                        ${fs.notes ? `<p class="mt-2 text-sm text-gray-300">${fs.notes}</p>` : ''}
-                    </div>`;
-            } else {
-                preview = `
-                    <div class="text-center text-gray-400 py-8">
-                        <i class="fas fa-file-alt text-4xl mb-3"></i>
-                        <p>Document preview not available</p>
-                    </div>`;
+            // Estimates/invoices → full printable view. Waivers stay on their page.
+            if (docType === 'estimates' && doc.id) {
+                openEstimateView(jobId, doc.id, 'estimate');
+                return;
             }
-
-            const actions = `
-                <div class="flex gap-2 mt-4">
-                    ${editHref ? `
-                        <a href="${editHref}" class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold text-center">
-                            <i class="fas fa-edit mr-2"></i>Edit
-                        </a>
-                    ` : ''}
-                    ${doc.pdfDataUrl ? `
-                        <a href="${doc.pdfDataUrl}" download="${typeNames[docType]}-${job.customerName || 'document'}.png" class="flex-1 bg-slate-600 text-white py-3 rounded-xl font-semibold text-center">
-                            <i class="fas fa-download mr-2"></i>Download
-                        </a>
-                    ` : ''}
-                    <button onclick="deleteDocument('${jobId}', '${docType}', '${doc.id}')" class="flex-1 bg-red-600/20 text-red-400 py-3 rounded-xl font-semibold border border-red-600/30">
-                        <i class="fas fa-trash mr-2"></i>Delete
-                    </button>
-                </div>
-                <p class="text-xs text-gray-500 text-center mt-3">
-                    ${doc.createdAt ? `Created: ${new Date(doc.createdAt).toLocaleString()}` : ''}
-                    ${doc.updatedAt ? ` • Updated: ${new Date(doc.updatedAt).toLocaleString()}` : ''}
-                </p>
-            `;
-
-            docContent.innerHTML = preview + actions;
-            document.body.classList.add('modal-open');
-            openModal('documentModal');
+            if (docType === 'invoices' && doc.id) {
+                openEstimateView(jobId, doc.id, 'invoice');
+                return;
+            }
+            if (docType === 'waivers') {
+                window.location.href = 'waiver.html?jobId=' + encodeURIComponent(jobId);
+                return;
+            }
+            setJobDocStatus('Document not found.', true);
         }
 
         // ── Create Customer from Job ─────────────────────────────

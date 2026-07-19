@@ -48,6 +48,52 @@
         .main-content {
             padding: 16px 20px 90px;
         }
+
+        /* Compact view-only mode: hide the long generator form */
+        body.estimate-view-mode .input-section { display: none !important; }
+        body.estimate-view-mode .container {
+            grid-template-columns: 1fr;
+            max-width: 720px;
+            gap: 0;
+        }
+        body.estimate-view-mode .main-content { padding-top: 8px; }
+        .view-toolbar {
+            display: none;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            padding: 10px 0;
+            background: linear-gradient(180deg, #1b1e23 70%, rgba(27,30,35,0));
+        }
+        body.estimate-view-mode .view-toolbar { display: flex; }
+        .view-toolbar a, .view-toolbar button {
+            flex: 1;
+            min-width: 110px;
+            padding: 12px 10px;
+            border-radius: 12px;
+            border: none;
+            font-weight: 700;
+            font-size: 13px;
+            text-align: center;
+            text-decoration: none;
+            cursor: pointer;
+            color: #fff;
+        }
+        .view-toolbar .vt-back { background: rgba(51,65,85,0.9); }
+        .view-toolbar .vt-print { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
+        .view-toolbar .vt-edit { background: rgba(71,85,105,0.95); border: 1px solid rgba(255,255,255,0.12); }
+        .view-toolbar .vt-share { background: rgba(16,185,129,0.85); }
+        .view-banner {
+            display: none;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        body.estimate-view-mode .view-banner { display: block; }
         
         .container {
             max-width: 1200px;
@@ -536,6 +582,13 @@
     </header>
     <main class="app-content">
         <div class="main-content">
+            <div class="view-toolbar no-print" id="viewToolbar">
+                <a class="vt-back" id="viewBackBtn" href="jobs.html"><i class="fas fa-arrow-left"></i> Job</a>
+                <button type="button" class="vt-print" onclick="window.print()"><i class="fas fa-file-pdf"></i> PDF / Print</button>
+                <button type="button" class="vt-share" id="viewShareBtn" onclick="shareFinalEstimate()"><i class="fas fa-share-alt"></i> Share</button>
+                <a class="vt-edit" id="viewEditBtn" href="#"><i class="fas fa-pen"></i> Edit</a>
+            </div>
+            <p class="view-banner no-print" id="viewBanner">Tap PDF / Print to save or share. Edit opens the full form.</p>
             <div class="container">
         <div class="input-section">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
@@ -825,6 +878,8 @@
         const jobDocsKey = docMode === 'invoice' ? 'invoices' : 'estimates';
         const cloudCollection = docMode === 'invoice' ? 'invoices' : 'estimates';
         const startJobNow = urlParams.get('startJob') === '1';
+        // view=1 → open saved doc as printable preview (no form editing dance)
+        const viewMode = urlParams.get('view') === '1';
         let activeJobEstimateDocId = editDocId || null;
         const JOB_TIMER_PREFIX = 'cl-job-timer-';
         let jobTimerInterval = null;
@@ -1208,11 +1263,14 @@
             return hours;
         }
         
-        function generateEstimate() {
+        function generateEstimate(opts) {
+            const quiet = !!(opts && opts.quiet) || viewMode;
             // Get pricing and materials info
-            const gasCost = parseFloat(document.getElementById('gasCost').value);
+            let gasCost = parseFloat(document.getElementById('gasCost').value);
             const chemicalName = document.getElementById('chemicalName').value || 'Chemical';
-            const chemicalCost = parseFloat(document.getElementById('chemicalCost').value);
+            let chemicalCost = parseFloat(document.getElementById('chemicalCost').value);
+            if (!gasCost || isNaN(gasCost)) gasCost = 3.5;
+            if (!chemicalCost || isNaN(chemicalCost)) chemicalCost = 0.01;
             
             // Get customer info
             const customerName = document.getElementById('customerName').value || 'Customer';
@@ -1227,13 +1285,13 @@
             
             // Validate inputs
             if (!customerName.trim()) {
-                alert('Please enter a customer name');
-                return;
+                if (!quiet) alert('Please enter a customer name');
+                return false;
             }
             
-            if (!gasCost || !chemicalCost) {
+            if (!quiet && (!parseFloat(document.getElementById('gasCost').value) || !parseFloat(document.getElementById('chemicalCost').value))) {
                 alert('Please fill in all pricing and materials information');
-                return;
+                return false;
             }
             
             // Get all services
@@ -1241,15 +1299,16 @@
             const serviceItems = document.querySelectorAll('.service-item');
             
             let hasValidService = false;
+            let serviceError = '';
             serviceItems.forEach((item, index) => {
                 const description = item.querySelector('[name="description"]').value;
                 const squareFootage = parseFloat(item.querySelector('[name="squareFootage"]').value);
                 const pricePerSqFt = parseFloat(item.querySelector('[name="pricePerSqFt"]').value);
-                const numWorkers = parseInt(item.querySelector('[name="numWorkers"]').value);
-                const dirtLevel = parseFloat(item.querySelector('[name="dirtLevel"]').value);
-                const surfaceType = item.querySelector('[name="surfaceType"]').value;
+                const numWorkers = parseInt(item.querySelector('[name="numWorkers"]').value) || 1;
+                const dirtLevel = parseFloat(item.querySelector('[name="dirtLevel"]').value) || 1;
+                const surfaceType = item.querySelector('[name="surfaceType"]').value || 'concrete';
                 
-                if (description && squareFootage && pricePerSqFt && numWorkers && dirtLevel) {
+                if (description && squareFootage && pricePerSqFt) {
                     services.push({
                         description,
                         squareFootage,
@@ -1260,14 +1319,18 @@
                     });
                     hasValidService = true;
                 } else if (description || squareFootage || pricePerSqFt) {
-                    alert(`Please complete all fields for Service ${index + 1} or remove it`);
-                    return;
+                    serviceError = `Please complete all fields for Service ${index + 1} or remove it`;
                 }
             });
+
+            if (serviceError && !quiet) {
+                alert(serviceError);
+                return false;
+            }
             
             if (!hasValidService) {
-                alert('Please add at least one complete service');
-                return;
+                if (!quiet) alert('Please add at least one complete service');
+                return false;
             }
             
             // Calculate totals
@@ -1482,8 +1545,8 @@
                         </div>
                     </div>
                     <div class="estimate-meta">
-                        <h1>ESTIMATE</h1>
-                        <p>Estimate #: ${estimateNum}</p>
+                        <h1>${docMode === 'invoice' ? 'INVOICE' : 'ESTIMATE'}</h1>
+                        <p>${docMode === 'invoice' ? 'Invoice' : 'Estimate'} #: ${estimateNum}</p>
                         <p>Date: ${today}</p>
                     </div>
                 </div>
@@ -1538,7 +1601,7 @@
                     <span>Thank you for your business!</span>
                 </div>
                 
-                <button class="download-btn" onclick="window.print()">PRINT ESTIMATE</button>
+                <button class="download-btn no-print" onclick="window.print()">PRINT ${docMode === 'invoice' ? 'INVOICE' : 'ESTIMATE'}</button>
                 
                 <div class="share-buttons">
                     <button class="share-btn email" onclick="shareViaEmail()">
@@ -1565,7 +1628,8 @@
                 notes
             };
 
-            if (jobId) {
+            // Don't mutate the job when opening a read-only PDF/view.
+            if (jobId && !quiet && !viewMode) {
                 saveEstimateToJob({ redirect: false, silent: true });
             }
             
@@ -1640,6 +1704,48 @@
             document.getElementById('estimateContent').innerHTML += marginHTML;
 
             hideSendButtonsIfBlocked();
+            return true;
+        }
+
+        function enterViewMode() {
+            document.body.classList.add('estimate-view-mode');
+            const title = docMode === 'invoice' ? 'Invoice' : 'Estimate';
+            const h1 = document.getElementById('docModeTitle');
+            if (h1) h1.textContent = 'View ' + title;
+            document.title = 'View ' + title + ' - Clearline';
+
+            const back = document.getElementById('viewBackBtn');
+            if (back) {
+                back.href = jobId
+                    ? ('jobs.html?highlight=' + encodeURIComponent(jobId))
+                    : 'jobs.html';
+            }
+            const edit = document.getElementById('viewEditBtn');
+            if (edit) {
+                const qp = new URLSearchParams();
+                if (jobId) qp.set('jobId', jobId);
+                if (editDocId) qp.set('docId', editDocId);
+                if (docMode === 'invoice') qp.set('mode', 'invoice');
+                edit.href = 'estimate.html?' + qp.toString();
+            }
+            const banner = document.getElementById('viewBanner');
+            if (banner) {
+                banner.textContent = 'Tap PDF / Print to save or share. Edit opens the full form.';
+            }
+
+            // Auto-build printable preview from saved form state
+            const ok = generateEstimate({ quiet: true });
+            if (!ok) {
+                const content = document.getElementById('estimateContent');
+                if (content) {
+                    content.innerHTML = `
+                        <div style="text-align:center;padding:40px 16px;color:#94a3b8;">
+                            <p style="font-size:16px;font-weight:700;color:#e2e8f0;margin-bottom:8px;">Couldn’t build this ${title.toLowerCase()} preview</p>
+                            <p style="font-size:13px;margin-bottom:16px;">Open Edit to fix missing service or pricing fields, then Generate again.</p>
+                            <a href="${edit ? edit.href : '#'}" style="display:inline-block;background:#0ea5e9;color:#fff;padding:12px 18px;border-radius:10px;font-weight:700;text-decoration:none;">Open editor</a>
+                        </div>`;
+                }
+            }
         }
         
         // Share functions
@@ -1678,7 +1784,7 @@
 
         async function shareFinalEstimate() {
             if (!lastEstimateData) {
-                generateEstimate();
+                generateEstimate({ quiet: viewMode });
             }
             const preview = document.getElementById('estimateContent');
             if (!preview) return;
@@ -2510,7 +2616,7 @@
             updateEstimateSyncUI();
             maybeShowStandaloneRestoreBanner();
             setTimeout(() => { tryConsumePendingCloudEstimateLoad(); }, 450);
-            initJobTimerPanel();
+            if (!viewMode) initJobTimerPanel();
             const sc = document.getElementById('servicesContainer');
             if (sc) {
                 sc.addEventListener('input', (e) => {
@@ -2523,6 +2629,11 @@
             const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
             if (p) applyEstimatePermissions(p);
             window.addEventListener('cl-profile-updated', (e) => applyEstimatePermissions(e.detail && e.detail.profile));
+
+            if (viewMode) {
+                // Wait a tick so loadFormState DOM updates settle, then show PDF view.
+                setTimeout(() => enterViewMode(), 0);
+            }
         });
 
         function switchDocMode(next) {
