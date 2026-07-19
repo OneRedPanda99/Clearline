@@ -448,6 +448,32 @@ window.CL_CONFIG = (function() {
 })();
 
 /**
+ * Normalize US phone numbers to (XXX) XXX-XXXX when possible.
+ * Accepts messy input like 8036031375, (803) 6031375, 1-803-603-1375.
+ * Returns '' for empty input; otherwise best-effort formatted string.
+ */
+window.formatPhoneUS = function(raw) {
+  if (raw == null || raw === undefined) return '';
+  const digits = String(raw).replace(/\D/g, '');
+  if (!digits) return '';
+  let d = digits;
+  if (d.length === 11 && d.charAt(0) === '1') d = d.slice(1);
+  if (d.length === 10) {
+    return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  }
+  // Keep original trimmed if we can't confidently format.
+  return String(raw).trim();
+};
+
+/** Digits-only phone for tel: links / matching. */
+window.phoneDigits = function(raw) {
+  if (raw == null || raw === undefined) return '';
+  let d = String(raw).replace(/\D/g, '');
+  if (d.length === 11 && d.charAt(0) === '1') d = d.slice(1);
+  return d;
+};
+
+/**
  * Soft page transition for in-app navigations.
  * External / tel / mailto links skip the exit animation.
  */

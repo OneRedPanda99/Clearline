@@ -9,9 +9,9 @@
     <meta name="theme-color" content="#1a1c1f">
     <title>Customers - Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js?v=2"></script>
+    <script src="utils.js?v=3"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="app.css?v=6">
+    <link rel="stylesheet" href="app.css?v=7">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="data-migration.js"></script>
@@ -217,7 +217,23 @@
         function loadData() {
             customers = CL_DATA.getCustomers();
             jobs = CL_DATA.getJobs();
+            normalizeStoredPhones();
             updateCustomerStats();
+        }
+
+        // Persist US phone formatting for messy stored numbers (import/legacy).
+        function normalizeStoredPhones() {
+            let changed = false;
+            customers.forEach(c => {
+                if (!c || !c.phone) return;
+                const formatted = formatPhoneUS(c.phone);
+                if (formatted && formatted !== c.phone) {
+                    CL_DATA.updateCustomer(c.id, { ...c, phone: formatted });
+                    c.phone = formatted;
+                    changed = true;
+                }
+            });
+            if (changed) customers = CL_DATA.getCustomers();
         }
 
         function setCustomerListTab(tab) {
@@ -252,7 +268,21 @@
         }
 
         function getCustomerRevenue(customerId) {
+            // Lifetime job totals (quotes/invoices) — kept for stats if needed.
             return getCustomerJobs(customerId).reduce((s, j) => s + getJobDisplayTotal(j), 0);
+        }
+
+        function getCustomerPaid(customerId) {
+            // Money this customer has actually paid (amountPaid, or full total when marked paid).
+            return getCustomerJobs(customerId).reduce((s, j) => {
+                const paid = parseFloat(j.amountPaid);
+                if (!isNaN(paid) && paid > 0) return s + paid;
+                if (j.paymentStatus === 'paid') {
+                    const total = window.getJobDisplayTotal ? getJobDisplayTotal(j) : 0;
+                    return s + (total || 0);
+                }
+                return s;
+            }, 0);
         }
 
         function letterBucket(name) {
@@ -334,6 +364,11 @@
             saveCustomer();
         });
 
+        // Normalize phone when leaving the field (and on save).
+        document.getElementById('customerPhone').addEventListener('blur', function() {
+            this.value = formatPhoneUS(this.value);
+        });
+
         // Save customer - saves only customer info to cl-customers
         function saveCustomer() {
             const id = document.getElementById('customerId').value;
@@ -342,7 +377,7 @@
             const customer = {
                 id: id || 'cust_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
                 name: document.getElementById('customerName').value,
-                phone: document.getElementById('customerPhone').value,
+                phone: formatPhoneUS(document.getElementById('customerPhone').value),
                 email: document.getElementById('customerEmail').value,
                 address: document.getElementById('customerAddress').value,
                 notes: document.getElementById('customerNotes').value,
@@ -404,9 +439,11 @@
 
             if (searchQuery) {
                 const query = searchQuery.toLowerCase();
+                const qDigits = phoneDigits(searchQuery);
                 filtered = filtered.filter(c =>
-                    c.name.toLowerCase().includes(query) ||
-                    (c.phone && c.phone.includes(query)) ||
+                    (c.name || '').toLowerCase().includes(query) ||
+                    (c.phone && c.phone.toLowerCase().includes(query)) ||
+                    (qDigits && phoneDigits(c.phone).includes(qDigits)) ||
                     (c.address && c.address.toLowerCase().includes(query)) ||
                     (c.email && c.email.toLowerCase().includes(query))
                 );
@@ -459,43 +496,28 @@
 
         function renderCustomerCard(c) {
             const jobCount = getJobCount(c.id);
-            const customerJobs = getCustomerJobs(c.id);
-            const scheduledJob = customerJobs.find(j => j.status === 'scheduled');
-            const rev = getCustomerRevenue(c.id);
-            const revPart = rev > 0 ? ` · $${rev.toFixed(0)}` : '';
+            const paid = getCustomerPaid(c.id);
             const ini = initialsFor(c.name);
+            const phoneDisp = c.phone ? formatPhoneUS(c.phone) : 'No phone';
+            const jobsLine = `${jobCount} job${jobCount !== 1 ? 's' : ''}`;
+            const metaParts = [
+                `<span class="customer-card-jobs">${escapeHtml(jobsLine)}</span>`
+            ];
+            if (paid > 0) {
+                metaParts.push('<span class="customer-card-meta-sep" aria-hidden="true">·</span>');
+                metaParts.push(`<span class="customer-card-paid">$${paid.toFixed(0)} paid</span>`);
+            }
 
             return `
-                <div class="customer-card glass-card rounded-xl p-4" onclick="openDetailModal('${c.id}')">
-                    <div class="flex gap-3 items-start mb-2">
+                <div class="customer-card glass-card rounded-xl p-4" onclick="openDetailModal('${c.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDetailModal('${c.id}');}" role="button" tabindex="0">
+                    <div class="flex gap-3 items-start">
                         <div class="flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-sm font-bold" style="background:rgba(255,255,255,0.06);color:#d1d5db;border:1px solid rgba(255,255,255,0.12);">
                             ${ini}
                         </div>
                         <div class="flex-1 min-w-0">
                             <h3 class="font-bold text-base m-0 truncate">${escapeHtml(c.name)}</h3>
-                            <p class="text-gray-500 text-xs mt-1 truncate">${escapeHtml(c.phone || 'No phone')} · ${escapeHtml(c.email || 'No email')}</p>
-                            <p class="text-gray-400 text-xs mt-1">${jobCount} job${jobCount !== 1 ? 's' : ''}${revPart}</p>
-                        </div>
-                    </div>
-                    ${scheduledJob ? `
-                        <div class="text-gray-300 text-xs mb-3">
-                            <i class="fas fa-calendar mr-1"></i>Next: ${new Date(scheduledJob.jobDate + 'T12:00:00').toLocaleDateString()} · ${escapeHtml(scheduledJob.serviceType || 'Service')}
-                        </div>
-                    ` : ''}
-
-                    <div class="customer-card-actions" onclick="event.stopPropagation()">
-                        <a href="#" onclick="event.stopPropagation(); prefillEstimate('${c.id}'); return false;" class="customer-est-btn">
-                            <i class="fas fa-plus"></i> Estimate
-                        </a>
-                        <div class="customer-icon-row">
-                            ${c.phone ? `
-                            <a href="tel:${encodeURIComponent(c.phone)}" class="customer-icon-btn phone" aria-label="Call"><i class="fas fa-phone"></i><span style="font-size:11px;margin-left:6px;">Call</span></a>
-                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-ban"></i><span style="font-size:11px;margin-left:6px;">Text</span></span>
-                            ` : `
-                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-phone"></i><span style="font-size:11px;margin-left:6px;">Call</span></span>
-                            <span class="customer-icon-btn ghost" aria-hidden="true"><i class="fas fa-ban"></i><span style="font-size:11px;margin-left:6px;">Text</span></span>
-                            `}
-                            <button type="button" onclick="event.stopPropagation(); editCustomer('${c.id}')" class="customer-icon-btn edit" aria-label="Open customer"><i class="fas fa-up-right-from-square"></i><span style="font-size:11px;margin-left:6px;">Open</span></button>
+                            <p class="customer-card-phone">${escapeHtml(phoneDisp)}</p>
+                            <p class="customer-card-meta">${metaParts.join('')}</p>
                         </div>
                     </div>
                 </div>
@@ -530,7 +552,7 @@
             document.getElementById('customerModal-title').textContent = 'Edit Customer';
             document.getElementById('customerId').value = c.id;
             document.getElementById('customerName').value = c.name || '';
-            document.getElementById('customerPhone').value = c.phone || '';
+            document.getElementById('customerPhone').value = formatPhoneUS(c.phone || '');
             document.getElementById('customerEmail').value = c.email || '';
             document.getElementById('customerAddress').value = c.address || '';
             document.getElementById('customerNotes').value = c.notes || '';
@@ -607,13 +629,14 @@
             }
 
             document.getElementById('detailModal-title').textContent = c.name;
+            const paid = getCustomerPaid(c.id);
             document.getElementById('detailContent').innerHTML = `
                 <div class="space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         ${c.phone ? `
                         <div>
                             <p class="text-gray-400 text-sm">Phone</p>
-                            <a href="tel:${encodeURIComponent(c.phone)}" class="text-primary">${escapeHtml(c.phone)}</a>
+                            <p class="text-slate-100">${escapeHtml(formatPhoneUS(c.phone))}</p>
                         </div>
                         ` : ''}
                         ${c.email ? `
@@ -621,6 +644,16 @@
                                 <p class="text-gray-400 text-sm">Email</p>
                                 <a href="mailto:${encodeURIComponent(c.email)}" class="text-primary">${escapeHtml(c.email)}</a>
                             </div>
+                        ` : ''}
+                        <div>
+                            <p class="text-gray-400 text-sm">Jobs</p>
+                            <p class="text-slate-100">${customerJobs.length}</p>
+                        </div>
+                        ${paid > 0 ? `
+                        <div>
+                            <p class="text-gray-400 text-sm">Paid</p>
+                            <p class="text-slate-100">$${paid.toFixed(0)}</p>
+                        </div>
                         ` : ''}
                     </div>
                     
@@ -648,14 +681,6 @@
                         Added: ${new Date(c.dateAdded).toLocaleDateString()}
                         ${c.lastUpdated ? ` • Updated: ${new Date(c.lastUpdated).toLocaleDateString()}` : ''}
                     </div>
-                    
-                    ${c.phone ? `
-                    <div class="flex gap-3 pt-4 border-t border-slate-700">
-                        <a href="tel:${encodeURIComponent(c.phone)}" class="btn-primary" style="flex:1;width:auto;text-align:center;background:var(--md-sys-color-tertiary);color:var(--md-sys-color-on-tertiary)">
-                            <i class="fas fa-phone mr-2"></i>Call
-                        </a>
-                    </div>
-                    ` : ''}
                     
                     <div class="flex gap-3">
                         <a href="#" onclick="prefillEstimate('${c.id}'); return false;" class="btn-secondary" style="flex:1;width:auto;text-align:center">
@@ -811,7 +836,7 @@
                     importedContacts.push({
                         id: 'cust_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
                         name: contact.name || 'Unknown',
-                        phone: contact.phone || '',
+                        phone: formatPhoneUS(contact.phone || ''),
                         email: contact.email || '',
                         address: contact.address || '',
                         notes: '',
