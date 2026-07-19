@@ -454,20 +454,26 @@
                     const name = esc(j.customerName || 'Lead');
                     const isEst = j.slotKind === 'Estimate';
                     const sub = [fmtShort(j.slotDate), j.jobTime].filter(Boolean).join(' · ');
-                    const dayBits = new Date(j.slotDate + 'T12:00:00');
-                    const dayStr = dayBits.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+                    const jobHref = `jobs.html?highlight=${encodeURIComponent(j.id)}`;
+                    const maps = j.address
+                        ? `https://maps.google.com/?q=${encodeURIComponent(j.address)}`
+                        : '';
+                    const navHref = maps || jobHref;
+                    const navClass = maps ? 'coming-nav coming-nav--maps' : 'coming-nav';
+                    const navIcon = maps ? 'fa-location-arrow' : 'fa-arrow-right';
+                    const navLabel = maps ? 'Navigate' : 'Open job';
+                    const navAttrs = maps
+                        ? `href="${maps}" target="_blank" rel="noopener" aria-label="${navLabel}"`
+                        : `href="${jobHref}" data-cl-nav aria-label="${navLabel}"`;
                     return `
-                        <a class="coming-row" href="jobs.html?highlight=${encodeURIComponent(j.id)}">
-                            <div class="coming-date">${dayStr.replace(',', '')}</div>
-                            <div class="coming-main">
+                        <div class="coming-row">
+                            <a class="${navClass}" ${navAttrs}><i class="fas ${navIcon}"></i></a>
+                            <a class="coming-main" href="${jobHref}" data-cl-nav>
                                 <p style="font-weight:700;margin:0;">${name}</p>
                                 <p style="font-size:12px;color:#94a3b8;margin:4px 0 0;">${esc(sub)}</p>
                                 <div style="margin-top:6px;">${isEst ? '<span class="tag-pill tag-pill--estimate">Estimate</span>' : '<span class="tag-pill tag-pill--booked">Booked</span>'}</div>
-                            </div>
-                            <div class="coming-actions">
-                                <span class="${isEst ? 'tag-pill tag-pill--estimate' : 'tag-pill tag-pill--booked'}" style="opacity:0.9;">${isEst ? 'Estimate' : 'Booked'}</span>
-                            </div>
-                        </a>`;
+                            </a>
+                        </div>`;
                 }).join('');
             } else {
                 upcomingSection.classList.add('hidden');
