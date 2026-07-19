@@ -10,7 +10,7 @@
     <script src="config.js"></script>
     <script src="utils.js?v=2"></script>
     <script src="data-migration.js"></script>
-    <script src="firebase-sync.js?v=4"></script>
+    <script src="firebase-sync.js?v=5"></script>
 <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="app.css?v=6">
     <link rel="manifest" href="manifest.json">
@@ -23,6 +23,25 @@
         .user-card.manager { border-left-color: var(--md-sys-color-secondary); }
         .user-card.worker { border-left-color: #38bdf8; }
         .user-card.inactive { opacity: 0.55; }
+        .user-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .user-card-actions button { font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; }
+        .user-card-actions button.danger { color: #fca5a5; border-color: rgba(239,68,68,0.35); }
+        .cert-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; padding: 2px 6px; border-radius: 999px; margin-left: 6px; }
+        .cert-badge.expired { background: rgba(239,68,68,0.18); color: #fca5a5; }
+        .cert-badge.expiring { background: rgba(245,158,11,0.18); color: #fbbf24; }
+        .form-section { border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+        .form-section > summary { cursor: pointer; font-size: 13px; font-weight: 700; color: #cbd5e1; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+        .form-section > summary::-webkit-details-marker { display: none; }
+        .form-section > summary::after { content: '\f078'; font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 11px; color: #64748b; }
+        .form-section[open] > summary::after { content: '\f077'; }
+        .form-section .section-body { margin-top: 10px; }
+        .cert-row, .equip-add-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+        .cert-row input { flex: 1; }
+        .cert-row button, .equip-add-row button { flex-shrink: 0; }
+        .equip-check-row { display: flex; align-items: center; gap: 8px; padding: 6px 2px; font-size: 13px; }
+        .activity-row { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(15,23,42,0.4); font-size: 12px; }
+        .activity-row .activity-msg { color: #cbd5e1; }
+        .activity-row .activity-meta { color: #64748b; flex-shrink: 0; text-align: right; }
     </style>
 </head>
 <body>
@@ -47,19 +66,27 @@
                 </button>
             </div>
 
-            <section id="managersSection" class="mb-5 hidden">
-                <h2 class="section-title mb-2">Managers</h2>
-                <div id="managersList" class="space-y-2"></div>
+            <section id="usersSection" class="mb-5">
+                <div class="flex justify-between items-end mb-2">
+                    <h2 class="section-title"><span id="usersLabel">Team</span></h2>
+                    <input id="userSearch" placeholder="Search…" oninput="renderUserList()"
+                           class="bg-slate-700/60 text-white text-sm rounded-lg px-3 py-1.5 w-32">
+                </div>
+                <div id="userRoleFilterRow" class="page-tabs page-tabs--pills hidden">
+                    <button type="button" class="page-tab active" data-role-filter="all" onclick="setUserRoleFilter('all')">All</button>
+                    <button type="button" class="page-tab" data-role-filter="manager" onclick="setUserRoleFilter('manager')">Managers</button>
+                    <button type="button" class="page-tab" data-role-filter="worker" onclick="setUserRoleFilter('worker')">Workers</button>
+                </div>
+                <div class="page-tabs page-tabs--pills">
+                    <button type="button" class="page-tab active" data-status-filter="all" onclick="setUserStatusFilter('all')">All</button>
+                    <button type="button" class="page-tab" data-status-filter="active" onclick="setUserStatusFilter('active')">Active</button>
+                    <button type="button" class="page-tab" data-status-filter="inactive" onclick="setUserStatusFilter('inactive')">Inactive</button>
+                </div>
+                <div id="userList" class="space-y-2"></div>
+                <p id="emptyState" class="hidden text-gray-500 text-sm text-center py-6">
+                    No users yet. Create one with the buttons above.
+                </p>
             </section>
-
-            <section class="mb-5">
-                <h2 class="section-title mb-2"><span id="workersLabel">Workers</span></h2>
-                <div id="workersList" class="space-y-2"></div>
-            </section>
-
-            <p id="emptyState" class="hidden text-gray-500 text-sm text-center py-6">
-                No users yet. Create one with the buttons above.
-            </p>
 
             <!-- Centralized job assignment. Owner sees every job; Manager
                  sees only jobs on their team (assignedManager == me OR
@@ -73,6 +100,18 @@
                 <p class="text-xs text-gray-500 mb-2" id="assignCount"></p>
                 <div id="assignList" class="space-y-2"></div>
                 <p id="assignEmpty" class="hidden text-gray-500 text-sm py-4">No jobs available to assign.</p>
+            </section>
+
+            <!-- Owner-only audit trail: "who did what, when". -->
+            <section id="activityLogSection" class="hidden mb-5 mt-6">
+                <div class="flex justify-between items-end mb-2">
+                    <h2 class="section-title">Activity Log</h2>
+                    <button type="button" onclick="loadActivityLog()" class="text-primary text-xs font-semibold">
+                        <i class="fas fa-rotate-right mr-1"></i>Refresh
+                    </button>
+                </div>
+                <div id="activityLogList" class="space-y-1"></div>
+                <p id="activityLogEmpty" class="hidden text-gray-500 text-sm text-center py-4">No activity yet.</p>
             </section>
         </div>
     </main>
@@ -102,22 +141,26 @@
 
     <script>
         // --------------------------------------------------------------
-        // Phase 3 Manager Panel
+        // Manager Panel
         //
         // Access matrix:
         //   Owner   -> full list of Managers + all Workers; can create,
-        //              set flags, reassign, deactivate, password-reset.
-        //   Manager -> only assigned Workers; can deactivate + reset
-        //              password + (optionally) assign jobs. Cannot
-        //              create users or change permission flags.
+        //              edit, deactivate/reactivate, delete, reassign, and
+        //              grow the shared equipment list.
+        //   Manager -> only assigned Workers; can edit non-privileged
+        //              fields (contact/employment/certs/equipment) and
+        //              deactivate/reactivate their own workers, plus
+        //              assign jobs. Cannot create/delete users, change
+        //              role/permissions/assignedManager, or add new
+        //              shared equipment options.
         //   Worker  -> redirected away with a warning.
         //
         // User creation uses a secondary Firebase app instance so
         // createUserWithEmailAndPassword does NOT sign the Owner out.
-        // Password reset uses Firebase's admin-initiated reset email via
-        // sendPasswordResetEmail() -- this is admin-triggered, not
-        // self-service, and preserves the worker's UID (per Phase 3 plan
-        // risk note).
+        // There is no password-reset flow: a worker/manager's login uses a
+        // bare username (not a real email), so Firebase's email-based reset
+        // link can't reach them. If they forget their password, the only
+        // option today is deleting + recreating the account.
         // --------------------------------------------------------------
 
         const PERMISSION_KEYS = [
@@ -155,12 +198,13 @@
             if (profile.role === 'owner') {
                 banner.innerHTML = '<i class="fas fa-crown text-amber-400 mr-1"></i>Signed in as Owner. Full access.';
                 document.getElementById('ownerActions').classList.remove('hidden');
-                document.getElementById('managersSection').classList.remove('hidden');
+                document.getElementById('userRoleFilterRow').classList.remove('hidden');
+                document.getElementById('activityLogSection').classList.remove('hidden');
                 return true;
             }
             if (profile.role === 'manager') {
                 banner.innerHTML = '<i class="fas fa-user-tie text-secondary mr-1"></i>Signed in as Manager. Managing your team only.';
-                document.getElementById('workersLabel').textContent = 'Your Team';
+                document.getElementById('usersLabel').textContent = 'Your Team';
                 return true;
             }
             banner.innerHTML = '<i class="fas fa-ban text-red-400 mr-1"></i>Workers cannot access the Manager Panel.';
@@ -188,41 +232,95 @@
                 if (u.role === 'manager') managers.push(u);
                 else if (u.role === 'worker') workers.push(u);
             });
-            renderLists();
+            renderUserList();
         }
 
-        function renderLists() {
-            if (myProfile.role === 'owner') {
-                renderSection('managersList', managers);
-            }
-            renderSection('workersList', workers);
-            const empty = (myProfile.role === 'owner' ? managers.length + workers.length : workers.length) === 0;
-            document.getElementById('emptyState').classList.toggle('hidden', !empty);
+        // -- Unified, searchable/filterable user list -------------------
+
+        let userRoleFilter = 'all';
+        let userStatusFilter = 'all';
+
+        function setUserRoleFilter(val) {
+            userRoleFilter = val;
+            document.querySelectorAll('#userRoleFilterRow [data-role-filter]').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-role-filter') === val);
+            });
+            renderUserList();
         }
 
-        function renderSection(containerId, list) {
-            const c = document.getElementById(containerId);
-            if (!list.length) {
-                c.innerHTML = '<p class="text-gray-500 text-xs px-1">None.</p>';
+        function setUserStatusFilter(val) {
+            userStatusFilter = val;
+            document.querySelectorAll('[data-status-filter]').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-status-filter') === val);
+            });
+            renderUserList();
+        }
+
+        // Certification expiry: red badge once expired, amber inside 30 days.
+        function certBadge(u) {
+            const certs = Array.isArray(u.certifications) ? u.certifications : [];
+            if (!certs.length) return '';
+            const now = Date.now();
+            const soon = now + 30 * 24 * 60 * 60 * 1000;
+            let worst = null; // 'expired' beats 'expiring'
+            certs.forEach(c => {
+                if (!c || !c.expirationDate) return;
+                const t = new Date(c.expirationDate + 'T12:00:00').getTime();
+                if (isNaN(t)) return;
+                if (t < now) worst = 'expired';
+                else if (t <= soon && worst !== 'expired') worst = 'expiring';
+            });
+            if (!worst) return '';
+            return `<span class="cert-badge ${worst}">${worst === 'expired' ? 'Cert expired' : 'Cert expiring'}</span>`;
+        }
+
+        function renderUserList() {
+            const search = (document.getElementById('userSearch').value || '').toLowerCase().trim();
+            const all = [...managers, ...workers];
+            const filtered = all.filter(u => {
+                if (userRoleFilter !== 'all' && u.role !== userRoleFilter) return false;
+                if (userStatusFilter === 'active' && u.active === false) return false;
+                if (userStatusFilter === 'inactive' && u.active !== false) return false;
+                if (!search) return true;
+                return (u.displayName || '').toLowerCase().includes(search)
+                    || (u.username || '').toLowerCase().includes(search)
+                    || (u.phone || '').toLowerCase().includes(search)
+                    || (u.contactEmail || '').toLowerCase().includes(search);
+            });
+
+            const container = document.getElementById('userList');
+            document.getElementById('emptyState').classList.toggle('hidden', all.length !== 0);
+            if (!filtered.length) {
+                container.innerHTML = all.length
+                    ? '<p class="text-gray-500 text-xs px-1">No users match your search/filters.</p>'
+                    : '';
                 return;
             }
-            c.innerHTML = list.map(u => {
+
+            container.innerHTML = filtered.map(u => {
                 const subtitle = u.role === 'worker'
                     ? `${u.workerType || 'assigned'} \u2022 ${managers.find(m => m.uid === u.assignedManager)?.displayName || 'Unassigned'}`
                     : 'Manager';
                 const statusPill = u.active === false
                     ? '<span class="text-[10px] uppercase tracking-wide text-red-300 bg-red-900/30 px-2 py-0.5 rounded-full ml-2">Inactive</span>'
                     : '';
-                const pendPill = '';
+                const contactLine = u.phone ? `<p class="text-[11px] text-gray-500 mt-0.5"><i class="fas fa-phone mr-1"></i>${escapeHtml(u.phone)}</p>` : '';
+                const canManageThis = myProfile.role === 'owner' || (myProfile.role === 'manager' && u.assignedManager === CL_FIREBASE.getCurrentUser().uid);
+                const nextActive = u.active === false;
                 return `
                     <div class="user-card glass-card rounded-xl p-3 ${u.role} ${u.active === false ? 'inactive' : ''}">
                         <div class="flex justify-between items-start gap-2">
                             <div class="flex-1 min-w-0">
-                                <p class="font-semibold truncate">${u.displayName || u.username || '(unnamed)'}${statusPill}${pendPill}</p>
-                                <p class="text-xs text-gray-400 truncate">${u.username || ''}</p>
-                                <p class="text-[11px] text-gray-500 mt-0.5">${subtitle}</p>
+                                <p class="font-semibold truncate">${escapeHtml(u.displayName || u.username || '(unnamed)')}${statusPill}${certBadge(u)}</p>
+                                <p class="text-xs text-gray-400 truncate">${escapeHtml(u.username || '')}</p>
+                                <p class="text-[11px] text-gray-500 mt-0.5">${escapeHtml(subtitle)}</p>
+                                ${contactLine}
                             </div>
-                            <button onclick="openEditUser('${u.uid}')" class="text-primary text-sm font-semibold">Edit</button>
+                            <div class="user-card-actions">
+                                <button type="button" onclick="openEditUser('${u.uid}')">Edit</button>
+                                ${canManageThis ? `<button type="button" onclick="toggleUserActive('${u.uid}', ${nextActive})">${nextActive ? 'Reactivate' : 'Deactivate'}</button>` : ''}
+                                ${myProfile.role === 'owner' ? `<button type="button" class="danger" onclick="confirmDeleteUser('${u.uid}')"><i class="fas fa-trash"></i></button>` : ''}
+                            </div>
                         </div>
                     </div>
                 `;
@@ -231,11 +329,12 @@
 
         // -- New user form ---------------------------------------------
 
-        function openNewUser(role) {
+        async function openNewUser(role) {
             if (myProfile.role !== 'owner') {
                 showToast('Only Owner can create users', 'error');
                 return;
             }
+            await loadEquipmentList();
             document.getElementById('userModalTitle').textContent = role === 'manager' ? 'New Manager' : 'New Worker';
             document.getElementById('userModalBody').innerHTML = renderUserForm({
                 mode: 'create',
@@ -244,9 +343,10 @@
             openModal('userModal');
         }
 
-        function openEditUser(uid) {
+        async function openEditUser(uid) {
             const u = [...managers, ...workers].find(x => x.uid === uid);
             if (!u) return;
+            await loadEquipmentList();
             document.getElementById('userModalTitle').textContent = u.displayName || 'Edit User';
             document.getElementById('userModalBody').innerHTML = renderUserForm({
                 mode: 'edit',
@@ -260,6 +360,7 @@
             const u = user || { role, permissions: {}, active: true };
             const readOnlyFlags = myProfile.role !== 'owner';
             const canAssignManager = myProfile.role === 'owner' && u.role === 'worker';
+            const isOwnerViewer = myProfile.role === 'owner';
 
             const mgrOpts = managers.map(m =>
                 `<option value="${m.uid}" ${m.uid === u.assignedManager ? 'selected' : ''}>${m.displayName || m.username}</option>`
@@ -271,6 +372,18 @@
                     <input type="checkbox" data-perm="${key}" ${u.permissions && u.permissions[key] ? 'checked' : ''} ${readOnlyFlags ? 'disabled' : ''}>
                 </label>
             `).join('');
+
+            const certs = Array.isArray(u.certifications) ? u.certifications : [];
+            const certRows = certs.map(c => renderCertRow(c.name, c.expirationDate)).join('');
+
+            const equipList = Array.isArray(equipmentListCache) ? equipmentListCache : [];
+            const assignedEquip = Array.isArray(u.assignedEquipment) ? u.assignedEquipment : [];
+            const equipRows = equipList.map(name => `
+                <label class="equip-check-row">
+                    <input type="checkbox" data-equip="${escapeHtml(name)}" ${assignedEquip.includes(name) ? 'checked' : ''} style="width:16px;height:16px;accent-color:#0ea5e9;">
+                    <span>${escapeHtml(name)}</span>
+                </label>
+            `).join('') || '<p class="text-xs text-gray-500">No equipment added yet.</p>';
 
             return `
                 <input type="hidden" id="userForm-mode" value="${mode}">
@@ -287,7 +400,7 @@
                          @clearline.invalid suffix only when talking to
                          Firebase Auth; the user doc stores the bare form. -->
                     <input type="text" id="uf-username" value="${(u.username || '').replace(/"/g,'&quot;')}" ${isCreate ? '' : 'disabled'} autocapitalize="none" autocorrect="off" spellcheck="false" class="w-full p-3 rounded-lg edit-field">
-                    ${isCreate ? '<p class="text-[11px] text-gray-500 mt-1">No email required. just a short login handle (e.g. "john").</p>' : ''}
+                    ${isCreate ? '<p class="text-[11px] text-gray-500 mt-1">No email required. just a short login handle (e.g. "john"). This is separate from their real contact info below.</p>' : ''}
                 </div>
                 ${isCreate ? `
                     <div>
@@ -315,18 +428,76 @@
                     </div>
                 ` : ''}
 
-                <div>
-                    <label class="text-xs text-gray-400 block mb-1">Active</label>
-                    <label class="inline-flex items-center gap-2 text-sm">
-                        <input type="checkbox" id="uf-active" ${u.active !== false ? 'checked' : ''} style="width:18px;height:18px;accent-color:#0ea5e9;">
-                        <span>Account active (uncheck to deactivate)</span>
-                    </label>
-                </div>
+                <details class="form-section" open>
+                    <summary>Contact</summary>
+                    <div class="section-body grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Phone</label>
+                            <input type="tel" id="uf-phone" value="${(u.phone || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1">Email</label>
+                            <input type="email" id="uf-contactEmail" value="${(u.contactEmail || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                        </div>
+                    </div>
+                </details>
 
-                <div>
-                    <p class="text-xs text-gray-400 mb-1">Permissions${readOnlyFlags ? ' (Owner-only to edit)' : ''}</p>
-                    ${permRows}
-                </div>
+                <details class="form-section">
+                    <summary>Employment</summary>
+                    <div class="section-body space-y-2">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Hire Date</label>
+                                <input type="date" id="uf-hireDate" value="${u.hireDate || ''}" class="w-full p-3 rounded-lg edit-field">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Employee ID</label>
+                                <input type="text" id="uf-employeeId" value="${(u.employeeId || '').replace(/"/g,'&quot;')}" class="w-full p-3 rounded-lg edit-field">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Pay Type</label>
+                                <select id="uf-payType" class="w-full p-3 rounded-lg edit-field">
+                                    <option value="" ${!u.payType ? 'selected' : ''}>—</option>
+                                    <option value="hourly" ${u.payType === 'hourly' ? 'selected' : ''}>Hourly</option>
+                                    <option value="salary" ${u.payType === 'salary' ? 'selected' : ''}>Salary</option>
+                                    <option value="per-job" ${u.payType === 'per-job' ? 'selected' : ''}>Per Job</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1">Pay Rate ($)</label>
+                                <input type="number" step="0.01" id="uf-payRate" value="${u.payRate || ''}" class="w-full p-3 rounded-lg edit-field">
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="form-section">
+                    <summary>Certifications</summary>
+                    <div class="section-body">
+                        <div id="certRows">${certRows}</div>
+                        <button type="button" onclick="addCertRow()" class="btn-secondary btn-sm" style="width:auto"><i class="fas fa-plus mr-1"></i>Add certification</button>
+                    </div>
+                </details>
+
+                <details class="form-section">
+                    <summary>Assigned Equipment</summary>
+                    <div class="section-body">
+                        <div id="equipCheckList">${equipRows}</div>
+                        ${isOwnerViewer ? `
+                            <div class="equip-add-row pt-1">
+                                <input type="text" id="uf-newEquipment" placeholder="e.g. Truck 2, Surface Cleaner" class="w-full">
+                                <button type="button" onclick="addEquipmentOption()" class="btn-secondary btn-sm">Add</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </details>
+
+                <details class="form-section">
+                    <summary>Permissions${readOnlyFlags ? ' (Owner-only to edit)' : ''}</summary>
+                    <div class="section-body">${permRows}</div>
+                </details>
 
                 <div class="flex gap-2 pt-2">
                     <button onclick="closeModal('userModal')" class="btn-secondary" style="width:auto;flex:1">Cancel</button>
@@ -338,6 +509,69 @@
             `;
         }
 
+        // -- Certification repeatable rows -------------------------------
+
+        function renderCertRow(name, expirationDate) {
+            return `
+                <div class="cert-row">
+                    <input type="text" class="cert-name" placeholder="Certification name" value="${(name || '').replace(/"/g,'&quot;')}">
+                    <input type="date" class="cert-expiry" value="${expirationDate || ''}" style="max-width:150px;">
+                    <button type="button" onclick="this.closest('.cert-row').remove()" class="btn-secondary btn-sm"><i class="fas fa-times"></i></button>
+                </div>
+            `;
+        }
+
+        function addCertRow() {
+            document.getElementById('certRows').insertAdjacentHTML('beforeend', renderCertRow('', ''));
+        }
+
+        function collectCertifications() {
+            return [...document.querySelectorAll('#certRows .cert-row')].map(row => ({
+                name: row.querySelector('.cert-name').value.trim(),
+                expirationDate: row.querySelector('.cert-expiry').value || ''
+            })).filter(c => c.name);
+        }
+
+        // -- Equipment picker (shared, growable list in settings/global) --
+
+        let equipmentListCache = [];
+
+        async function loadEquipmentList() {
+            const settings = await CL_FIREBASE.getGlobalSettings();
+            equipmentListCache = (settings && Array.isArray(settings.equipmentList)) ? settings.equipmentList : [];
+        }
+
+        async function addEquipmentOption() {
+            const input = document.getElementById('uf-newEquipment');
+            const name = (input.value || '').trim();
+            if (!name) return;
+            if (equipmentListCache.includes(name)) {
+                showToast('Already in the list — just check it below', 'error');
+                return;
+            }
+            const next = [...equipmentListCache, name];
+            const res = await CL_FIREBASE.updateGlobalSettings({ equipmentList: next });
+            if (!res.ok) {
+                showToast('Could not save new equipment: ' + (res.code || 'unknown'), 'error');
+                return;
+            }
+            equipmentListCache = next;
+            input.value = '';
+            const list = document.getElementById('equipCheckList');
+            list.insertAdjacentHTML('beforeend', `
+                <label class="equip-check-row">
+                    <input type="checkbox" data-equip="${escapeHtml(name)}" checked style="width:16px;height:16px;accent-color:#0ea5e9;">
+                    <span>${escapeHtml(name)}</span>
+                </label>
+            `);
+            const emptyMsg = list.querySelector('p');
+            if (emptyMsg) emptyMsg.remove();
+        }
+
+        function collectAssignedEquipment() {
+            return [...document.querySelectorAll('#equipCheckList [data-equip]:checked')].map(cb => cb.getAttribute('data-equip'));
+        }
+
         async function submitUserForm() {
             const db = CL_FIREBASE.getFirestore();
             const mode = document.getElementById('userForm-mode').value;
@@ -346,26 +580,37 @@
             const displayName = document.getElementById('uf-displayName').value.trim();
             const username = document.getElementById('uf-username').value.trim();
             if (!displayName || !username) {
-                showToast('Name and email are required', 'error'); return;
+                showToast('Name and username are required', 'error'); return;
             }
 
+            // Fields any editor (Owner, or a Manager on their own worker) may
+            // change — none of these are locked by the Firestore update rules.
+            const commonFields = {
+                displayName,
+                phone: document.getElementById('uf-phone').value.trim(),
+                contactEmail: document.getElementById('uf-contactEmail').value.trim(),
+                hireDate: document.getElementById('uf-hireDate').value || '',
+                employeeId: document.getElementById('uf-employeeId').value.trim(),
+                payType: document.getElementById('uf-payType').value || '',
+                payRate: document.getElementById('uf-payRate').value || '',
+                certifications: collectCertifications(),
+                assignedEquipment: collectAssignedEquipment()
+            };
+            if (role === 'worker') {
+                const wt = document.getElementById('uf-workerType');
+                if (wt) commonFields.workerType = wt.value;
+            }
+
+            // Privileged fields: role/permissions/assignedManager can only be
+            // set by the Owner (rules lock these for self/Manager updates).
             const perms = {};
             document.querySelectorAll('[data-perm]').forEach(inp => {
                 perms[inp.getAttribute('data-perm')] = !!inp.checked;
             });
-
-            const base = {
-                role,
-                displayName,
-                username,
-                active: document.getElementById('uf-active').checked,
-                permissions: perms
-            };
+            const ownerOnlyFields = { role, username, permissions: perms };
             if (role === 'worker') {
-                const wt = document.getElementById('uf-workerType');
                 const am = document.getElementById('uf-assignedManager');
-                if (wt) base.workerType = wt.value;
-                if (am) base.assignedManager = am.value || null;
+                if (am) ownerOnlyFields.assignedManager = am.value || null;
             }
 
             try {
@@ -401,25 +646,24 @@
                     }
                     const newUid = cred.user.uid;
                     await db.collection('users').doc(newUid).set({
-                        ...base,
-                        username,
+                        ...commonFields,
+                        ...ownerOnlyFields,
+                        active: true,
                         authEmail,
                         createdBy: CL_FIREBASE.getCurrentUser().uid,
                         createdAt: new Date().toISOString(),
                         lastUpdated: new Date().toISOString()
                     });
                     await sec.auth().signOut();
+                    CL_FIREBASE.logActivity('user.created', { entityType: 'user', entityId: newUid, entityLabel: displayName });
                     showToast('User created');
                 } else {
-                    // Manager is restricted: strip permission/role changes before writing.
-                    const patch = { lastUpdated: new Date().toISOString() };
+                    const patch = Object.assign({ lastUpdated: new Date().toISOString() }, commonFields);
                     if (myProfile.role === 'owner') {
-                        Object.assign(patch, base);
-                    } else {
-                        // Manager path: only active flag persists.
-                        patch.active = base.active;
+                        Object.assign(patch, ownerOnlyFields);
                     }
                     await db.collection('users').doc(uid).set(patch, { merge: true });
+                    CL_FIREBASE.logActivity('user.updated', { entityType: 'user', entityId: uid, entityLabel: displayName });
                     showToast('Saved');
                 }
                 closeModal('userModal');
@@ -427,11 +671,58 @@
             } catch (err) {
                 console.error(err);
                 const code = err.code || '';
-                if (code === 'permission-denied' && mode === 'create') {
-                    showToast('Firestore blocked creating the user profile. In Firebase Console → Firestore Rules, allow owners to create users/{uid} (see firestore.rules in repo).', 'error');
-                } else {
-                    showToast('Error: ' + (code || err.message || 'unknown'), 'error');
-                }
+                showToast('Error: ' + (code || err.message || 'unknown'), 'error');
+            }
+        }
+
+        // -- Deactivate / Reactivate (one-tap row action) ----------------
+
+        async function toggleUserActive(uid, nextActive) {
+            const db = CL_FIREBASE.getFirestore();
+            const u = [...managers, ...workers].find(x => x.uid === uid);
+            if (!u) return;
+            try {
+                await db.collection('users').doc(uid).set({
+                    active: nextActive,
+                    lastUpdated: new Date().toISOString()
+                }, { merge: true });
+                u.active = nextActive;
+                CL_FIREBASE.logActivity(nextActive ? 'user.reactivated' : 'user.deactivated', {
+                    entityType: 'user', entityId: uid, entityLabel: u.displayName || u.username
+                });
+                renderUserList();
+                showToast(nextActive ? 'User reactivated' : 'User deactivated');
+            } catch (err) {
+                console.error(err);
+                showToast('Error: ' + (err.code || err.message || 'unknown'), 'error');
+            }
+        }
+
+        // -- Delete user (Owner-only) -------------------------------------
+        // Deletes the Firestore profile doc only — there's no backend/Admin
+        // SDK to delete the underlying Firebase Auth account from a static
+        // client app. That's fine: _loadOrSeedProfile() already signs out
+        // and rejects any authenticated user with no matching profile doc,
+        // so removing the doc fully revokes their access to the app.
+        // Jobs/customers they created or were assigned to are left as-is
+        // (same as deactivation today, just permanent) — no cascade delete.
+        function confirmDeleteUser(uid) {
+            const u = [...managers, ...workers].find(x => x.uid === uid);
+            if (!u) return;
+            if (!confirm(`Delete ${u.displayName || u.username}? This removes their access immediately and can't be undone. Jobs/customers they created or were assigned to keep their history.`)) return;
+            deleteUser(uid, u);
+        }
+
+        async function deleteUser(uid, u) {
+            const db = CL_FIREBASE.getFirestore();
+            try {
+                await db.collection('users').doc(uid).delete();
+                CL_FIREBASE.logActivity('user.deleted', { entityType: 'user', entityId: uid, entityLabel: u.displayName || u.username });
+                showToast('User deleted');
+                await loadUsers();
+            } catch (err) {
+                console.error(err);
+                showToast('Error: ' + (err.code || err.message || 'unknown'), 'error');
             }
         }
 
@@ -440,10 +731,59 @@
 
         function start(profile) {
             if (!ensureAllowed(profile)) return;
-            Promise.all([
+            const tasks = [
                 loadUsers().catch(err => { console.error(err); showToast('Could not load users: ' + (err.code || err.message), 'error'); }),
                 loadAssignableJobs().catch(err => { console.error(err); })
-            ]);
+            ];
+            if (profile.role === 'owner') {
+                tasks.push(loadActivityLog().catch(err => console.error(err)));
+            }
+            Promise.all(tasks);
+        }
+
+        // -- Activity Log (Owner-only) ------------------------------------
+
+        const ACTION_LABELS = {
+            'job.status_changed': 'updated job status',
+            'job.deleted': 'deleted a job',
+            'job.updated': 'edited a job',
+            'estimate.finalized': 'finalized an estimate',
+            'invoice.finalized': 'finalized an invoice',
+            'user.created': 'created a user',
+            'user.updated': 'updated a user',
+            'user.deactivated': 'deactivated a user',
+            'user.reactivated': 'reactivated a user',
+            'user.deleted': 'deleted a user'
+        };
+
+        async function loadActivityLog() {
+            const db = CL_FIREBASE.getFirestore();
+            if (!db) return;
+            const snap = await db.collection('activityLog').orderBy('createdAt', 'desc').limit(150).get();
+            renderActivityLog(snap.docs.map(d => d.data()));
+        }
+
+        function renderActivityLog(entries) {
+            const list = document.getElementById('activityLogList');
+            const empty = document.getElementById('activityLogEmpty');
+            if (!entries.length) {
+                list.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+            list.innerHTML = entries.map(e => {
+                const label = ACTION_LABELS[e.action] || e.action || 'did something';
+                const entityLabel = e.entityLabel ? ` — ${escapeHtml(e.entityLabel)}` : '';
+                const extra = e.message ? ` (${escapeHtml(e.message)})` : (e.reason ? ` (${escapeHtml(e.reason)})` : '');
+                const when = e.createdAt ? new Date(e.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+                return `
+                    <div class="activity-row">
+                        <span class="activity-msg"><strong>${escapeHtml(e.actorName || 'Someone')}</strong> ${label}${entityLabel}${extra}</span>
+                        <span class="activity-meta">${when}</span>
+                    </div>
+                `;
+            }).join('');
         }
 
         // -- Assign Jobs section ---------------------------------------

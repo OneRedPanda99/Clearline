@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="app.css?v=6">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="data-migration.js"></script>
-    <script src="firebase-sync.js?v=4"></script>
+    <script src="firebase-sync.js?v=5"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
    * {
@@ -2462,7 +2462,16 @@
                 jobFieldUpdates.jobDate = prefillDate || job.jobDate || '';
                 jobFieldUpdates.status = (jobFieldUpdates.jobDate || job.jobDate) ? 'scheduled' : (job.status || 'new');
             }
+            const priceChanged = String(job.quoteAmount || '') !== String(jobFieldUpdates.quoteAmount || '');
             CL_DATA.updateJob(job.id, jobFieldUpdates);
+            // Only log an actual price change, not every silent autosave
+            // (saveDraftToCloud calls this on every keystroke-triggered save).
+            if (priceChanged && window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.logActivity('job.updated', {
+                    entityType: 'job', entityId: job.id, entityLabel: jobFieldUpdates.customerName,
+                    message: `quote ${job.quoteAmount || '0'} → ${jobFieldUpdates.quoteAmount}`
+                });
+            }
 
             if (!job.documents) job.documents = { estimates: [], invoices: [], waivers: [] };
             if (!Array.isArray(job.documents[jobDocsKey])) job.documents[jobDocsKey] = [];
@@ -2869,6 +2878,9 @@
                 showToast('Estimate finalized');
                 clearStandaloneEstimateBackup();
                 loadSavedEstimates();
+                CL_FIREBASE.logActivity(docMode === 'invoice' ? 'invoice.finalized' : 'estimate.finalized', {
+                    entityType: docMode, entityId: docId || undefined, entityLabel: data.customerName, meta: { total: data.totalAmount }
+                });
             } catch (err) {
                 console.error(err);
                 showToast('Finalized locally. Cloud sync failed.', 'error');

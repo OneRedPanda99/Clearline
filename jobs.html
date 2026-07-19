@@ -11,7 +11,7 @@
     <script src="config.js"></script>
     <script src="utils.js?v=2"></script>
     <script src="data-migration.js"></script>
-    <script src="firebase-sync.js?v=4"></script>
+    <script src="firebase-sync.js?v=5"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="app.css?v=9">
     <link rel="manifest" href="manifest.json">
@@ -199,6 +199,7 @@
             </div>
         </div>
     </div>
+
     <datalist id="jobCustomerNameOptions"></datalist>
 
     <!-- Job Detail Modal -->
@@ -351,6 +352,31 @@
             const job = jobs.find(j => j.id === jobId);
             setJobActionStatus('Stopwatch reset.');
             if (job) openJobModal(jobId);
+        }
+
+        // Live-updating stopwatch display: the job detail modal renders the
+        // elapsed time once at open time, so without this tick the "Timer"
+        // label and big stopwatch readout would sit frozen while running.
+        let _jobTimerTickInterval = null;
+        function stopJobTimerTicker() {
+            if (_jobTimerTickInterval) {
+                clearInterval(_jobTimerTickInterval);
+                _jobTimerTickInterval = null;
+            }
+        }
+        function startJobTimerTicker(jobId) {
+            stopJobTimerTicker();
+            const state = getJobTimerState(jobId);
+            if (!state.isRunning) return;
+            _jobTimerTickInterval = setInterval(() => {
+                const st = getJobTimerState(jobId);
+                if (!st.isRunning) { stopJobTimerTicker(); return; }
+                const text = fmtElapsed(timerElapsedMs(st));
+                const big = document.getElementById('timerBigDisplay');
+                if (big) big.textContent = text;
+                const label = document.getElementById('timerBtnLabel');
+                if (label) label.textContent = text;
+            }, 1000);
         }
 
 
@@ -537,6 +563,7 @@
         let currentTab = 'all';
         let jobsSearchQuery = '';
         let editPhotoState = { before: [], after: [] };
+        let editingJobId = null;
         
         // Default job categories (used if no custom ones in settings)
         const DEFAULT_CATEGORIES = ['Pressure Washing', 'Soft Wash', 'Non-PW', 'Other'];
@@ -1246,30 +1273,6 @@
             const amount = getJobDisplayTotal(job);
             // Owner-only payment summary block (Total / Paid / Balance + actions).
             const payInfo = (amount > 0 && isOwnerRole()) ? jobPaymentInfo(job) : null;
-            // Review request (opt-in): only when a review link is configured in
-            // Settings and the job is completed. Uses a QR image service so the
-            // customer can scan on the spot, plus a text-link fallback.
-            const reviewUrl = getReviewUrl();
-            const reviewCard = (job.status === 'completed' && reviewUrl) ? `
-                <div class="glass-card rounded-xl p-4">
-                    <div class="flex items-center justify-between mb-3">
-                        <p class="section-title" style="margin:0;padding:0;">Ask for a review</p>
-                        <i class="fas fa-star" style="color:#fbbf24;"></i>
-                    </div>
-                    <div class="flex gap-3 items-center">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=0&data=${encodeURIComponent(reviewUrl)}"
-                             alt="Scan to leave a review" width="96" height="96"
-                             style="width:96px;height:96px;border-radius:10px;background:#fff;padding:6px;flex-shrink:0;">
-                        <div class="min-w-0">
-                            <p class="text-sm text-gray-300">Have the customer scan this, or send the link:</p>
-                            <div class="flex flex-wrap gap-2 mt-2">
-                                ${job.customerPhone ? `<button type="button" onclick="sendReviewLink('${job.id}')" class="btn-primary btn-sm" style="width:auto;background:var(--warning);color:#111827"><i class="fas fa-comment-dots mr-1"></i>Text link</button>` : ''}
-                                <a href="${escapeHtml(reviewUrl)}" target="_blank" rel="noopener" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-up-right-from-square mr-1"></i>Open</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ` : '';
             const paymentCard = payInfo ? `
                 <div class="glass-card rounded-xl p-4">
                     <div class="flex items-center justify-between mb-3">
@@ -1441,7 +1444,7 @@
 
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" onclick="toggleJobDetailSection('timerSection')" class="m3-tonal">
-                            <i class="fas fa-stopwatch mr-1"></i>Timer ${timerText}
+                            <i class="fas fa-stopwatch mr-1"></i>Timer <span id="timerBtnLabel">${timerText}</span>
                         </button>
                         ${payInfo
                             ? `<button type="button" onclick="toggleJobDetailSection('paymentSection')" class="m3-outlined"><i class="fas fa-dollar-sign mr-1"></i>Payment</button>`
@@ -1455,7 +1458,7 @@
                             <div class="flex justify-between items-center gap-3">
                                 <div>
                                     <p class="text-xs text-gray-400 uppercase tracking-wide">Stopwatch</p>
-                                    <p class="text-2xl font-extrabold text-sky-300">${timerText}</p>
+                                    <p class="text-2xl font-extrabold text-sky-300" id="timerBigDisplay">${timerText}</p>
                                     ${job.jobDuration ? `<p class="text-xs text-gray-400">Saved: ${job.jobDuration}</p>` : ''}
                                 </div>
                                 <div class="flex gap-2">
@@ -1469,24 +1472,12 @@
 
                     ${payInfo ? `<div id="paymentSection" class="hidden">${paymentCard}</div>` : '<div id="paymentSection" class="hidden"></div>'}
 
-                    ${(job.status === 'completed' && reviewUrl) ? `<div id="reviewSection" class="hidden">${reviewCard}</div>` : ''}
-
                     ${job.notes ? `
                         <details class="glass-card rounded-xl p-3">
                             <summary class="text-sm font-semibold text-slate-200 cursor-pointer">Notes</summary>
                             <p class="text-sm mt-2" style="white-space:pre-wrap;">${escapeHtml(job.notes)}</p>
                         </details>
                     ` : ''}
-
-                    <div id="moreSection" class="hidden">
-                        <div class="glass-card rounded-xl p-3 space-y-2">
-                            ${payInfo || job.status === 'scheduled' ? `<button type="button" onclick="addToGoogleCalendar('${job.id}')" class="btn-secondary"><i class="fab fa-google mr-1"></i>Add to Google Calendar</button>` : ''}
-                            <button type="button" onclick="createCustomerFromJob('${job.id}')" class="btn-secondary">${job.customerId ? '<i class="fas fa-user-check mr-1"></i>Open customer' : '<i class="fas fa-user-plus mr-1"></i>Link customer'}</button>
-                            ${(job.status === 'completed' && reviewUrl) ? `<button type="button" onclick="toggleJobDetailSection('reviewSection')" class="btn-secondary"><i class="fas fa-star mr-1"></i>Ask for review</button>` : ''}
-                            <button type="button" onclick="confirmDeleteJob('${job.id}')" class="btn-danger"><i class="fas fa-trash mr-1"></i>Delete job</button>
-                            <p class="text-[11px] text-slate-500 pt-1">${jobIdShort}</p>
-                        </div>
-                    </div>
 
                     <div class="grid grid-cols-1 gap-2 pt-1">
                         <div id="jobActionStatus" class="text-xs text-slate-300"></div>
@@ -1499,21 +1490,19 @@
                                 <i class="fas fa-undo mr-1"></i>Reopen job
                             </button>
                         `}
-                        <button type="button" onclick="toggleJobDetailSection('moreSection')" class="btn-text">More options</button>
-                        <div id="cancelRow" class="hidden">
-                            <input id="cancelReasonInput" type="text" placeholder="Cancel reason (required)" class="w-full mb-2">
-                            <button type="button" onclick="cancelJobWithReason('${job.id}');" class="btn-secondary">Mark cancelled</button>
-                        </div>
+                        <button type="button" onclick="openJobMoreOptions('${job.id}')" class="btn-text">More options <i class="fas fa-chevron-right ml-1" style="font-size:10px;"></i></button>
                     </div>
                 </div>
             `;
 
             openModal('jobModal');
+            startJobTimerTicker(job.id);
         }
 
         function closeJobModal() {
             document.body.classList.remove('modal-open');
             closeModal('jobModal');
+            stopJobTimerTicker();
         }
 
         window.toggleJobDetailSection = function(id) {
@@ -1521,16 +1510,74 @@
             if (!el) return;
             const opening = el.classList.contains('hidden');
             // Accordion: close sibling expandable panels
-            ['timerSection', 'paymentSection', 'reviewSection', 'moreSection', 'scheduleSection'].forEach((sid) => {
+            ['timerSection', 'paymentSection', 'scheduleSection'].forEach((sid) => {
                 const s = document.getElementById(sid);
                 if (s && sid !== id) s.classList.add('hidden');
             });
             el.classList.toggle('hidden', !opening);
-            const cancelRow = document.getElementById('cancelRow');
-            if (cancelRow) {
-                cancelRow.classList.toggle('hidden', !(opening && id === 'moreSection'));
-            }
         };
+
+        /** Dedicated "More options" screen for a job — a real sub-page (with
+         * its own back button) instead of an inline accordion, so it doesn't
+         * just dump another expanding section into the job details view. */
+        function openJobMoreOptions(id) {
+            const job = jobs.find(j => j.id === id);
+            if (!job) return;
+            stopJobTimerTicker();
+            const total = getJobDisplayTotal(job);
+            const payInfo = (total > 0 && isOwnerRole()) ? jobPaymentInfo(job) : null;
+            const reviewUrl = getReviewUrl();
+            const jobIdShort = (job.id || '').replace('job_', '#JOB-').slice(0, 18) || '-';
+            const canCancel = job.status !== 'lost' && job.status !== 'completed';
+            const showReview = job.status === 'completed' && reviewUrl;
+            const reviewCard = showReview ? `
+                <div class="glass-card rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="section-title" style="margin:0;padding:0;">Ask for a review</p>
+                        <i class="fas fa-star" style="color:#fbbf24;"></i>
+                    </div>
+                    <div class="flex gap-3 items-center">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=0&data=${encodeURIComponent(reviewUrl)}"
+                             alt="Scan to leave a review" width="96" height="96"
+                             style="width:96px;height:96px;border-radius:10px;background:#fff;padding:6px;flex-shrink:0;">
+                        <div class="min-w-0">
+                            <p class="text-sm text-gray-300">Have the customer scan this, or send the link:</p>
+                            <div class="flex flex-wrap gap-2 mt-2">
+                                ${job.customerPhone ? `<button type="button" onclick="sendReviewLink('${job.id}')" class="btn-primary btn-sm" style="width:auto;background:var(--warning);color:#111827"><i class="fas fa-comment-dots mr-1"></i>Text link</button>` : ''}
+                                <a href="${escapeHtml(reviewUrl)}" target="_blank" rel="noopener" class="bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-up-right-from-square mr-1"></i>Open</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ` : '';
+
+            document.getElementById('jobModal-title').textContent = 'More options';
+            document.getElementById('modalContent').innerHTML = `
+                <div class="space-y-3">
+                    <button type="button" onclick="openJobModal('${job.id}')" class="btn-text" style="padding:0;"><i class="fas fa-chevron-left mr-1"></i>Back to job</button>
+
+                    <div class="glass-card rounded-xl p-3 space-y-2">
+                        ${payInfo || job.status === 'scheduled' ? `<button type="button" onclick="addToGoogleCalendar('${job.id}')" class="btn-secondary"><i class="fab fa-google mr-1"></i>Add to Google Calendar</button>` : ''}
+                        <button type="button" onclick="createCustomerFromJob('${job.id}')" class="btn-secondary">${job.customerId ? '<i class="fas fa-user-check mr-1"></i>Open customer' : '<i class="fas fa-user-plus mr-1"></i>Link customer'}</button>
+                    </div>
+
+                    ${reviewCard}
+
+                    ${canCancel ? `
+                        <div class="glass-card rounded-xl p-3">
+                            <label class="text-xs text-gray-400 block mb-1">Cancel this job</label>
+                            <div id="jobActionStatus" class="text-xs text-slate-300 mb-1"></div>
+                            <input id="cancelReasonInput" type="text" placeholder="Cancel reason (required)" class="w-full mb-2">
+                            <button type="button" onclick="cancelJobWithReason('${job.id}');" class="btn-secondary w-full">Mark cancelled</button>
+                        </div>
+                    ` : ''}
+
+                    <button type="button" onclick="confirmDeleteJob('${job.id}')" class="btn-danger w-full"><i class="fas fa-trash mr-1"></i>Delete job</button>
+                    <p class="text-[11px] text-slate-500 text-center">${jobIdShort}</p>
+                </div>
+            `;
+        }
+        window.openJobMoreOptions = openJobMoreOptions;
 
         /** One-tap PDF/view for a saved estimate or invoice. */
         window.openEstimateView = function(jobId, docId, mode) {
@@ -1568,6 +1615,8 @@
         function editJob(id) {
             const job = jobs.find(j => j.id === id);
             if (!job) return;
+            stopJobTimerTicker();
+            editingJobId = id;
             document.body.classList.add('modal-open');
             document.getElementById('jobModal-title').textContent = 'Edit Job';
             editPhotoState = {
@@ -1621,7 +1670,7 @@
                         <div class="grid grid-cols-3 gap-2">
                             <div>
                                 <label class="text-xs text-gray-400 block mb-1">Date</label>
-                                <input type="date" id="editDate" value="${job.jobDate || ''}" class="w-full p-3 rounded-lg edit-field">
+                                <input type="date" id="editDate" oninput="renderEditDateConflicts()" value="${job.jobDate || ''}" class="w-full p-3 rounded-lg edit-field">
                             </div>
                             <div>
                                 <label class="text-xs text-gray-400 block mb-1">Time</label>
@@ -1632,6 +1681,7 @@
                                 <input type="number" step="0.5" id="editDuration" value="${job.jobDuration || ''}" class="w-full p-3 rounded-lg edit-field">
                             </div>
                         </div>
+                        <div id="editDateConflicts" class="text-xs -mt-1"></div>
                         <div class="grid grid-cols-3 gap-2">
                             <div>
                                 <label class="text-xs text-gray-400 block mb-1">Sq Ft</label>
@@ -1708,6 +1758,36 @@
             // Render existing photos
             renderEditPhotos();
             initAddressAutocomplete('editAddress');
+            renderEditDateConflicts();
+        }
+
+        /** Shows what else is already on the schedule for the date picked in
+         * the Edit Job form, so you can see conflicts before saving a
+         * reschedule instead of having to go check the calendar page. */
+        function renderEditDateConflicts() {
+            const el = document.getElementById('editDateConflicts');
+            const dateInput = document.getElementById('editDate');
+            if (!el || !dateInput) return;
+            const date = dateInput.value;
+            if (!date) { el.innerHTML = ''; return; }
+            const sameDay = jobs
+                .filter(j => j.jobDate === date && j.id !== editingJobId && (j.status === 'scheduled' || j.status === 'completed'))
+                .sort((a, b) => (a.jobTime || '').localeCompare(b.jobTime || ''));
+            if (!sameDay.length) {
+                el.innerHTML = `<p class="text-slate-500 mt-1"><i class="fas fa-circle-check mr-1"></i>Nothing else scheduled that day</p>`;
+                return;
+            }
+            el.innerHTML = `
+                <div class="mt-1 p-2 rounded-lg space-y-1" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);">
+                    <p class="text-slate-400"><i class="fas fa-calendar-day mr-1"></i>Already scheduled that day:</p>
+                    ${sameDay.map(j => `
+                        <div class="flex justify-between gap-2">
+                            <span class="text-slate-200 truncate">${escapeHtml(j.customerName || 'Job')}</span>
+                            <span class="text-slate-400 flex-shrink-0">${formatJobTime12(j.jobTime) || 'No time set'}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
         }
 
         function saveJobEdit(id) {
@@ -1751,9 +1831,22 @@
                 beforePhotos: editPhotoState.before,
                 afterPhotos: editPhotoState.after
             };
+            // Snapshot before mutating so the activity log only fires on the
+            // changes an Owner actually cares about (status/price), not
+            // every notes/date/phone tweak — otherwise the log floods.
+            const before = CL_DATA.findJob(id);
+            const statusChanged = before && before.status !== updates.status;
+            const priceChanged = before && String(before.quoteAmount || '') !== String(updates.quoteAmount || '');
+
             CL_DATA.updateJob(id, updates);
             if (CL_FIREBASE && CL_FIREBASE.isSignedIn) {
                 CL_FIREBASE.syncToCloud();
+                if (statusChanged) {
+                    CL_FIREBASE.logActivity('job.status_changed', { entityType: 'job', entityId: id, entityLabel: updates.customerName, message: `${before.status || 'new'} → ${updates.status}` });
+                }
+                if (priceChanged) {
+                    CL_FIREBASE.logActivity('job.updated', { entityType: 'job', entityId: id, entityLabel: updates.customerName, message: `quote ${before.quoteAmount || '0'} → ${updates.quoteAmount || '0'}` });
+                }
             } else {
                 setTimeout(() => {
                     if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
@@ -1874,9 +1967,11 @@
         }
 
         function markComplete(id) {
+            const job = CL_DATA.findJob(id);
             CL_DATA.updateJob(id, { status: 'completed' });
             if (CL_FIREBASE && CL_FIREBASE.isSignedIn) {
                 CL_FIREBASE.syncToCloud();
+                CL_FIREBASE.logActivity('job.status_changed', { entityType: 'job', entityId: id, entityLabel: job && job.customerName, message: 'completed' });
             } else {
                 setTimeout(() => {
                     if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
@@ -1889,9 +1984,11 @@
         }
 
         function markScheduled(id) {
+            const job = CL_DATA.findJob(id);
             CL_DATA.updateJob(id, { status: 'scheduled' });
             if (CL_FIREBASE && CL_FIREBASE.isSignedIn) {
                 CL_FIREBASE.syncToCloud();
+                CL_FIREBASE.logActivity('job.status_changed', { entityType: 'job', entityId: id, entityLabel: job && job.customerName, message: 'reopened to scheduled' });
             } else {
                 setTimeout(() => {
                     if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
@@ -1936,6 +2033,9 @@
                 jobTime: time || ''
             });
             persistJobChange(id);
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.logActivity('job.status_changed', { entityType: 'job', entityId: id, entityLabel: job.customerName, message: 'lead booked as scheduled' });
+            }
             setTab('booked');
             showToast('Job scheduled ✓');
             openJobModal(id);
@@ -1949,6 +2049,9 @@
             if (reason === null) return;
             CL_DATA.updateJob(id, { status: 'lost', lostReason: reason.trim(), lostAt: new Date().toISOString() });
             persistJobChange(id);
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.logActivity('job.status_changed', { entityType: 'job', entityId: id, entityLabel: job.customerName, message: 'lost', reason: reason.trim() });
+            }
             showToast('Lead marked lost');
         }
 
@@ -1958,6 +2061,9 @@
             if (!job) return;
             CL_DATA.updateJob(id, { status: 'new' });
             persistJobChange(id);
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.logActivity('job.status_changed', { entityType: 'job', entityId: id, entityLabel: job.customerName, message: 'reopened' });
+            }
             setTab('estimate');
             showToast('Lead reopened ✓');
         }
@@ -1974,6 +2080,9 @@
             renderJobs();
             showUndoToast('Job deleted', () => restoreDeletedJob(snapshot));
             removeJobFromGoogleCalendar(snapshot).catch(() => {});
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.logActivity('job.deleted', { entityType: 'job', entityId: id, entityLabel: snapshot.customerName });
+            }
         }
         window.deleteJob = deleteJob;
 
@@ -2040,6 +2149,9 @@
             syncJobToCalendarIfEnabled(id);
             closeJobModal();
             showToast('Job marked cancelled');
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.logActivity('job.status_changed', { entityType: 'job', entityId: id, entityLabel: job.customerName, message: 'cancelled', reason: clean });
+            }
         }
         window.cancelJobWithReason = cancelJobWithReason;
 

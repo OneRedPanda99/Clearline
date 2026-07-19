@@ -62,7 +62,7 @@ service cloud.firestore {
             && resource.data.assignedManager == uid()
             && roleUnchanged() && permsUnchanged() && mgrUnchanged());
 
-      allow delete: if false;
+      allow delete: if isOwner();
     }
 
     // ── settings/global ─────────────────────────
@@ -175,6 +175,13 @@ service cloud.firestore {
     }
     match /payroll/{id} {
       allow read, write: if isOwner();
+    }
+
+    // ── activityLog/{id} (immutable audit trail, Owner-only viewing) ──
+    match /activityLog/{id} {
+      allow read: if isOwner();
+      allow create: if signedIn() && request.resource.data.actorUid == uid();
+      allow update, delete: if false;
     }
   }
 }

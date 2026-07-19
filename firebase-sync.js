@@ -23,6 +23,7 @@ const CL_FIREBASE = (function() {
     // every-5s `syncFromCloud` was mid-network: local edits never reached
     // Firestore, so other devices never saw new customers.
     let pullInProgress = false;
+    let pullPending = false;
     let pushInProgress = false;
     let pushPending = false;
 
@@ -242,20 +243,25 @@ const CL_FIREBASE = (function() {
                 } catch (_) {}
             };
 
+            // syncFromCloud() itself queues a follow-up pull (via pullPending)
+            // when one is already in flight, so these no longer need to
+            // guard against pullInProgress themselves — that guard used to
+            // just drop the notification, which could leave a device
+            // permanently unaware of a delete/update from another device.
             db.collection('jobs').onSnapshot(() => {
-                if (!pullInProgress) syncFromCloud();
+                syncFromCloud();
             }, onSnapErr('jobs'));
             db.collection('customers').onSnapshot(() => {
-                if (!pullInProgress) syncFromCloud();
+                syncFromCloud();
             }, onSnapErr('customers'));
             // Owner-only collections: expenses + payroll.
             try {
                 if (userProfile && userProfile.role === 'owner') {
                     db.collection('expenses').onSnapshot(() => {
-                        if (!pullInProgress) syncFromCloud();
+                        syncFromCloud();
                     }, onSnapErr('expenses'));
                     db.collection('payroll').onSnapshot(() => {
-                        if (!pullInProgress) syncFromCloud();
+                        syncFromCloud();
                     }, onSnapErr('payroll'));
                 }
             } catch (_) {
@@ -703,7 +709,15 @@ const CL_FIREBASE = (function() {
     // role-appropriate set of jobs + all customers. Merge path into
     // CL_DATA is unchanged, so the rest of the app sees local arrays.
     async function syncFromCloud() {
-        if (!currentUser || !db || pullInProgress) return false;
+        if (!currentUser || !db) return false;
+        // A pull already in flight: don't drop this request on the floor
+        // (that let deletes/updates from another device sit un-pulled
+        // indefinitely, since realtime listeners only fire once per
+        // change). Queue exactly one follow-up pull instead.
+        if (pullInProgress) {
+            pullPending = true;
+            return false;
+        }
 
         pullInProgress = true;
         try {
@@ -763,6 +777,10 @@ const CL_FIREBASE = (function() {
             return false;
         } finally {
             pullInProgress = false;
+            if (pullPending) {
+                pullPending = false;
+                setTimeout(syncFromCloud, 50);
+            }
         }
     }
 
@@ -791,12 +809,13 @@ const CL_FIREBASE = (function() {
     });
     window.addEventListener('offline', () => emitSyncState('offline'));
 
-    // Auto-sync periodically when signed in.
-    // Realtime listeners already pull on changes; this interval is only a
-    // safety net for missed snapshots / background tab throttling.
+    // Auto-sync periodically when signed in. Realtime listeners handle most
+    // updates, but this interval always runs too — it's the actual safety
+    // net for a missed/dropped snapshot (background tab throttling, a
+    // listener permission error, etc.), so it must not bail out just
+    // because listeners are attached.
     setInterval(() => {
         if (!currentUser || !navigator.onLine) return;
-        if (realtimeListenersActive) return;
         syncFromCloud();
     }, 60 * 1000);
 
@@ -841,6 +860,24 @@ const CL_FIREBASE = (function() {
         }
     }
 
+    // Best-effort audit trail: "who did what, when" for the manager panel's
+    // Activity Log (Owner-only viewing). Deliberately fire-and-forget — a
+    // failed log write must never block or fail the action it's logging,
+    // so callers don't need to await/handle the result.
+    async function logActivity(action, detail) {
+        if (!db || !currentUser) return;
+        try {
+            await db.collection('activityLog').add(Object.assign({
+                actorUid: currentUser.uid,
+                actorName: (userProfile && (userProfile.displayName || userProfile.username)) || currentUser.email || 'Unknown',
+                action,
+                createdAt: new Date().toISOString()
+            }, detail || {}));
+        } catch (err) {
+            console.warn('[CL_FIREBASE] logActivity failed (best-effort, ignored):', err.code || err.message);
+        }
+    }
+
     // Convenience: check if the current user has a named permission flag.
     // Owner always returns true.
     function can(flag) {
@@ -865,6 +902,7 @@ const CL_FIREBASE = (function() {
         isCalendarConnected,
         ensureCalendarConnection,
         getProfile: () => (userProfile ? Object.assign({}, userProfile) : null),
+        logActivity,
         getGlobalSettings,
         updateGlobalSettings,
         toAuthEmail,
