@@ -459,8 +459,15 @@ def make_thumb(src: Path, r2_key: str) -> str | None:
         name = Path(r2_key).stem + ".jpg"
         out = THUMBS_DIR / name
         with Image.open(src) as im:
+            try:
+                from PIL import ImageOps
+                im = ImageOps.exif_transpose(im)
+            except Exception:
+                pass
             if im.mode in ("RGBA", "P", "LA"):
                 im = im.convert("RGB")
+            # Rotate 90 degrees clockwise so receipts read upright.
+            im = im.rotate(-90, expand=True)
             im.thumbnail((900, 1200))
             im.save(out, "JPEG", quality=72, optimize=True, progressive=True)
         return f"expenses/thumbs/{name}"
