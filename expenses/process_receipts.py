@@ -354,6 +354,9 @@ def process_one(key: str, dry_run: bool) -> dict | None:
     # content hash — the real de-dup key. Two R2 objects with identical bytes
     # (re-upload, resend, or a second shot of the same receipt) collapse to one.
     digest = hashlib.sha256(data).hexdigest()
+    # EXIF capture time + GPS — secondary de-dup signal for re-photographed
+    # uploads of the same receipt (different bytes, same moment/place).
+    exif_dt, exif_gps = extract_exif(local_path)
 
     if not ollama_available():
         # Vision model is down — don't write a garbage row. Signal a
@@ -404,6 +407,8 @@ def process_one(key: str, dry_run: bool) -> dict | None:
         "r2_key": key,
         "photo": thumb_rel or f"expenses/images/{local_path.name}",
         "_sha256": digest,   # internal: content de-dup (stripped before CSV write)
+        "_exif_dt": exif_dt,  # internal: capture-time de-dup (stripped before CSV write)
+        "_exif_gps": exif_gps,  # internal: location de-dup (stripped before CSV write)
         "created_at": uploaded_at,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -474,6 +479,44 @@ def make_thumb(src: Path, r2_key: str) -> str | None:
     except Exception:
         return None
 
+def extract_exif(path: Path) -> tuple[str | None, str | None]:
+    """Pull capture timestamp + coarse GPS from a photo's EXIF.
+    Used to de-dupe re-uploads of the same receipt: the photo is taken once,
+    so two uploads of it share an identical capture time (and usually place)."""
+    try:
+        from PIL import Image
+        from PIL.ExifTags import TAGS, GPSTAGS
+        with Image.open(path) as im:
+            exif = im.getexif()
+            dt = exif.get(36867) or exif.get(306)  # DateTimeOriginal / DateTime
+            dt = str(dt).strip() if dt else None
+            gps = None
+            try:
+                gps_ifd = exif.get_ifd(0x8825)
+                if gps_ifd:
+                    lat = gps_ifd.get(2); lon = gps_ifd.get(4)
+                    if lat and lon:
+                        def dec(v):
+                            d, m, s = v
+                            return float(d) + float(m)/60 + float(s)/3600
+                        gps = f"{dec(lat):.4f},{dec(lon):.4f}"
+            except Exception:
+                gps = None
+            return dt, gps
+    except Exception:
+        return None, None
+
+def fingerprint(vendor: str, total, date: str, exif_dt: str | None) -> tuple:
+    """Normalized duplicate key. Two receipts collide if they share the same
+    capture timestamp OR the same (vendor, total, purchase-date) signature."""
+    v = re.sub(r'[^a-z0-9]', '', str(vendor or '').lower())
+    try:
+        t = round(float(total or 0), 2)
+    except Exception:
+        t = 0.0
+    d = str(date or '')[:10]
+    return (v, t, d, (exif_dt or '').strip())
+
 def apply_corrections(rows: list[dict]) -> list[dict]:
     corrections = load_corrections()
     if not corrections:
@@ -516,6 +559,32 @@ def run(dry_run: bool = False) -> int:
         except Exception:
             pass
 
+    # Semantic de-dup: flag re-uploads of the same receipt for review.
+    # Two independent signals:
+    #   1) purchase signature (vendor + total + date) — matches even when the
+    #      photo is re-shot/re-saved with a different EXIF time.
+    #   2) EXIF capture time — matches when the SAME photo file is uploaded
+    #      twice (identical capture moment), even if vendor/date parse differs.
+    seen_purchase = {}   # (vendor, total, date) -> id
+    seen_exif = {}       # exif_capture_dt -> id
+    for r in rows:
+        try:
+            pk = (re.sub(r'[^a-z0-9]', '', str(r.get("vendor", "")).lower()),
+                  round(float(r.get("total", 0) or 0), 2),
+                  str(r.get("purchase_date", ""))[:10])
+            if pk[0] or pk[1]:
+                seen_purchase.setdefault(pk, r.get("id", "?"))
+        except Exception:
+            pass
+    for it in items.values():
+        fp = it.get("fp")
+        if isinstance(fp, (list, tuple)) and len(fp) == 4:
+            pk = (fp[0], fp[1], fp[2])
+            if pk[0] or pk[1]:
+                seen_purchase.setdefault(pk, it.get("csv_id", "?"))
+            if fp[3]:
+                seen_exif.setdefault(fp[3], it.get("csv_id", "?"))
+
     next_n = max_n
     added = 0
     for o in pending:
@@ -525,16 +594,30 @@ def run(dry_run: bool = False) -> int:
                 items[o["key"]] = {"status": "skipped"}
                 continue
             digest = row.pop("_sha256", None)
+            exif_dt = row.pop("_exif_dt", None)
+            exif_gps = row.pop("_exif_gps", None)
             if digest and digest in seen_digests:
                 # identical bytes to an already-processed receipt -> skip, no duplicate row
                 items[o["key"]] = {"status": "duplicate", "sha256": digest}
                 print(f"  = skip duplicate of existing receipt ({o['key']})")
                 continue
+            # semantic duplicate?
+            new_pk = (re.sub(r'[^a-z0-9]', '', str(row.get("vendor", "")).lower()),
+                      round(float(row.get("total", 0) or 0), 2),
+                      str(row.get("purchase_date", ""))[:10])
+            dup_id = seen_purchase.get(new_pk) or (seen_exif.get(exif_dt) if exif_dt else None)
+            if dup_id and str(dup_id) != str(row.get("id", "")):
+                # Flag for review (don't silently drop) — user confirms/removes.
+                row["status"] = "needs_review"
+                row["note"] = (row.get("note") or "") + f" [Possible duplicate of {dup_id}]"
+                print(f"  ! {row['vendor']} {row['total']} flagged possible duplicate of {dup_id}")
+            fp = fingerprint(row.get("vendor", ""), row.get("total", ""), row.get("purchase_date", ""), exif_dt)
             next_n += 1
             row["id"] = f"exp_{next_n}"
             if not dry_run:
                 rows.append(row)
-            items[o["key"]] = {"status": row["status"], "csv_id": row["id"], "sha256": digest}
+            items[o["key"]] = {"status": row["status"], "csv_id": row["id"],
+                               "sha256": digest, "fp": list(fp)}
             seen_digests.add(digest)
             added += 1
             print(f"  + {row['vendor']}  {row['total'] or '?'}  [{row['status']}]  ({o['key']})")
