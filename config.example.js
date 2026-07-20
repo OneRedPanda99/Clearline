@@ -14,6 +14,12 @@ window.CL_SECRETS = {
         measurementId: "YOUR_MEASUREMENT_ID"
     },
     mapsApiKey: "YOUR_GOOGLE_MAPS_API_KEY",
+    // Expenses: this is the raw GitHub URL of the committed CSV produced by the
+    // local receipt pipeline (expenses/process_receipts.py). The browser reads it
+    // directly — no server or API key needed. Usually no change required.
+    expenses: {
+        csvUrl: "https://raw.githubusercontent.com/OneRedPanda99/Clearline/main/expenses/expenses.csv"
+    },
     // Optional: hard-code the Owner's Firebase Auth uid. When set, the app
     // will only auto-bootstrap a `users/{uid}` doc with role='owner' if
     // the signed-in Google account matches this uid. Leave blank on a

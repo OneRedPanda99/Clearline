@@ -21,3 +21,6 @@ UI follows **[Material Design 3 foundations](https://m3.material.io/foundations)
 - Price calculator and pre-job checklist
 - Before/after photo capture
 - Material Design 3 across the CRM (tokens, buttons, fields, chips, lists, sheets, nav, job hub)
+- Expenses: receipt-tracking backend UI (`expenses.html`) — list/review/summary, inline
+  editing, and a receipt photo viewer, wired to a separate FastAPI service via
+  `expensesApi` config (see `config.example.js`).

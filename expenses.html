@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="theme-color" content="#1a1c1f">
+    <title>Expenses - Clearline</title>
+    <script src="config.js"></script>
+    <script src="utils.js?v=2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="app.css?v=7">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="data-migration.js"></script>
+    <script src="firebase-sync.js?v=5"></script>
+    <style>
+        /* Expenses — built on the app's M3 tokens (app.css). No raw hexes:
+           colors, spacing, radii, motion all inherit the design system so this
+           page is indistinguishable from the hand-built ones. */
+        .ex-row {
+            display: flex; align-items: center; gap: var(--md-space-3);
+            min-height: 60px;
+            padding: var(--md-space-3) var(--md-space-2);
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+            text-decoration: none; color: inherit; cursor: pointer;
+            transition: background-color var(--md-duration-short) var(--md-easing-standard),
+                        transform var(--md-duration-short) var(--md-easing-standard);
+        }
+        .ex-row:last-child { border-bottom: none; }
+        .ex-row:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) 5%, transparent); }
+        .ex-row:active { transform: scale(0.985); background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); }
+        /* Staggered entrance — rows cascade in like the rest of the app */
+        .ex-row { animation: exRowIn 260ms var(--md-easing-decelerate) both; }
+        .ex-row:nth-child(1) { animation-delay: 20ms; }
+        .ex-row:nth-child(2) { animation-delay: 45ms; }
+        .ex-row:nth-child(3) { animation-delay: 70ms; }
+        .ex-row:nth-child(4) { animation-delay: 95ms; }
+        .ex-row:nth-child(5) { animation-delay: 120ms; }
+        .ex-row:nth-child(n+6) { animation-delay: 140ms; }
+        @keyframes exRowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        .ex-dot { width: 8px; height: 8px; border-radius: var(--md-radius-full); background: var(--md-sys-color-outline); flex-shrink: 0; }
+        .ex-dot--review { background: var(--md-sys-color-tertiary); box-shadow: 0 0 0 4px color-mix(in srgb, var(--md-sys-color-tertiary) 18%, transparent); }
+        .ex-amt { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--md-sys-color-on-surface); font-size: 15px; }
+        .ex-sub { font-size: 12px; color: var(--md-sys-color-on-surface-variant); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 210px; }
+        .ex-vendor { font-weight: 600; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; letter-spacing: -0.01em; }
+
+        .pill { font-size: 10px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: var(--md-radius-full); white-space: nowrap; }
+        .pill.cat { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
+        .pill.review { background: color-mix(in srgb, var(--md-sys-color-tertiary) 18%, transparent); color: var(--md-sys-color-tertiary); }
+        .pill.note { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); color: var(--md-sys-color-on-surface-variant); }
+
+        .sort-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--md-sys-color-on-surface-variant); background: transparent; border: none; cursor: pointer; padding: 4px 2px; transition: color var(--md-duration-short) var(--md-easing-standard); }
+        .sort-btn.active { color: var(--md-sys-color-primary); font-weight: 600; }
+        .range-seg { display: flex; gap: 6px; }
+        .range-seg button, .cat-pill-select button {
+            font-size: 12px; padding: 6px 10px; border-radius: var(--md-radius-full);
+            border: 1px solid var(--md-sys-color-outline-variant); background: transparent;
+            color: var(--md-sys-color-on-surface-variant); cursor: pointer;
+            transition: background-color var(--md-duration-short) var(--md-easing-standard),
+                        border-color var(--md-duration-short) var(--md-easing-standard),
+                        color var(--md-duration-short) var(--md-easing-standard);
+        }
+        .range-seg button:active, .cat-pill-select button:active { transform: scale(0.94); }
+        .range-seg button.active, .cat-pill-select button.active {
+            background: var(--md-sys-color-primary-container);
+            border-color: color-mix(in srgb, var(--md-sys-color-primary) 45%, transparent);
+            color: var(--md-sys-color-on-primary-container); font-weight: 600;
+        }
+        .cat-pill-select { display: flex; flex-wrap: wrap; gap: 6px; }
+
+        .ex-field { margin-bottom: var(--md-space-3); }
+        .ex-field label { font-size: 12px; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 4px; font-weight: 500; }
+        .ex-field input, .ex-field select, .ex-field textarea {
+            width: 100%; padding: 12px; border-radius: var(--md-radius-md);
+            background: var(--md-sys-color-surface-container-highest);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            color: var(--md-sys-color-on-surface); font-size: 15px;
+            transition: border-color var(--md-duration-short) var(--md-easing-standard);
+        }
+        .ex-field input:focus, .ex-field select:focus, .ex-field textarea:focus { outline: 2px solid var(--md-sys-color-primary); outline-offset: 0; border-color: transparent; }
+        .ex-field .err { color: var(--md-sys-color-error); font-size: 12px; margin-top: 4px; display: none; }
+        .ex-field.invalid .err { display: block; }
+        .ex-field.invalid input { border-color: var(--md-sys-color-error); }
+
+        .receipt-img { width: 100%; border-radius: var(--md-radius-lg); border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-lowest); cursor: zoom-in; display: block; transition: transform var(--md-duration-medium) var(--md-easing-standard); }
+        .receipt-img:hover { transform: scale(1.01); }
+        .item-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--md-sys-color-outline-variant); }
+        .item-row:last-child { border-bottom: none; }
+        .item-row .item-name { flex: 1; }
+        .item-row .item-price { color: var(--md-sys-color-on-surface-variant); text-align: right; font-variant-numeric: tabular-nums; }
+
+        .bar-track { height: 8px; border-radius: var(--md-radius-full); background: color-mix(in srgb, var(--md-sys-color-on-surface) 6%, transparent); overflow: hidden; margin-top: 6px; }
+        .bar-fill { height: 100%; border-radius: var(--md-radius-full); width: 0; animation: barGrow 500ms var(--md-easing-decelerate) forwards; }
+        @keyframes barGrow { from { width: 0; } }
+
+        /* Reuse the app's shimmer for skeletons instead of a bespoke keyframe */
+        .skeleton { background: linear-gradient(90deg, color-mix(in srgb, var(--md-sys-color-on-surface) 4%, transparent), color-mix(in srgb, var(--md-sys-color-on-surface) 9%, transparent), color-mix(in srgb, var(--md-sys-color-on-surface) 4%, transparent)); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: var(--md-radius-md); }
+
+        .banner-error { background: var(--md-sys-color-error-container); border: 1px solid color-mix(in srgb, var(--md-sys-color-error) 40%, transparent); color: var(--md-sys-color-on-error-container); }
+        .banner-config { background: var(--md-sys-color-primary-container); border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent); color: var(--md-sys-color-on-primary-container); }
+        .cl-muted { color: var(--md-sys-color-on-surface-variant); }
+        .cl-muted-dim { color: color-mix(in srgb, var(--md-sys-color-on-surface-variant) 75%, transparent); }
+        /* Empty/error state icons pick up the tertiary/muted tone, not pure gray */
+        .cl-muted .fa-cloud-slash, .cl-muted .fa-receipt, .cl-muted .fa-image { opacity: 0.7; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .ex-row, .bar-fill, .skeleton, .receipt-img { animation: none !important; transition: none !important; }
+            .bar-fill { width: var(--target-w, 0); }
+        }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <div class="app-header-inner app-header-inner--split">
+            <div class="app-header-wing">
+                <a href="more.html" class="header-tool-btn" aria-label="Back"><i class="fas fa-chevron-left"></i></a>
+            </div>
+            <div class="app-header-center"><h1>Expenses</h1></div>
+            <div class="app-header-wing app-header-wing--end">
+                <button id="refreshBtn" class="header-action-btn" aria-label="Refresh" onclick="refresh()"><i class="fas fa-rotate"></i></button>
+            </div>
+        </div>
+    </header>
+
+    <main class="app-content">
+        <div class="content-wrapper">
+            <!-- Config / status banners -->
+            <div id="configBanner" class="glass-card rounded-xl p-3 text-sm hidden" style="margin-bottom:12px;"></div>
+
+            <!-- Tabs -->
+            <div class="page-tabs page-tabs--pills" style="margin-bottom:12px;">
+                <button type="button" class="page-tab active" id="tabAll" onclick="setView('all')">All</button>
+                <button type="button" class="page-tab" id="tabReview" onclick="setView('review')">
+                    Needs review <span id="reviewBadge" class="pill review" style="display:none;margin-left:4px;">0</span>
+                </button>
+                <button type="button" class="page-tab" id="tabSummary" onclick="setView('summary')">Summary</button>
+            </div>
+
+            <!-- ALL view: filters + list -->
+            <div id="allView">
+                <div id="loadingState" class="hidden">
+                    <div class="skeleton" style="height:72px;margin-bottom:8px;"></div>
+                    <div class="skeleton" style="height:72px;margin-bottom:8px;"></div>
+                    <div class="skeleton" style="height:72px;margin-bottom:8px;"></div>
+                </div>
+
+                <div id="errorState" class="glass-card rounded-xl p-4 text-center hidden" style="margin-bottom:12px;color:var(--md-sys-color-on-surface-variant);">
+                    <i class="fas fa-cloud-slash text-3xl mb-2"></i>
+                    <p id="errorMsg">Couldn't load your expenses.</p>
+                    <p class="text-xs mt-1" style="color:var(--md-sys-color-on-surface-variant);">The receipt data may still be syncing, or the repo is offline. Pull to refresh.</p>
+                    <button class="btn-primary" style="margin-top:12px;" onclick="refresh()"><i class="fas fa-rotate mr-1"></i>Retry</button>
+                </div>
+
+                <div id="emptyState" class="glass-card rounded-xl p-4 text-center hidden cl-muted">
+                    <i class="fas fa-receipt text-3xl mb-2"></i>
+                    <p id="emptyMsg">No expenses yet</p>
+                    <p class="text-xs cl-muted-dim mt-1" id="emptySub">Receipts will appear here once they're processed.</p>
+                </div>
+
+                <!-- Quick summary strip -->
+                <div id="quickStats" class="stats-grid stats-grid--3 mb-3 hidden">
+                    <div class="stat-card"><p class="value" style="color:#34d399;" id="qsMonth">$0</p><p class="label">This month</p></div>
+                    <div class="stat-card"><p class="value" id="qsCount">0</p><p class="label">Expenses</p></div>
+                    <div class="stat-card"><p class="value" style="color:#fbbf24;" id="qsReview">0</p><p class="label">Needs review</p></div>
+                </div>
+
+                <!-- Filters -->
+                <div id="filterBar" class="glass-card rounded-xl p-3 mb-3 hidden">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                        <span class="text-sm" style="color:var(--md-sys-color-on-surface-variant);">Date range</span>
+                        <div class="range-seg" id="rangeSeg">
+                            <button type="button" data-range="all" class="active" onclick="setRange('all')">All</button>
+                            <button type="button" data-range="this_month" onclick="setRange('this_month')">Month</button>
+                            <button type="button" data-range="this_week" onclick="setRange('this_week')">Week</button>
+                            <button type="button" data-range="custom" onclick="setRange('custom')">Custom</button>
+                        </div>
+                    </div>
+                    <div id="customRange" class="hidden" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+                        <div>
+                            <label class="text-xs" style="color:var(--md-sys-color-on-surface-variant);">From</label>
+                            <input type="date" id="dateFrom" onchange="onFilterChange()" style="width:100%;padding:10px;border-radius:10px;background:var(--md-sys-color-surface-container-highest,var(--md-sys-color-surface-container-highest));border:1px solid var(--md-sys-color-outline-variant);color:var(--md-sys-color-on-surface);">
+                        </div>
+                        <div>
+                            <label class="text-xs" style="color:var(--md-sys-color-on-surface-variant);">To</label>
+                            <input type="date" id="dateTo" onchange="onFilterChange()" style="width:100%;padding:10px;border-radius:10px;background:var(--md-sys-color-surface-container-highest,var(--md-sys-color-surface-container-highest));border:1px solid var(--md-sys-color-outline-variant);color:var(--md-sys-color-on-surface);">
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                        <span class="text-sm" style="color:var(--md-sys-color-on-surface-variant);">Category</span>
+                        <button type="button" class="sort-btn" id="sortBtn" onclick="toggleSort()">
+                            <i class="fas fa-arrow-down-wide-short"></i> <span id="sortLabel">Newest</span>
+                        </button>
+                    </div>
+                    <div class="cat-pill-select" id="catPills"></div>
+                </div>
+
+                <div id="expenseList" class="glass-card hidden" style="overflow:hidden;"></div>
+            </div>
+
+            <!-- REVIEW view -->
+            <div id="reviewView" class="hidden">
+                <div id="reviewLoading" class="hidden">
+                    <div class="skeleton" style="height:72px;margin-bottom:8px;"></div>
+                    <div class="skeleton" style="height:72px;margin-bottom:8px;"></div>
+                </div>
+                <div id="reviewError" class="glass-card rounded-xl p-4 text-center hidden cl-muted" style="margin-bottom:12px;">
+                    <i class="fas fa-cloud-slash text-3xl mb-2"></i>
+                    <p>Couldn't load the review queue.</p>
+                    <button class="btn-primary" style="margin-top:12px;" onclick="refresh()"><i class="fas fa-rotate mr-1"></i>Retry</button>
+                </div>
+                <div id="reviewEmpty" class="glass-card rounded-xl p-4 text-center hidden cl-muted">
+                    <i class="fas fa-circle-check text-3xl mb-2" style="color:#34d399;"></i>
+                    <p>All caught up</p>
+                    <p class="text-xs cl-muted-dim mt-1">No expenses need review right now.</p>
+                </div>
+                <div id="reviewList" class="glass-card hidden" style="overflow:hidden;"></div>
+            </div>
+
+            <!-- SUMMARY view -->
+            <div id="summaryView" class="hidden">
+                <div id="summaryLoading" class="hidden">
+                    <div class="skeleton" style="height:140px;margin-bottom:12px;"></div>
+                    <div class="skeleton" style="height:200px;"></div>
+                </div>
+                <div id="summaryError" class="glass-card rounded-xl p-4 text-center hidden cl-muted" style="margin-bottom:12px;">
+                    <i class="fas fa-cloud-slash text-3xl mb-2"></i>
+                    <p>Couldn't load summary.</p>
+                    <button class="btn-primary" style="margin-top:12px;" onclick="refresh()"><i class="fas fa-rotate mr-1"></i>Retry</button>
+                </div>
+                <div id="summaryBody" class="hidden">
+                    <div class="stats-grid stats-grid--3 mb-3">
+                        <div class="stat-card"><p class="value" style="color:#34d399;" id="smMonth">$0</p><p class="label">Spent this month</p></div>
+                        <div class="stat-card"><p class="value" id="smCount">0</p><p class="label">Total expenses</p></div>
+                        <div class="stat-card"><p class="value" style="color:#60a5fa;" id="smAvg">$0</p><p class="label">Avg / expense</p></div>
+                    </div>
+                    <p class="section-title">Spending by category</p>
+                    <div class="glass-card rounded-xl p-4" id="catBreakdown"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Detail slide-up sheet -->
+    <div id="detailSheet" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+        <div class="modal-content glass-card" role="document" style="width:100%;max-width:560px;max-height:92vh;overflow-y:auto;margin:auto;">
+            <div class="modal-header" style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                <h2 id="detailTitle" style="font-size:18px;font-weight:800;margin:0;"><i class="fas fa-receipt" style="margin-right:8px;color:var(--md-sys-color-primary);"></i>Expense</h2>
+                <button class="modal-close-btn" onclick="closeModal('detailSheet')" aria-label="Close">&times;</button>
+            </div>
+            <div id="detailBody" style="padding:16px;"></div>
+        </div>
+    </div>
+
+    <!-- Lightbox for receipt photo -->
+    <div id="imgLightbox" class="modal" hidden role="dialog" aria-modal="true" onclick="closeModal('imgLightbox')">
+        <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:16px;">
+            <img id="imgLightboxSrc" src="" alt="Receipt" style="max-width:100%;max-height:100%;border-radius:12px;">
+        </div>
+    </div>
+
+    <script>
+        'use strict';
+
+        // ─── Config (from gitignored config.js → window.CL_SECRETS) ──────────
+        // The Expenses data is a CSV committed to the Clearline GitHub repo and
+        // produced by the local receipt pipeline (expenses/process_receipts.py).
+        // We only need a public raw URL to read it. Never hardcode secrets.
+        const EXPENSES_CFG = (window.CL_SECRETS && window.CL_SECRETS.expenses) || {};
+        // Default: raw GitHub main branch. Override in config.js if needed.
+        const CSV_URL = (EXPENSES_CFG.csvUrl ||
+            'https://raw.githubusercontent.com/OneRedPanda99/Clearline/main/expenses/expenses.csv');
+        // Base for receipt photos stored in the repo (expenses/images/*.jpg).
+        const CSV_BASE = CSV_URL.replace(/\/expenses\/expenses\.csv$/, '');
+        const PHOTO_BASE = CSV_BASE + '/expenses/images/';
+
+        // ─── State ───────────────────────────────────────────────────────────
+        let allExpenses = [];       // normalized rows from the CSV
+        let reviewExpenses = [];    // rows flagged needs_review
+        let currentView = 'all';
+        let sortDir = 'desc';       // 'desc' = newest first; 'asc' = oldest first
+        let range = 'all';          // all | this_month | this_week | custom
+        let customFrom = '';
+        let customTo = '';
+        let activeCategory = 'all'; // category id or 'all'
+        let cfgOK = !!CSV_URL;
+        let selectedId = null;      // currently open detail expense
+
+        // ─── Helpers ─────────────────────────────────────────────────────────
+        function esc(v) {
+            return String(v == null ? '' : v)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+        function fmtMoney(n) {
+            const v = Number(n || 0);
+            if (!isFinite(v)) return '$0';
+            return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        function fmtDateShort(ymdOrIso) {
+            if (!ymdOrIso) return '';
+            // accept "YYYY-MM-DD" or ISO timestamp
+            const m = String(ymdOrIso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (!m) return esc(ymdOrIso);
+            const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        // Normalize a CSV row (all values are strings) into the app shape.
+        function normalize(rec) {
+            let items = [];
+            try { items = rec.items ? JSON.parse(rec.items) : []; } catch (e) { items = []; }
+            if (!Array.isArray(items)) items = [];
+
+            const subtotal = rec.subtotal !== '' && rec.subtotal != null ? Number(rec.subtotal) : 0;
+            const tax = rec.tax !== '' && rec.tax != null ? Number(rec.tax) : 0;
+            const total = rec.total !== '' && rec.total != null ? Number(rec.total) : 0;
+            // photo column holds a repo-relative path; build a raw GitHub URL.
+            let photoUrl = null;
+            if (rec.photo) {
+                photoUrl = rec.photo.startsWith('http')
+                    ? rec.photo
+                    : (PHOTO_BASE + rec.photo.replace(/^expenses\/images\//, ''));
+            }
+            return {
+                id: rec.id || '',
+                vendor: rec.vendor || '',
+                purchase_date: rec.purchase_date || '',
+                items,
+                subtotal: isNaN(subtotal) ? 0 : subtotal,
+                tax: isNaN(tax) ? 0 : tax,
+                total: isNaN(total) ? 0 : total,
+                note: rec.note || '',
+                category: rec.category || '',
+                status: rec.status || '',
+                created_at: rec.created_at || '',
+                photo_url: photoUrl
+            };
+        }
+
+        // CATEGORY taxonomy — start with a sensible default list. If the backend
+        // reports a category not in this list, it's still rendered (untouched).
+        const CATEGORIES = [
+            'Supplies', 'Chemicals', 'Fuel', 'Equipment', 'Vehicle',
+            'Advertising', 'Software', 'Meals', 'Utilities', 'Rent',
+            'Insurance', 'Labor', 'Other'
+        ];
+        function catLabel(cat) {
+            if (!cat) return 'Uncategorized';
+            const exact = CATEGORIES.find(c => c.toLowerCase() === String(cat).toLowerCase());
+            return exact || String(cat);
+        }
+
+        // ─── CSV client ──────────────────────────────────────────────────────
+        // The data source is a CSV committed to the repo. We fetch the raw file
+        // and parse it (no server, no API key). Built-in fetch + manual CSV parse
+        // so we don't depend on a CSV library.
+        async function fetchCsvText() {
+            const res = await fetch(CSV_URL + '?t=' + Date.now(), { cache: 'no-store' });
+            if (!res.ok) {
+                const e = new Error('Couldn’t load the expenses CSV (' + res.status + ').');
+                e.kind = 'http';
+                throw e;
+            }
+            return res.text();
+        }
+
+        // Minimal RFC4180-ish CSV parser (handles quoted fields with commas/newlines).
+        function parseCsv(text) {
+            const rows = [];
+            let row = [], field = '', i = 0, inQ = false;
+            while (i < text.length) {
+                const c = text[i];
+                if (inQ) {
+                    if (c === '"') {
+                        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+                        inQ = false; i++; continue;
+                    }
+                    field += c; i++; continue;
+                }
+                if (c === '"') { inQ = true; i++; continue; }
+                if (c === ',') { row.push(field); field = ''; i++; continue; }
+                if (c === '\r') { i++; continue; }
+                if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+                field += c; i++;
+            }
+            if (field.length || row.length) { row.push(field); rows.push(row); }
+            return rows.filter(r => r.length && !(r.length === 1 && r[0].trim() === ''));
+        }
+
+        function csvToRows(text) {
+            const rows = parseCsv(text);
+            if (!rows.length) return [];
+            const header = rows[0].map(h => h.trim());
+            return rows.slice(1).map(cells => {
+                const o = {};
+                header.forEach((h, idx) => { o[h] = (cells[idx] || '').trim(); });
+                return o;
+            });
+        }
+
+        function buildListQuery() { return ''; } // CSV is pre-filtered locally; kept for compat
+
+        // ─── Data loading ────────────────────────────────────────────────────
+        async function loadAll() {
+            showLoading(true);
+            hideError(); hideEmpty();
+            try {
+                const text = await fetchCsvText();
+                const rows = csvToRows(text);
+                allExpenses = rows.map(normalize);
+                renderAll();
+                updateQuickStats();
+                if (currentView !== 'all') setView('all');
+                showLoading(false);
+            } catch (e) {
+                showLoading(false);
+                handleLoadError(e, 'all');
+            }
+        }
+
+        async function loadReview() {
+            const loadEl = document.getElementById('reviewLoading');
+            const errEl = document.getElementById('reviewError');
+            const emptyEl = document.getElementById('reviewEmpty');
+            const listEl = document.getElementById('reviewList');
+            loadEl.classList.remove('hidden');
+            errEl.classList.add('hidden'); emptyEl.classList.add('hidden'); listEl.classList.add('hidden');
+            try {
+                if (!allExpenses.length) {
+                    const text = await fetchCsvText();
+                    allExpenses = csvToRows(text).map(normalize);
+                }
+                reviewExpenses = allExpenses.filter(e => /review|flag|low.?conf|fail|needs_review/i.test(e.status || ''));
+                const badge = document.getElementById('reviewBadge');
+                if (reviewExpenses.length) {
+                    badge.style.display = 'inline-block';
+                    badge.textContent = String(reviewExpenses.length);
+                } else {
+                    badge.style.display = 'none';
+                }
+                loadEl.classList.add('hidden');
+                if (!reviewExpenses.length) { emptyEl.classList.remove('hidden'); return; }
+                listEl.innerHTML = reviewExpenses.map(reviewRowHtml).join('');
+                listEl.classList.remove('hidden');
+            } catch (e) {
+                loadEl.classList.add('hidden');
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        async function loadSummary() {
+            const loadEl = document.getElementById('summaryLoading');
+            const errEl = document.getElementById('summaryError');
+            const bodyEl = document.getElementById('summaryBody');
+            loadEl.classList.remove('hidden');
+            errEl.classList.add('hidden'); bodyEl.classList.add('hidden');
+            try {
+                let list = allExpenses;
+                if (!list.length) {
+                    const text = await fetchCsvText();
+                    list = csvToRows(text).map(normalize);
+                }
+                renderSummary(list);
+                loadEl.classList.add('hidden');
+                bodyEl.classList.remove('hidden');
+            } catch (e) {
+                loadEl.classList.add('hidden');
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        // Edits are written to a corrections file that the local pipeline applies
+        // on its next run (the CSV is the pipeline's source of truth, committed
+        // from this PC — the browser can't write to the repo directly).
+        function saveExpense(id, payload) {
+            try {
+                let corrections = {};
+                try { corrections = JSON.parse(localStorage.getItem('cl-expenses-corrections') || '{}'); } catch (e) {}
+                corrections[id] = Object.assign({}, corrections[id] || {}, payload);
+                localStorage.setItem('cl-expenses-corrections', JSON.stringify(corrections));
+                // Apply locally so the UI reflects the fix immediately.
+                const target = allExpenses.find(x => x.id === id);
+                if (target) { Object.assign(target, payload); if (/needs_review/i.test(target.status || '')) target.status = 'ok'; }
+                const rt = reviewExpenses.find(x => x.id === id);
+                if (rt) { Object.assign(rt, payload); if (/needs_review/i.test(rt.status || '')) rt.status = 'ok'; }
+                showToast('Saved locally — will sync on next pipeline run', 'success');
+                renderAll(); updateQuickStats();
+                if (currentView === 'review') loadReview();
+                if (selectedId) openDetail(selectedId);
+            } catch (e) {
+                showToast('Save failed. Try again.', 'error');
+            }
+        }
+
+        // ─── Rendering ───────────────────────────────────────────────────────
+        function showLoading(on) {
+            document.getElementById('loadingState').classList.toggle('hidden', !on);
+            if (on) { hideError(); hideEmpty(); }
+        }
+        function showError(msg, kind) {
+            const el = document.getElementById('errorState');
+            document.getElementById('errorMsg').textContent = msg || 'Something went wrong.';
+            el.classList.remove('hidden');
+        }
+        function hideError() { document.getElementById('errorState').classList.add('hidden'); }
+        function showEmpty(msg, sub) {
+            const el = document.getElementById('emptyState');
+            if (msg) document.getElementById('emptyMsg').textContent = msg;
+            if (sub) document.getElementById('emptySub').textContent = sub;
+            el.classList.remove('hidden');
+        }
+        function hideEmpty() { document.getElementById('emptyState').classList.add('hidden'); }
+
+        function handleLoadError(e, view) {
+            if (e && e.message === 'not-configured') {
+                showConfigBanner();
+                return;
+            }
+            const msg = (e && e.kind === 'http')
+                ? (e.message || 'Couldn’t load the expenses file.')
+                : 'Couldn’t reach the receipts data. The repo may be private or offline.';
+            if (view === 'all') showError(msg);
+        }
+
+        function showConfigBanner() {
+            const b = document.getElementById('configBanner');
+            b.className = 'glass-card rounded-xl p-3 text-sm banner-config';
+            b.innerHTML = '<i class="fas fa-key mr-1"></i> <b>Expenses data URL not set.</b> ' +
+                'Add <code>expenses.csvUrl</code> to your gitignored <code>config.js</code> ' +
+                '(see config.example.js).';
+            b.classList.remove('hidden');
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('filterBar').classList.add('hidden');
+            document.getElementById('quickStats').classList.add('hidden');
+            showEmpty('Not configured', 'Set expenses.csvUrl in config.js.');
+            document.getElementById('expenseList').classList.add('hidden');
+        }
+
+        function getVisibleExpenses() {
+            let list = allExpenses.slice();
+            list.sort((a, b) => {
+                const da = String(a.purchase_date || '').replace(/-/g, '');
+                const db = String(b.purchase_date || '').replace(/-/g, '');
+                return sortDir === 'desc' ? db.localeCompare(da) : da.localeCompare(db);
+            });
+            return list;
+        }
+
+        function renderAll() {
+            const list = getVisibleExpenses();
+            const filterBar = document.getElementById('filterBar');
+            const listEl = document.getElementById('expenseList');
+            const quick = document.getElementById('quickStats');
+
+            if (!cfgOK) { showConfigBanner(); return; }
+            document.getElementById('configBanner').classList.add('hidden');
+
+            if (!allExpenses.length && range === 'all') {
+                // truly nothing
+                filterBar.classList.remove('hidden');
+                renderCatPills();
+                listEl.classList.add('hidden');
+                showEmpty('No expenses yet', 'Receipts will appear here once they’re processed.');
+                quick.classList.add('hidden');
+                return;
+            }
+            hideEmpty();
+            filterBar.classList.remove('hidden');
+            quick.classList.remove('hidden');
+            renderCatPills();
+
+            if (!list.length) {
+                listEl.classList.add('hidden');
+                showEmpty('No matching expenses', 'Try widening the date range or category filter.');
+                return;
+            }
+            hideEmpty();
+            listEl.innerHTML = list.map(exRowHtml).join('');
+            listEl.classList.remove('hidden');
+        }
+
+        function renderCatPills() {
+            const known = new Set(CATEGORIES.map(c => c.toLowerCase()));
+            const extras = [];
+            allExpenses.forEach(e => {
+                if (e.category && !known.has(String(e.category).toLowerCase()) && !extras.includes(e.category)) {
+                    extras.push(e.category);
+                }
+            });
+            const all = ['all', ...CATEGORIES, ...extras];
+            const el = document.getElementById('catPills');
+            el.innerHTML = all.map(c => {
+                const label = c === 'all' ? 'All' : catLabel(c);
+                const active = c === activeCategory;
+                return `<button type="button" class="${active ? 'active' : ''}" onclick="setCategory(${JSON.stringify(c)})">${esc(label)}</button>`;
+            }).join('');
+        }
+
+        function exRowHtml(e) {
+            const needsReview = /review|flag|low.?conf|fail|needs_review/i.test(e.status || '') ||
+                (e.status && String(e.status).toLowerCase() === 'needs_review');
+            const reviewPill = needsReview ? '<span class="pill review">Review</span>' : '';
+            const catPill = e.category ? `<span class="pill cat">${esc(catLabel(e.category))}</span>` : '';
+            const notePill = e.note ? '<span class="pill note"><i class="fas fa-sticky-note"></i></span>' : '';
+            const vendor = e.vendor || 'Unknown vendor';
+            return `
+                <div class="ex-row" onclick="openDetail(${JSON.stringify(e.id)})">
+                    <span class="ex-dot"></span>
+                    <div style="min-width:0;">
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <p class="ex-vendor">${esc(vendor)}</p>
+                            ${catPill}${reviewPill}${notePill}
+                        </div>
+                        <p class="ex-sub">${esc(fmtDateShort(e.purchase_date))}${e.note ? ' · ' + esc(e.note) : ''}</p>
+                    </div>
+                    <div class="ex-amt">${fmtMoney(e.total)}</div>
+                </div>`;
+        }
+
+        function reviewRowHtml(e) {
+            const vendor = e.vendor || 'Unknown vendor';
+            const catPill = e.category ? `<span class="pill cat">${esc(catLabel(e.category))}</span>` : '';
+            return `
+                <div class="ex-row" onclick="openDetail(${JSON.stringify(e.id)})">
+                    <span class="ex-dot ex-dot--review"></span>
+                    <div style="min-width:0;">
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <p class="ex-vendor">${esc(vendor)}</p>
+                            ${catPill}
+                        </div>
+                        <p class="ex-sub">${esc(fmtDateShort(e.purchase_date))} · ${esc(String(e.status || 'needs review'))}</p>
+                    </div>
+                    <div class="ex-amt">${fmtMoney(e.total)}</div>
+                </div>`;
+        }
+
+        function updateQuickStats() {
+            const now = new Date();
+            const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+            const monthTotal = allExpenses
+                .filter(e => String(e.purchase_date || '').slice(0, 7) === ym)
+                .reduce((s, e) => s + Number(e.total || 0), 0);
+            document.getElementById('qsMonth').textContent = fmtMoney(monthTotal);
+            document.getElementById('qsCount').textContent = String(allExpenses.length);
+            document.getElementById('qsReview').textContent = String(reviewExpenses.length);
+        }
+
+        function renderSummary(list) {
+            const now = new Date();
+            const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+            const monthTotal = list
+                .filter(e => String(e.purchase_date || '').slice(0, 7) === ym)
+                .reduce((s, e) => s + Number(e.total || 0), 0);
+            const count = list.length;
+            const avg = count ? monthTotal / count : 0;
+            document.getElementById('smMonth').textContent = fmtMoney(monthTotal);
+            document.getElementById('smCount').textContent = String(count);
+            document.getElementById('smAvg').textContent = fmtMoney(avg);
+
+            // by category
+            const byCat = {};
+            list.forEach(e => {
+                const k = e.category || 'uncategorized';
+                byCat[k] = (byCat[k] || 0) + Number(e.total || 0);
+            });
+            const entries = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+            const max = entries.length ? entries[0][1] : 1;
+            const palette = ['#34d399', '#60a5fa', '#fbbf24', '#f87171', '#8ab4ff', '#a7f3d0', '#c4b5fd', '#fb923c', 'var(--md-sys-color-on-surface-variant)'];
+            const el = document.getElementById('catBreakdown');
+            if (!entries.length) {
+                el.innerHTML = '<p class="cl-muted text-sm">No spending data yet.</p>';
+                return;
+            }
+            el.innerHTML = entries.map(([cat, amt], i) => {
+                const pct = Math.round((amt / max) * 100);
+                const color = palette[i % palette.length];
+                return `
+                    <div style="margin-bottom:14px;">
+                        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                            <span style="font-weight:600;color:var(--md-sys-color-on-surface);">${esc(catLabel(cat))}</span>
+                            <span style="color:var(--md-sys-color-on-surface-variant);font-weight:600;font-variant-numeric:tabular-nums;">${fmtMoney(amt)}</span>
+                        </div>
+                        <div class="bar-track"><div class="bar-fill" style="--target-w:${pct}%;width:${pct}%;background:${color};"></div></div>
+                    </div>`;
+            }).join('');
+        }
+
+        // ─── Detail view with inline editing ─────────────────────────────────
+        function openDetail(id) {
+            const e = allExpenses.find(x => x.id === id) || reviewExpenses.find(x => x.id === id);
+            if (!e) { showToast('Expense not found', 'error'); return; }
+            selectedId = id;
+
+            const photoBlock = e.photo_url
+                ? `<button type="button" onclick="openLightbox(${JSON.stringify(e.photo_url)})" style="display:block;width:100%;padding:0;border:none;background:transparent;cursor:zoom-in;">
+                       <img class="receipt-img" src="${esc(e.photo_url)}" alt="Receipt photo" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
+                       <p style="display:none;color:var(--md-sys-color-on-surface-variant);font-size:13px;text-align:center;padding:20px;">Receipt photo unavailable.</p>
+                   </button>`
+                : `<div class="glass-card rounded-xl p-4 text-center cl-muted"><i class="fas fa-image text-2xl mb-1"></i><p class="text-xs">No receipt photo on file</p></div>`;
+
+            const itemsHtml = (e.items && e.items.length)
+                ? e.items.map((it, i) => `
+                    <div class="item-row">
+                        <div class="item-name" style="font-weight:600;">${esc(it.name || 'Item')}</div>
+                        <div class="item-price" style="color:var(--md-sys-color-on-surface-variant);text-align:right;">${fmtMoney(it.price)}</div>
+                    </div>`).join('')
+                : '<p class="cl-muted text-sm">No itemized line items.</p>';
+
+            const catOptions = CATEGORIES.map(c =>
+                `<option value="${esc(c)}" ${String(e.category).toLowerCase() === c.toLowerCase() ? 'selected' : ''}>${esc(c)}</option>`).join('');
+
+            document.getElementById('detailBody').innerHTML = `
+                ${photoBlock}
+
+                <div id="detailError" class="banner-error rounded-xl p-3 text-sm hidden" style="margin:12px 0;"></div>
+
+                <div class="ex-field" id="f-vendor">
+                    <label>Vendor</label>
+                    <input id="dVendor" type="text" value="${esc(e.vendor)}">
+                    <div class="err">Vendor can’t be empty.</div>
+                </div>
+
+                <div class="ex-field" id="f-total">
+                    <label>Total (USD)</label>
+                    <input id="dTotal" type="number" step="0.01" min="0" inputmode="decimal" value="${esc(e.total != null ? e.total : '')}">
+                    <div class="err">Enter a valid total.</div>
+                </div>
+
+                <div class="ex-field" id="f-cat">
+                    <label>Category</label>
+                    <select id="dCategory">${catOptions}</select>
+                </div>
+
+                <div class="ex-field">
+                    <label>Note</label>
+                    <textarea id="dNote" rows="2" placeholder="Optional note">${esc(e.note)}</textarea>
+                </div>
+
+                <div class="glass-card rounded-xl p-3 mb-3" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;background:rgba(255,255,255,0.03);">
+                    <div><p class="text-xs" style="color:var(--md-sys-color-on-surface-variant);margin:0;">Subtotal</p><p style="font-weight:700;margin:2px 0 0;">${fmtMoney(e.subtotal)}</p></div>
+                    <div><p class="text-xs" style="color:var(--md-sys-color-on-surface-variant);margin:0;">Tax</p><p style="font-weight:700;margin:2px 0 0;">${fmtMoney(e.tax)}</p></div>
+                </div>
+
+                <p class="section-title" style="margin-top:4px;">Items</p>
+                <div class="glass-card rounded-xl p-3 mb-3">${itemsHtml}</div>
+
+                ${e.status ? `<p class="text-xs" style="color:var(--md-sys-color-on-surface-variant);"><i class="fas fa-circle-info mr-1"></i>Status: ${esc(e.status)}</p>` : ''}
+
+                <div style="display:flex;gap:10px;margin-top:14px;">
+                    <button class="btn-primary" type="button" onclick="submitDetail(${JSON.stringify(id)})" style="flex:1;">
+                        <i class="fas fa-check mr-1"></i>Save changes
+                    </button>
+                    <button class="btn-secondary" type="button" onclick="closeModal('detailSheet')" style="flex:1;">Cancel</button>
+                </div>
+                <p class="text-xs text-center" style="margin-top:8px;color:var(--md-sys-color-on-surface-variant);">Edits sync to your CSV on the next receipt run.</p>
+            `;
+
+            openModal('detailSheet');
+        }
+
+        function submitDetail(id) {
+            const vendor = document.getElementById('dVendor').value.trim();
+            const totalRaw = document.getElementById('dTotal').value;
+            const total = parseFloat(totalRaw);
+            const category = document.getElementById('dCategory').value;
+            const note = document.getElementById('dNote').value.trim();
+
+            let ok = true;
+            const fv = document.getElementById('f-vendor');
+            if (!vendor) { fv.classList.add('invalid'); ok = false; } else { fv.classList.remove('invalid'); }
+            const ft = document.getElementById('f-total');
+            if (!totalRaw || isNaN(total) || total < 0) { ft.classList.add('invalid'); ok = false; } else { ft.classList.remove('invalid'); }
+            if (!ok) return;
+
+            const errEl = document.getElementById('detailError');
+            errEl.classList.add('hidden');
+
+            saveExpense(id, { vendor, total, category, note });
+        }
+
+        function openLightbox(url) {
+            document.getElementById('imgLightboxSrc').src = url;
+            openModal('imgLightbox');
+        }
+
+        // ─── View / filter controls ──────────────────────────────────────────
+        function setView(view) {
+            currentView = view;
+            ['all', 'review', 'summary'].forEach(v => {
+                const el = document.getElementById('tab' + v.charAt(0).toUpperCase() + v.slice(1));
+                if (el) el.classList.toggle('active', v === view);
+            });
+            document.getElementById('allView').classList.toggle('hidden', view !== 'all');
+            document.getElementById('reviewView').classList.toggle('hidden', view !== 'review');
+            document.getElementById('summaryView').classList.toggle('hidden', view !== 'summary');
+            if (view === 'review') loadReview();
+            else if (view === 'summary') loadSummary();
+        }
+
+        function setRange(r) {
+            range = r;
+            document.querySelectorAll('#rangeSeg button').forEach(b =>
+                b.classList.toggle('active', b.getAttribute('data-range') === r));
+            const custom = document.getElementById('customRange');
+            custom.classList.toggle('hidden', r !== 'custom');
+            if (r === 'custom' && !customFrom && !customTo) {
+                // default custom to this month so it's not empty
+                const now = new Date();
+                const first = new Date(now.getFullYear(), now.getMonth(), 1);
+                customFrom = localYmd(first);
+                customTo = localYmd(now);
+                document.getElementById('dateFrom').value = customFrom;
+                document.getElementById('dateTo').value = customTo;
+            }
+            if (cfgOK) loadAll();
+        }
+
+        function setCategory(c) {
+            activeCategory = c;
+            renderCatPills();
+            if (cfgOK) loadAll();
+        }
+
+        function onFilterChange() {
+            customFrom = document.getElementById('dateFrom').value;
+            customTo = document.getElementById('dateTo').value;
+            if (cfgOK) loadAll();
+        }
+
+        function toggleSort() {
+            sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+            const label = document.getElementById('sortLabel');
+            const icon = document.querySelector('#sortBtn i');
+            if (sortDir === 'desc') { label.textContent = 'Newest'; icon.className = 'fas fa-arrow-down-wide-short'; }
+            else { label.textContent = 'Oldest'; icon.className = 'fas fa-arrow-up-wide-short'; }
+            document.getElementById('sortBtn').classList.toggle('active', true);
+            renderAll();
+        }
+
+        async function reloadAllViews() {
+            if (cfgOK) await loadAll();
+            if (currentView === 'review') await loadReview();
+            else if (currentView === 'summary') await loadSummary();
+        }
+
+        async function refresh() {
+            if (!cfgOK) { showConfigBanner(); return; }
+            document.getElementById('configBanner').classList.add('hidden');
+            await reloadAllViews();
+        }
+
+        // ─── Init ────────────────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            setActiveNav();
+            if (!cfgOK) {
+                showConfigBanner();
+                return;
+            }
+            loadAll();
+            loadReview(); // preload review queue + badge
+        });
+    </script>
+</body>
+</html>
