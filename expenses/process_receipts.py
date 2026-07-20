@@ -486,14 +486,15 @@ def run(dry_run: bool = False) -> int:
     # so it must not permanently exclude a receipt.
     done = {"ok", "needs_review", "skipped", "duplicate"}
     pending = [o for o in objs if items.get(o["key"], {}).get("status") not in done]
+    # guard: never re-add an r2_key that's already recorded as done
+    recorded_keys = {v["r2_key"] for v in items.values() if v.get("r2_key") and v.get("status") in done}
+    pending = [o for o in pending if o["key"] not in recorded_keys]
     if not pending:
         print(f"[run] nothing new ({len(objs)} objects, all processed)")
         return 0
 
     print(f"[run] {len(pending)} new receipt(s) to process")
     rows = read_csv_rows()
-    # content-hash de-dup: any digest we've already committed should not reappear
-    seen_digests = {v.get("sha256") for v in items.values() if v.get("sha256")}
     # unique, never-reused id: start above the max existing id, then increment
     max_n = 0
     for r in rows:
@@ -501,7 +502,7 @@ def run(dry_run: bool = False) -> int:
             max_n = max(max_n, int(str(r.get("id", "")).replace("exp_", "")))
         except Exception:
             pass
-    next_n = max_n
+
     added = 0
     for o in pending:
         try:

@@ -612,9 +612,12 @@
             const catPill = e.category ? `<span class="pill cat">${esc(catLabel(e.category))}</span>` : '';
             const notePill = e.note ? '<span class="pill note"><i class="fas fa-sticky-note"></i></span>' : '';
             const vendor = e.vendor || 'Unknown vendor';
+            const thumb = e.photo_url
+                ? `<img src="${esc(e.photo_url)}" alt="" loading="lazy" style="width:46px;height:46px;border-radius:12px;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span class="ex-dot" style="display:none;"></span>`
+                : '<span class="ex-dot"></span>';
             return `
                 <div class="ex-row" onclick="openDetail(${JSON.stringify(e.id)})">
-                    <span class="ex-dot"></span>
+                    ${thumb}
                     <div style="min-width:0;">
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                             <p class="ex-vendor">${esc(vendor)}</p>
