@@ -1,0 +1,5 @@
+# Local secrets for the expenses pipeline (NOT committed)
+.env
+
+# Downloaded receipt images (large, regenerated from R2; not committed)
+images/
