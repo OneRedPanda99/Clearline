@@ -224,7 +224,9 @@ def ollama_extract(image_bytes: bytes, note: str, filename: str = "") -> dict:
         "You are a receipt parser. Read this receipt image and return ONLY a JSON "
         "object (no markdown, no commentary) with these exact keys:\n"
         "  vendor: string (store name)\n"
-        "  purchase_date: string ISO date 'YYYY-MM-DD' (from the receipt, not upload time)\n"
+        "  date_raw: string — the transaction date EXACTLY as printed on the receipt, "
+        "character for character (e.g. '05-12-26' or '05/12/2026'). Do NOT reformat or "
+        "reorder it. Copy the digits and separators verbatim.\n"
         "  items: array of {name: string, price: number}\n"
         "  subtotal: number\n"
         "  tax: number\n"
@@ -347,7 +349,9 @@ def process_one(key: str, dry_run: bool) -> dict | None:
         parsed = {}
 
     vendor = str(parsed.get("vendor", "") or "").strip() or "Unknown"
-    purchase_date = str(parsed.get("purchase_date", "") or "").strip()
+    # Parse the raw date string ourselves (US MM-DD-YY) — vision models reliably
+    # read the digits but unreliably reorder month/day, so we never let them format it.
+    purchase_date = parse_us_date(parsed.get("date_raw") or parsed.get("purchase_date") or "")
     items = parsed.get("items", []) or []
     # normalize items to {name, price}
     norm_items = []
@@ -398,6 +402,33 @@ def to_float(v) -> float:
         return round(float(v), 2)
     except Exception:
         return 0.0
+
+def parse_us_date(raw: str) -> str:
+    """Parse a receipt date string (US MM-DD-YY / MM/DD/YYYY) to ISO YYYY-MM-DD.
+    Vision models read the digits reliably but reorder month/day, so we do the
+    ordering deterministically here. Returns '' if unparseable."""
+    import re
+    s = str(raw or "").strip()
+    if not s:
+        return ""
+    # already ISO? (YYYY-MM-DD) — trust it
+    m = re.search(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b", s)
+    if m:
+        y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    else:
+        # US M-D-Y with - or / separators, 2- or 4-digit year
+        m = re.search(r"\b(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})\b", s)
+        if not m:
+            return ""
+        mo, d, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if y < 100:
+            y += 2000
+    # sanity: if month>12 but day<=12, they're swapped
+    if mo > 12 and d <= 12:
+        mo, d = d, mo
+    if not (1 <= mo <= 12 and 1 <= d <= 31):
+        return ""
+    return f"{y:04d}-{mo:02d}-{d:02d}"
 
 def apply_corrections(rows: list[dict]) -> list[dict]:
     corrections = load_corrections()
