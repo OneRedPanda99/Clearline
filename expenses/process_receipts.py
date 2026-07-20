@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import base64
 import csv
+import hashlib
 import io
 import json
 import os
@@ -348,6 +349,10 @@ def process_one(key: str, dry_run: bool) -> dict | None:
     if not dry_run:
         thumb_rel = make_thumb(local_path, key)
 
+    # content hash — the real de-dup key. Two R2 objects with identical bytes
+    # (re-upload, resend, or a second shot of the same receipt) collapse to one.
+    digest = hashlib.sha256(data).hexdigest()
+
     if ollama_available():
         parsed = ollama_extract(data, note, orig)
     else:
@@ -393,6 +398,7 @@ def process_one(key: str, dry_run: bool) -> dict | None:
         "status": status,
         "r2_key": key,
         "photo": thumb_rel or f"expenses/images/{local_path.name}",
+        "_sha256": digest,   # internal: content de-dup (stripped before CSV write)
         "created_at": uploaded_at,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -478,7 +484,7 @@ def run(dry_run: bool = False) -> int:
     # Retry anything that previously errored — only skip terminal states
     # (ok / needs_review / skipped). An error is transient (model down, network),
     # so it must not permanently exclude a receipt.
-    done = {"ok", "needs_review", "skipped"}
+    done = {"ok", "needs_review", "skipped", "duplicate"}
     pending = [o for o in objs if items.get(o["key"], {}).get("status") not in done]
     if not pending:
         print(f"[run] nothing new ({len(objs)} objects, all processed)")
@@ -486,6 +492,8 @@ def run(dry_run: bool = False) -> int:
 
     print(f"[run] {len(pending)} new receipt(s) to process")
     rows = read_csv_rows()
+    # content-hash de-dup: any digest we've already committed should not reappear
+    seen_digests = {v.get("sha256") for v in items.values() if v.get("sha256")}
     # unique, never-reused id: start above the max existing id, then increment
     max_n = 0
     for r in rows:
@@ -501,11 +509,18 @@ def run(dry_run: bool = False) -> int:
             if row is None:
                 items[o["key"]] = {"status": "skipped"}
                 continue
+            digest = row.pop("_sha256", None)
+            if digest and digest in seen_digests:
+                # identical bytes to an already-processed receipt -> skip, no duplicate row
+                items[o["key"]] = {"status": "duplicate", "sha256": digest}
+                print(f"  = skip duplicate of existing receipt ({o['key']})")
+                continue
             next_n += 1
             row["id"] = f"exp_{next_n}"
             if not dry_run:
                 rows.append(row)
-            items[o["key"]] = {"status": row["status"], "csv_id": row["id"]}
+            items[o["key"]] = {"status": row["status"], "csv_id": row["id"], "sha256": digest}
+            seen_digests.add(digest)
             added += 1
             print(f"  + {row['vendor']}  {row['total'] or '?'}  [{row['status']}]  ({o['key']})")
         except Exception as e:
