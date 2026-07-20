@@ -381,7 +381,7 @@ def process_one(key: str, dry_run: bool) -> dict | None:
 
     rows = read_csv_rows()
     row = {
-        "id": next_id(rows),
+        "id": "",   # assigned by run() with a unique, incrementing id
         "vendor": vendor,
         "purchase_date": purchase_date or uploaded_at[:10],
         "items": json.dumps(norm_items, ensure_ascii=False),
@@ -486,6 +486,14 @@ def run(dry_run: bool = False) -> int:
 
     print(f"[run] {len(pending)} new receipt(s) to process")
     rows = read_csv_rows()
+    # unique, never-reused id: start above the max existing id, then increment
+    max_n = 0
+    for r in rows:
+        try:
+            max_n = max(max_n, int(str(r.get("id", "")).replace("exp_", "")))
+        except Exception:
+            pass
+    next_n = max_n
     added = 0
     for o in pending:
         try:
@@ -493,6 +501,8 @@ def run(dry_run: bool = False) -> int:
             if row is None:
                 items[o["key"]] = {"status": "skipped"}
                 continue
+            next_n += 1
+            row["id"] = f"exp_{next_n}"
             if not dry_run:
                 rows.append(row)
             items[o["key"]] = {"status": row["status"], "csv_id": row["id"]}

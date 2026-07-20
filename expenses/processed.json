@@ -1,21 +1,6 @@
-{
-  "_v": 1,
-  "items": {
-    "receipts/2026/07/2026-07-20T00-19-53-654Z-68564767.jpg": {
-      "status": "ok",
-      "csv_id": "exp_2"
-    },
-    "receipts/2026/07/2026-07-20T01-47-43-767Z-7c8f54cd.jpg": {
-      "status": "ok",
-      "csv_id": "exp_2"
-    },
-    "receipts/2026/07/2026-07-20T01-48-15-014Z-28e9d594.jpg": {
-      "status": "ok",
-      "csv_id": "exp_2"
-    },
-    "receipts/2026/07/2026-07-20T01-48-38-703Z-058ee4ce.jpg": {
-      "status": "ok",
-      "csv_id": "exp_2"
-    }
-  }
-}
+{"_v": 1, "items": {
+  "receipts/2026/07/2026-07-20T00-19-53-654Z-68564767.jpg": {"status": "ok", "csv_id": "exp_2"},
+  "receipts/2026/07/2026-07-20T01-47-43-767Z-7c8f54cd.jpg": {"status": "ok", "csv_id": "exp_3"},
+  "receipts/2026/07/2026-07-20T01-48-15-014Z-28e9d594.jpg": {"status": "ok", "csv_id": "exp_4"},
+  "receipts/2026/07/2026-07-20T01-48-38-703Z-058ee4ce.jpg": {"status": "ok", "csv_id": "exp_5"}
+}}

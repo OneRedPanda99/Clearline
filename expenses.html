@@ -273,9 +273,11 @@
         // Default: raw GitHub main branch. Override in config.js if needed.
         const CSV_URL = (EXPENSES_CFG.csvUrl ||
             'https://raw.githubusercontent.com/OneRedPanda99/Clearline/main/expenses/expenses.csv');
-        // Base for receipt photos stored in the repo (expenses/images/*.jpg).
+        // Receipt photos are committed previews under expenses/thumbs/.
+        // The `photo` column already holds the repo-relative path (expenses/thumbs/<id>.jpg),
+        // so we just strip any leading 'expenses/' and join it onto the CSV base.
         const CSV_BASE = CSV_URL.replace(/\/expenses\/expenses\.csv$/, '');
-        const PHOTO_BASE = CSV_BASE + '/expenses/images/';
+        const PHOTO_BASE = CSV_BASE + '/expenses/';
 
         // ─── State ───────────────────────────────────────────────────────────
         let allExpenses = [];       // normalized rows from the CSV
@@ -317,12 +319,13 @@
             const subtotal = rec.subtotal !== '' && rec.subtotal != null ? Number(rec.subtotal) : 0;
             const tax = rec.tax !== '' && rec.tax != null ? Number(rec.tax) : 0;
             const total = rec.total !== '' && rec.total != null ? Number(rec.total) : 0;
-            // photo column holds a repo-relative path; build a raw GitHub URL.
+            // photo column holds a repo-relative path (expenses/thumbs/<id>.jpg);
+            // strip any leading 'expenses/' and join onto PHOTO_BASE (.../expenses/).
             let photoUrl = null;
             if (rec.photo) {
                 photoUrl = rec.photo.startsWith('http')
                     ? rec.photo
-                    : (PHOTO_BASE + rec.photo.replace(/^expenses\/images\//, ''));
+                    : (PHOTO_BASE + rec.photo.replace(/^expenses\//, ''));
             }
             return {
                 id: rec.id || '',
