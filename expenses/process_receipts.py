@@ -42,6 +42,10 @@ PROCESSED_PATH = HERE / "processed.json"     # {r2_key: {status, csv_row_id, not
 CORRECTIONS_PATH = HERE / "corrections.json" # user edits: {row_id: {field: value}}
 STATE_VERSION = 1
 
+# Set True during --selftest so the pipeline never writes the real CSV or
+# touches git. The selftest runs against temp backups instead.
+SELFTEST = False
+
 # ---------------------------------------------------------------- config ----
 def load_env() -> dict:
     env = {}
@@ -103,8 +107,10 @@ def load_corrections() -> dict:
     return {}
 
 # ----------------------------------------------------------- R2 helpers ----
-def _r2_headers(method: str, key: str, body: bytes = b"", content_type: str = "") -> dict:
-    """Minimal AWS SigV4 for R2 (S3-compatible). No boto dependency."""
+def _sigv4(method: str, canonical_uri: str, query: str = "", body: bytes = b"") -> dict:
+    """Minimal AWS SigV4 for R2 (S3-compatible), path-style. No boto dependency.
+    canonical_uri must be the full path incl. bucket, e.g. '/receipts/2026/07/a.jpg'
+    and already percent-encoded. query is the canonical (sorted, encoded) query string."""
     import hashlib
     import hmac
 
@@ -114,15 +120,12 @@ def _r2_headers(method: str, key: str, body: bytes = b"", content_type: str = ""
     datestamp = t.strftime("%Y%m%d")
     region = "auto"
     service = "s3"
-    host = R2_ENDPOINT.replace("https://", "")
+    host = R2_ENDPOINT.replace("https://", "").replace("http://", "")
 
     payload_hash = hashlib.sha256(body).hexdigest()
-
-    # canonical request
-    ct = content_type or "application/octet-stream"
     signed_headers = "host;x-amz-content-sha256;x-amz-date"
     canonical = "\n".join([
-        method, "/" + key, "",
+        method, canonical_uri, query,
         f"host:{host}",
         f"x-amz-content-sha256:{payload_hash}",
         f"x-amz-date:{amzdate}",
@@ -131,9 +134,7 @@ def _r2_headers(method: str, key: str, body: bytes = b"", content_type: str = ""
     canonical_hash = hashlib.sha256(canonical.encode()).hexdigest()
 
     scope = f"{datestamp}/{region}/{service}/aws4_request"
-    string_to_sign = "\n".join([
-        "AWS4-HMAC-SHA256", amzdate, scope, canonical_hash,
-    ])
+    string_to_sign = "\n".join(["AWS4-HMAC-SHA256", amzdate, scope, canonical_hash])
     kdate = hmac.new(("AWS4" + R2_SECRET).encode(), datestamp.encode(), hashlib.sha256).digest()
     kregion = hmac.new(kdate, region.encode(), hashlib.sha256).digest()
     kservice = hmac.new(kregion, service.encode(), hashlib.sha256).digest()
@@ -150,18 +151,26 @@ def _r2_headers(method: str, key: str, body: bytes = b"", content_type: str = ""
         "Accept": "*/*",
     }
 
+def _encode_uri_path(path: str) -> str:
+    """Percent-encode each path segment, keeping '/' separators."""
+    import urllib.parse
+    return "/".join(urllib.parse.quote(seg, safe="~") for seg in path.split("/"))
+
 def r2_list_objects(prefix: str = R2_PREFIX) -> list[dict]:
-    """List objects under prefix. Returns list of {key, size, uploaded_at, note}."""
+    """List objects under prefix (path-style: /<bucket>?list-type=2&prefix=...)."""
     out = []
-    marker = ""
+    token = ""
     while True:
-        q = f"?list-type=2&prefix={requests_path_quote(prefix)}"
-        if marker:
-            q += f"&continuation-token={requests_path_quote(marker)}"
-        # GET bucket?list-type=2
-        headers = _r2_headers("GET", "")
+        # canonical query MUST be sorted by key and percent-encoded
+        params = {"list-type": "2", "prefix": prefix}
+        if token:
+            params["continuation-token"] = token
+        query = "&".join(f"{requests_path_quote(k)}={requests_path_quote(v)}"
+                          for k, v in sorted(params.items()))
+        canonical_uri = "/" + R2_BUCKET
+        headers = _sigv4("GET", canonical_uri, query)
         import urllib.request
-        url = f"{R2_ENDPOINT}/{q}"
+        url = f"{R2_ENDPOINT}{canonical_uri}?{query}"
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = resp.read().decode("utf-8")
@@ -171,19 +180,22 @@ def r2_list_objects(prefix: str = R2_PREFIX) -> list[dict]:
         for c in root.findall("s:Contents", ns):
             key = c.findtext("s:Key", default="", namespaces=ns)
             size = int(c.findtext("s:Size", default="0", namespaces=ns) or "0")
-            out.append({"key": key, "size": size})
-        cont = root.find("s:IsTruncated", ns)
+            if key and not key.endswith("/"):
+                out.append({"key": key, "size": size})
+        truncated = root.findtext("s:IsTruncated", default="false", namespaces=ns)
         nxt = root.findtext("s:NextContinuationToken", default="", namespaces=ns)
-        if cont is not None and cont.text == "true" and nxt:
-            marker = nxt
+        if truncated == "true" and nxt:
+            token = nxt
         else:
             break
     return out
 
 def r2_get_object(key: str) -> tuple[bytes, dict]:
-    headers = _r2_headers("GET", key)
+    canonical_uri = "/" + R2_BUCKET + "/" + key
+    encoded_uri = _encode_uri_path(canonical_uri)
+    headers = _sigv4("GET", encoded_uri)
     import urllib.request
-    url = f"{R2_ENDPOINT}/{requests_path_quote(key)}"
+    url = f"{R2_ENDPOINT}{encoded_uri}"
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=60) as resp:
         data = resp.read()
@@ -192,7 +204,7 @@ def r2_get_object(key: str) -> tuple[bytes, dict]:
 
 def requests_path_quote(s: str) -> str:
     import urllib.parse
-    return urllib.parse.quote(s, safe="")
+    return urllib.parse.quote(s, safe="~")
 
 # ------------------------------------------------------- vision (Ollama) ----
 def ollama_available() -> bool:
@@ -227,6 +239,9 @@ def ollama_extract(image_bytes: bytes, note: str, filename: str = "") -> dict:
         "model": OLLAMA_MODEL,
         "format": "json",
         "stream": False,
+        # Vision receipts + the parser prompt run ~4-6k tokens; the default 4096
+        # context truncates and 400s ("exceeds available context size"). Give it room.
+        "options": {"num_ctx": 8192, "temperature": 0},
         "messages": [
             {"role": "user", "content": prompt,
              "images": [b64]},
@@ -403,7 +418,11 @@ def run(dry_run: bool = False) -> int:
     state = load_processed()
     items = state.setdefault("items", {})
     objs = r2_list_objects()
-    pending = [o for o in objs if o["key"] not in items]
+    # Retry anything that previously errored — only skip terminal states
+    # (ok / needs_review / skipped). An error is transient (model down, network),
+    # so it must not permanently exclude a receipt.
+    done = {"ok", "needs_review", "skipped"}
+    pending = [o for o in objs if items.get(o["key"], {}).get("status") not in done]
     if not pending:
         print(f"[run] nothing new ({len(objs)} objects, all processed)")
         return 0
@@ -435,7 +454,7 @@ def run(dry_run: bool = False) -> int:
     write_csv_rows(rows)
     save_processed(state)
 
-    if added:
+    if added and not SELFTEST:
         ok = git_push(f"expenses: add {added} receipt(s) from R2 pipeline")
         print(f"[run] committed+{ 'pushed' if ok else 'nothing-to-push'}")
     return added
@@ -444,6 +463,8 @@ def run(dry_run: bool = False) -> int:
 def selftest() -> int:
     """Offline verification: feed a fake image + canned model output through the
     same pipeline code paths (list→process→CSV→corrections→git check)."""
+    global SELFTEST
+    SELFTEST = True
     print("[selftest] starting offline self-test")
     global r2_list_objects, r2_get_object, ollama_available, ollama_extract
 
