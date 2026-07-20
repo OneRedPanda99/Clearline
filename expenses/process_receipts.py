@@ -38,6 +38,7 @@ HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent                      # .../Clearline
 CSV_PATH = HERE / "expenses.csv"
 IMAGES_DIR = HERE / "images"
+THUMBS_DIR = HERE / "thumbs"                  # small committed previews (expenses.html shows these)
 PROCESSED_PATH = HERE / "processed.json"     # {r2_key: {status, csv_row_id, note, error}}
 CORRECTIONS_PATH = HERE / "corrections.json" # user edits: {row_id: {field: value}}
 STATE_VERSION = 1
@@ -342,6 +343,10 @@ def process_one(key: str, dry_run: bool) -> dict | None:
     local_path = IMAGES_DIR / (Path(key).name)
     if not dry_run:
         local_path.write_bytes(data)
+    # compact preview for the UI (committed; ~80KB each)
+    thumb_rel = None
+    if not dry_run:
+        thumb_rel = make_thumb(local_path, key)
 
     if ollama_available():
         parsed = ollama_extract(data, note, orig)
@@ -387,7 +392,7 @@ def process_one(key: str, dry_run: bool) -> dict | None:
         "category": category,
         "status": status,
         "r2_key": key,
-        "photo": f"expenses/images/{local_path.name}",
+        "photo": thumb_rel or f"expenses/images/{local_path.name}",
         "created_at": uploaded_at,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -429,6 +434,27 @@ def parse_us_date(raw: str) -> str:
     if not (1 <= mo <= 12 and 1 <= d <= 31):
         return ""
     return f"{y:04d}-{mo:02d}-{d:02d}"
+
+def make_thumb(src: Path, r2_key: str) -> str | None:
+    """Write a small compressed JPEG preview (committed to thumbs/) and return
+    its repo-relative path, or None if Pillow isn't available. Keeps the
+    expenses.html 'photo' column showing an actual receipt image cheaply."""
+    try:
+        from PIL import Image
+    except Exception:
+        return None
+    try:
+        THUMBS_DIR.mkdir(parents=True, exist_ok=True)
+        name = Path(r2_key).stem + ".jpg"
+        out = THUMBS_DIR / name
+        with Image.open(src) as im:
+            if im.mode in ("RGBA", "P", "LA"):
+                im = im.convert("RGB")
+            im.thumbnail((900, 1200))
+            im.save(out, "JPEG", quality=72, optimize=True, progressive=True)
+        return f"expenses/thumbs/{name}"
+    except Exception:
+        return None
 
 def apply_corrections(rows: list[dict]) -> list[dict]:
     corrections = load_corrections()
