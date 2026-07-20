@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1a1c1f">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Money - Clearline</title>
     <script src="config.js"></script>
     <script src="utils.js?v=2"></script>
@@ -13,57 +16,80 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root { --row-h: 60px; }
         .money-row {
             display:flex; align-items:center; gap:var(--md-space-3);
-            min-height: 56px;
+            min-height: var(--row-h);
             padding: var(--md-space-3) var(--md-space-2);
             border-bottom: 1px solid var(--md-sys-color-outline-variant);
             text-decoration:none; color: inherit;
         }
         .money-row:last-child { border-bottom: none; }
-        .money-dot { width: 10px; height: 10px; border-radius: 999px; background: rgba(148,163,184,0.45); }
-        .money-amt { margin-left:auto; font-weight: 800; color: #e2e8f0; }
+        .money-dot { width: 10px; height: 10px; border-radius: 999px; background: rgba(148,163,184,0.45); flex-shrink:0; }
+        .money-amt { margin-left:auto; font-weight: 800; color: #e2e8f0; white-space:nowrap; }
         .money-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
         .pill { font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; }
         .pill.tax { background: rgba(251,191,36,0.14); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
         .pill.pay { background: color-mix(in srgb, var(--md-sys-color-secondary) 18%, transparent); color: var(--md-sys-color-secondary); border: 1px solid color-mix(in srgb, var(--md-sys-color-secondary) 30%, transparent); }
         .pill.exp { background: rgba(52,211,153,0.14); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
+        .pill.auto { background: rgba(96,165,250,0.16); color: #60a5fa; border: 1px solid rgba(96,165,250,0.28); }
+        .pill.manual { background: rgba(148,163,184,0.16); color: #94a3b8; border: 1px solid rgba(148,163,184,0.28); }
+        .pill.review { background: rgba(248,113,113,0.16); color: #f87171; border: 1px solid rgba(248,113,113,0.28); }
         .form-grid { display:grid; gap:10px; }
         .form-grid label { font-size: 12px; color:#94a3b8; display:block; margin-bottom:4px; }
         .form-grid input, .form-grid select, .form-grid textarea {
             width:100%; padding: 12px; border-radius: 12px;
         }
-        .money-pie-grid {
-            display: grid;
-            gap: 12px;
-        }
-        @media (min-width: 720px) {
-            .money-pie-grid { grid-template-columns: repeat(3, 1fr); }
-        }
+        .money-pie-grid { display: grid; gap: 12px; }
+        @media (min-width: 720px) { .money-pie-grid { grid-template-columns: repeat(3, 1fr); } }
         .money-pie {
-            width: 148px;
-            height: 148px;
-            border-radius: 50%;
-            margin: 8px auto 14px;
+            width: 148px; height: 148px; border-radius: 50%; margin: 8px auto 14px;
             border: 6px solid var(--md-sys-color-surface-container-low, #1e2126);
             box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
         }
         .money-pie-legend { display: grid; gap: 8px; }
-        .money-pie-legend-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-        }
-        .money-pie-swatch {
-            width: 10px;
-            height: 10px;
-            border-radius: 999px;
-            flex-shrink: 0;
-        }
+        .money-pie-legend-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+        .money-pie-swatch { width: 10px; height: 10px; border-radius: 999px; flex-shrink: 0; }
         .money-pie-legend-label { color: #e2e8f0; font-weight: 650; }
         .money-pie-legend-val { margin-left: auto; color: #94a3b8; font-weight: 600; }
-        /* Buttons use shared M3 .btn-primary / .btn-secondary / .btn-danger from app.css */
+        /* Sort / filter bar */
+        .toolbar {
+            display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+            margin-bottom: 10px;
+        }
+        .toolbar .spacer { flex:1 1 auto; }
+        .seg {
+            display:inline-flex; background: rgba(15,23,42,0.5);
+            border:1px solid var(--md-sys-color-outline-variant); border-radius: 999px; padding:2px;
+        }
+        .seg button {
+            border:none; background:transparent; color:#94a3b8; font-size:12px; font-weight:700;
+            padding:6px 10px; border-radius:999px; cursor:pointer;
+        }
+        .seg button.active { background: var(--md-sys-color-primary); color:#0b0d10; }
+        .sort-btn {
+            display:inline-flex; align-items:center; gap:5px;
+            background: rgba(15,23,42,0.5); border:1px solid var(--md-sys-color-outline-variant);
+            color:#cbd5e1; font-size:12px; font-weight:700; padding:6px 10px; border-radius:999px; cursor:pointer;
+        }
+        .sort-btn .arrow { font-size:10px; color:#60a5fa; }
+        .emp-card {
+            display:flex; align-items:center; gap:12px; padding:12px 14px;
+            border-bottom:1px solid var(--md-sys-color-outline-variant);
+        }
+        .emp-card:last-child { border-bottom:none; }
+        .emp-avatar {
+            width:42px; height:42px; border-radius:50%; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            background: color-mix(in srgb, var(--md-sys-color-secondary) 22%, transparent);
+            color: var(--md-sys-color-secondary); font-weight:800; font-size:15px;
+        }
+        .emp-meta { font-size:12px; color:#94a3b8; }
+        .badge-soft { font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:3px 7px; border-radius:999px; background:rgba(148,163,184,0.16); color:#94a3b8; }
+        .badge-soft.mgr { background: color-mix(in srgb, var(--md-sys-color-secondary) 18%, transparent); color: var(--md-sys-color-secondary); }
+        .subhead { display:flex; align-items:center; justify-content:space-between; margin:18px 0 8px; }
+        .subhead h3 { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:#94a3b8; margin:0; }
+        @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
     </style>
 </head>
 <body>
@@ -108,11 +134,21 @@
         </div>
     </div>
 
+    <div id="lightbox" class="lightbox" hidden onclick="closeLightbox()">
+        <img id="lightboxImg" src="" alt="Receipt">
+    </div>
+
     <script>
         let myProfile = null;
         let currentTab = 'expenses';
-        let moneyPeriod = 'week'; // week | month | year
-        let editing = null; // { kind: 'expense'|'payroll', id }
+        let moneyPeriod = 'month'; // week | month | year
+
+        // ---- unified expenses view state ----
+        let expSortKey = 'date';     // date | amount | vendor | source
+        let expSortDir = 'desc';    // asc | desc
+        let expFilter = 'all';      // all | manual | auto
+        let csvCache = null;        // parsed receipt rows (auto), or null
+        let csvError = false;
 
         const TAX_CATS = [
             { id: 'advertising', label: 'Advertising' },
@@ -133,14 +169,15 @@
             { id: 'wages', label: 'Wages (payroll)' },
             { id: 'other', label: 'Other' }
         ];
+        const catLabel = (id) => (TAX_CATS.find(c => c.id === id)?.label || 'Other');
 
         function fmtMoney(n) {
             const v = Number(n || 0);
             if (!isFinite(v)) return '$0';
-            return '$' + v.toFixed(0);
+            const neg = v < 0;
+            return (neg ? '-$' : '$') + Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
         }
 
-        // HTML escape (same intent as esc() used elsewhere)
         function esc(v) {
             return String(v ?? '')
                 .replace(/&/g, '&amp;')
@@ -158,10 +195,7 @@
         function ymdNow() {
             return (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
         }
-
-        function monthKey(ymd) {
-            return String(ymd || '').slice(0, 7);
-        }
+        function monthKey(ymd) { return String(ymd || '').slice(0, 7); }
 
         function setTab(tab) {
             currentTab = tab;
@@ -172,16 +206,10 @@
             render();
         }
 
-        function setMoneyPeriod(period) {
-            moneyPeriod = period;
-            render();
-        }
+        function setMoneyPeriod(period) { moneyPeriod = period; render(); }
         window.setMoneyPeriod = setMoneyPeriod;
 
-        function ensureOwner() {
-            if (!myProfile) return false;
-            return myProfile.role === 'owner';
-        }
+        function ensureOwner() { return !!myProfile && myProfile.role === 'owner'; }
 
         function showOwnerOnlyUI() {
             const banner = document.getElementById('ownerOnlyBanner');
@@ -191,49 +219,33 @@
                 addBtn.classList.add('hidden');
             } else {
                 banner.classList.add('hidden');
-                // + is for expenses/payroll only
                 addBtn.classList.toggle('hidden', currentTab === 'revenue');
             }
         }
 
         function openAdd() {
             if (!ensureOwner()) { showToast('Owner only', 'error'); return; }
-            editing = null;
             if (currentTab === 'payroll') openPayrollModal();
-            else if (currentTab === 'revenue') { setTab('expenses'); openExpenseModal(); }
             else openExpenseModal();
         }
 
+        // ------------------------------------------------------------------
+        //  EXPENSES — unified list (manual + automatic from receipt pipeline)
+        // ------------------------------------------------------------------
         function openExpenseModal(expense) {
             const isEdit = !!expense;
             document.getElementById('moneyModalTitle').textContent = isEdit ? 'Edit expense' : 'Add expense';
             const opts = TAX_CATS.map(c => `<option value="${c.id}" ${expense && expense.taxCategory === c.id ? 'selected' : ''}>${c.label}</option>`).join('');
             document.getElementById('moneyModalBody').innerHTML = `
                 <div class="form-grid">
-                    <div>
-                        <label>Date</label>
-                        <input id="expDate" type="date" value="${(expense && expense.date) || ymdNow()}">
-                    </div>
-                    <div>
-                        <label>Amount</label>
-                        <input id="expAmount" inputmode="decimal" placeholder="0" value="${expense ? String(expense.amount || '') : ''}">
-                    </div>
-                    <div>
-                        <label>Tax category</label>
-                        <select id="expCat">${opts}</select>
-                    </div>
-                    <div>
-                        <label>Vendor (optional)</label>
-                        <input id="expVendor" placeholder="Home Depot" value="${expense ? String(expense.vendor || '') : ''}">
-                    </div>
-                    <div>
-                        <label>Description</label>
-                        <input id="expDesc" placeholder="Gas, detergent, etc." value="${expense ? String(expense.description || '') : ''}">
-                    </div>
+                    <div><label>Date</label><input id="expDate" type="date" value="${(expense && expense.date) || ymdNow()}"></div>
+                    <div><label>Amount</label><input id="expAmount" inputmode="decimal" placeholder="0.00" value="${expense ? String(expense.amount || '') : ''}"></div>
+                    <div><label>Tax category</label><select id="expCat">${opts}</select></div>
+                    <div><label>Vendor (optional)</label><input id="expVendor" placeholder="Home Depot" value="${expense ? String(expense.vendor || '') : ''}"></div>
+                    <div><label>Description</label><input id="expDesc" placeholder="Gas, detergent, etc." value="${expense ? String(expense.description || '') : ''}"></div>
                     <button class="btn-primary" type="button" onclick="saveExpense(${expense ? JSON.stringify(expense.id) : 'null'})">${isEdit ? 'Save changes' : 'Add expense'}</button>
                     ${isEdit ? `<button class="btn-danger" type="button" onclick="deleteExpense(${JSON.stringify(expense.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
-                </div>
-            `;
+                </div>`;
             openModal('moneyModal');
         }
 
@@ -245,7 +257,6 @@
             const description = document.getElementById('expDesc').value || '';
             if (!amount || amount <= 0) { showToast('Enter an amount', 'error'); return; }
             if (!date) { showToast('Pick a date', 'error'); return; }
-
             if (id) {
                 CL_DATA.updateExpense(id, { date, amount, taxCategory, vendor, description });
                 showToast('Expense saved', 'success');
@@ -253,13 +264,8 @@
                 const nowIso = new Date().toISOString();
                 CL_DATA.addExpense({
                     id: 'exp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8),
-                    date,
-                    amount,
-                    taxCategory,
-                    vendor,
-                    description,
-                    createdAt: nowIso,
-                    lastUpdated: nowIso
+                    date, amount, taxCategory, vendor, description,
+                    source: 'manual', createdAt: nowIso, lastUpdated: nowIso
                 });
                 showToast('Expense added', 'success');
             }
@@ -275,38 +281,262 @@
             render();
         }
 
+        // ---- CSV (automatic receipts) loading, shared with expenses.html ----
+        const CSV_URL = (window.CL_CONFIG && CL_CONFIG.expenses && CL_CONFIG.expenses.csvUrl)
+            || 'https://raw.githubusercontent.com/OneRedPanda99/Clearline/main/expenses/expenses.csv';
+        const CSV_BASE = CSV_URL.replace(/\/expenses\/expenses\.csv$/, '');
+        const PHOTO_BASE = CSV_BASE + '/expenses/';
+
+        function parseCsv(text) {
+            const rows = [];
+            let i = 0, field = '', row = [], inQ = false;
+            text = text.replace(/\r/g, '');
+            while (i < text.length) {
+                const c = text[i];
+                if (inQ) {
+                    if (c === '"') { if (text[i+1] === '"') { field += '"'; i += 2; continue; } inQ = false; i++; continue; }
+                    field += c; i++; continue;
+                }
+                if (c === '"') { inQ = true; i++; continue; }
+                if (c === ',') { row.push(field); field = ''; i++; continue; }
+                if (c === '\n') { row.push(field); rows.push(row); field = ''; row = []; i++; continue; }
+                field += c; i++;
+            }
+            if (field.length || row.length) { row.push(field); rows.push(row); }
+            if (!rows.length) return [];
+            const header = rows.shift().map(h => h.trim());
+            return rows.filter(r => r.length > 1 && r.some(c => c.trim())).map(r => {
+                const o = {};
+                header.forEach((h, idx) => { o[h] = (r[idx] || '').trim(); });
+                return o;
+            });
+        }
+
+        async function loadAutoExpenses() {
+            if (csvCache) return csvCache;
+            if (csvError) return [];
+            try {
+                const res = await fetch(CSV_URL + '?t=' + Date.now(), { cache: 'no-store' });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const text = await res.text();
+                const recs = parseCsv(text).filter(r => r.id && r.id !== 'id');
+                csvCache = recs.map(r => {
+                    const photoUrl = r.photo
+                        ? (r.photo.startsWith('http') ? r.photo : PHOTO_BASE + r.photo.replace(/^expenses\//, ''))
+                        : '';
+                    return {
+                        id: r.id,
+                        date: (r.purchase_date || r.created_at || '').slice(0, 10),
+                        vendor: r.vendor || '',
+                        amount: parseAmt(r.total),
+                        subtotal: parseAmt(r.subtotal),
+                        tax: parseAmt(r.tax),
+                        category: r.category || '',
+                        note: r.note || '',
+                        status: r.status || 'ok',
+                        source: 'auto',
+                        photo: photoUrl
+                    };
+                });
+                return csvCache;
+            } catch (e) {
+                csvError = true;
+                console.warn('Could not load receipt expenses:', e);
+                return [];
+            }
+        }
+
+        function manualExpenses() {
+            return CL_DATA.getExpenses().map(e => ({
+                id: e.id,
+                date: e.date || '',
+                vendor: e.vendor || '',
+                amount: parseAmt(e.amount),
+                subtotal: 0,
+                tax: 0,
+                category: catLabel(e.taxCategory),
+                note: e.description || '',
+                status: 'ok',
+                source: 'manual',
+                raw: e,
+                photo: ''
+            }));
+        }
+
+        async function renderExpenses() {
+            const [auto] = await Promise.all([loadAutoExpenses()]);
+            let items = [...manualExpenses(), ...auto];
+
+            if (expFilter === 'manual') items = items.filter(x => x.source === 'manual');
+            else if (expFilter === 'auto') items = items.filter(x => x.source === 'auto');
+
+            // sort
+            const dir = expSortDir === 'asc' ? 1 : -1;
+            items.sort((a, b) => {
+                let c = 0;
+                if (expSortKey === 'amount') c = a.amount - b.amount;
+                else if (expSortKey === 'vendor') c = String(a.vendor).localeCompare(String(b.vendor));
+                else if (expSortKey === 'source') c = a.source.localeCompare(b.source);
+                else c = String(a.date || '').localeCompare(String(b.date || ''));
+                return c * dir;
+            });
+
+            const total = items.reduce((s, x) => s + x.amount, 0);
+            const manualCount = items.filter(x => x.source === 'manual').length;
+            const autoCount = items.filter(x => x.source === 'auto').length;
+
+            const sortArrow = (key) => expSortKey === key ? `<span class="arrow">${expSortDir === 'asc' ? '▲' : '▼'}</span>` : '';
+            const setSort = (k) => `setExpSort('${k}')`;
+
+            const toolbar = `
+                <div class="toolbar">
+                    <div class="seg">
+                        <button type="button" class="${expFilter==='all'?'active':''}" onclick="setExpFilter('all')">All</button>
+                        <button type="button" class="${expFilter==='manual'?'active':''}" onclick="setExpFilter('manual')">Manual</button>
+                        <button type="button" class="${expFilter==='auto'?'active':''}" onclick="setExpFilter('auto')">From receipts</button>
+                    </div>
+                    <span class="spacer"></span>
+                    <button class="sort-btn" type="button" onclick="${setSort('date')}">Date ${sortArrow('date')}</button>
+                    <button class="sort-btn" type="button" onclick="${setSort('amount')}">Amount ${sortArrow('amount')}</button>
+                    <button class="sort-btn" type="button" onclick="${setSort('vendor')}">Vendor ${sortArrow('vendor')}</button>
+                </div>`;
+
+            const summary = `
+                <div class="stats-grid stats-grid--4 mb-3">
+                    <div class="stat-card"><p class="value">${items.length}</p><p class="label">Entries</p></div>
+                    <div class="stat-card"><p class="value" style="color:#94a3b8;">${manualCount}</p><p class="label">Manual</p></div>
+                    <div class="stat-card"><p class="value" style="color:#60a5fa;">${autoCount}</p><p class="label">From receipts</p></div>
+                    <div class="stat-card"><p class="value" style="color:#fbbf24;">${fmtMoney(total)}</p><p class="label">Total</p></div>
+                </div>`;
+
+            let listHtml;
+            if (!items.length) {
+                listHtml = `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
+                    <i class="fas fa-receipt text-3xl mb-2"></i>
+                    <p>No expenses yet</p>
+                    <p class="text-xs text-gray-500 mt-1">Tap + to add one, or upload a receipt photo from your phone.</p>
+                </div>`;
+            } else {
+                listHtml = `<div class="glass-card" style="overflow:hidden;">${items.map(x => {
+                    const name = x.vendor || x.note || (x.source === 'auto' ? 'Receipt' : 'Expense');
+                    const srcPill = x.source === 'auto'
+                        ? `<span class="pill auto">Receipt</span>${x.status === 'needs_review' ? '<span class="pill review">Review</span>' : ''}`
+                        : `<span class="pill manual">Manual</span>`;
+                    const sub = [x.date, x.category && x.source==='manual' ? x.category : (x.note || '')].filter(Boolean).join(' · ');
+                    const onClick = x.source === 'auto'
+                        ? `onclick="openAutoExpense(${JSON.stringify(x.id)})"`
+                        : `onclick="event.preventDefault(); openExpenseModal(${JSON.stringify(x.raw)})"`;
+                    const photoThumb = x.photo ? `<img src="${esc(x.photo)}" alt="" style="width:40px;height:40px;border-radius:10px;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none'">` : `<span class="money-dot" style="background:${x.source==='auto'?'rgba(96,165,250,0.55)':'rgba(52,211,153,0.55)'};"></span>`;
+                    return `<a href="#" class="money-row" ${onClick}>
+                        ${photoThumb}
+                        <div style="min-width:0;">
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <p style="font-weight:800;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;">${esc(name)}</p>
+                                ${srcPill}
+                            </div>
+                            <p class="money-sub">${esc(sub)}</p>
+                        </div>
+                        <div class="money-amt">${fmtMoney(x.amount)}</div>
+                    </a>`;
+                }).join('')}</div>`;
+            }
+
+            return summary + toolbar + listHtml + renderTaxes();
+        }
+
+        function setExpSort(key) {
+            if (expSortKey === key) expSortDir = expSortDir === 'asc' ? 'desc' : 'asc';
+            else { expSortKey = key; expSortDir = (key === 'vendor') ? 'asc' : 'desc'; }
+            render();
+        }
+        function setExpFilter(f) { expFilter = f; render(); }
+
+        function openAutoExpense(id) {
+            const x = (csvCache || []).find(r => r.id === id);
+            if (!x) return;
+            document.getElementById('moneyModalTitle').textContent = 'Receipt detail';
+            const photoBlock = x.photo
+                ? `<button type="button" onclick="openLightbox(${JSON.stringify(x.photo)})" style="display:block;width:100%;padding:0;border:none;background:transparent;cursor:zoom-in;margin-bottom:14px;">
+                        <img src="${esc(x.photo)}" alt="Receipt" style="width:100%;border-radius:14px;border:1px solid var(--md-sys-color-outline-variant);" onerror="this.style.display='none'">
+                   </button>`
+                : '';
+            document.getElementById('moneyModalBody').innerHTML = `
+                ${photoBlock}
+                <div class="form-grid">
+                    <div><label>Store</label><input value="${esc(x.vendor || '—')}" disabled></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <div><label>Date</label><input value="${esc(x.date)}" disabled></div>
+                        <div><label>Total</label><input value="${fmtMoney(x.amount)}" disabled></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <div><label>Subtotal</label><input value="${fmtMoney(x.subtotal)}" disabled></div>
+                        <div><label>Tax</label><input value="${fmtMoney(x.tax)}" disabled></div>
+                    </div>
+                    <div><label>Category</label><input value="${esc(x.category || '—')}" disabled></div>
+                    <div><label>Note</label><input value="${esc(x.note || '—')}" disabled></div>
+                    <p class="money-sub" style="margin:0;">This entry is managed by the receipt pipeline. To adjust it, edit the receipt photo or add a manual expense instead.</p>
+                </div>`;
+            openModal('moneyModal');
+        }
+
+        function openLightbox(url) {
+            document.getElementById('lightboxImg').src = url;
+            document.getElementById('lightbox').hidden = false;
+        }
+        function closeLightbox() { document.getElementById('lightbox').hidden = true; }
+
+        // ------------------------------------------------------------------
+        //  PAYROLL / EMPLOYEES  (reads Firebase users + local payroll)
+        // ------------------------------------------------------------------
+        async function loadEmployees() {
+            // employees are the Firebase users (managers + workers)
+            try {
+                const db = window.CL_FIREBASE && CL_FIREBASE.getFirestore ? CL_FIREBASE.getFirestore() : null;
+                if (!db || !myProfile) return [];
+                let snap;
+                if (myProfile.role === 'owner') snap = await db.collection('users').get();
+                else snap = await db.collection('users').where('assignedManager', '==', CL_FIREBASE.getCurrentUser().uid).get();
+                const list = [];
+                snap.forEach(doc => {
+                    const u = Object.assign({ uid: doc.id }, doc.data());
+                    if (u.role === 'manager' || u.role === 'worker') list.push(u);
+                });
+                return list;
+            } catch (e) {
+                console.warn('Could not load employees:', e);
+                return [];
+            }
+        }
+
         function openPayrollModal(entry) {
             const isEdit = !!entry;
             document.getElementById('moneyModalTitle').textContent = isEdit ? 'Edit payroll' : 'Add payroll';
+            // employee picker is filled async after we know the list
             document.getElementById('moneyModalBody').innerHTML = `
                 <div class="form-grid">
-                    <div>
-                        <label>Date</label>
-                        <input id="payDate" type="date" value="${(entry && entry.date) || ymdNow()}">
-                    </div>
-                    <div>
-                        <label>Worker name</label>
-                        <input id="payName" placeholder="Employee" value="${entry ? String(entry.workerName || '') : ''}">
-                    </div>
+                    <div><label>Date</label><input id="payDate" type="date" value="${(entry && entry.date) || ymdNow()}"></div>
+                    <div><label>Employee</label><select id="payName">${isEdit ? `<option selected>${esc(entry.workerName||'')}</option>` : '<option>Loading…</option>'}</select></div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                        <div>
-                            <label>Hours</label>
-                            <input id="payHours" inputmode="decimal" placeholder="0" value="${entry ? String(entry.hours || '') : ''}">
-                        </div>
-                        <div>
-                            <label>Rate</label>
-                            <input id="payRate" inputmode="decimal" placeholder="0" value="${entry ? String(entry.rate || '') : ''}">
-                        </div>
+                        <div><label>Hours</label><input id="payHours" inputmode="decimal" placeholder="0" value="${entry ? String(entry.hours || '') : ''}"></div>
+                        <div><label>Rate</label><input id="payRate" inputmode="decimal" placeholder="0" value="${entry ? String(entry.rate || '') : ''}"></div>
                     </div>
-                    <div>
-                        <label>Notes (optional)</label>
-                        <input id="payNotes" placeholder="Week ending..." value="${entry ? String(entry.notes || '') : ''}">
-                    </div>
+                    <div><label>Notes (optional)</label><input id="payNotes" placeholder="Week ending…" value="${entry ? String(entry.notes || '') : ''}"></div>
                     <button class="btn-primary" type="button" onclick="savePayroll(${entry ? JSON.stringify(entry.id) : 'null'})">${isEdit ? 'Save changes' : 'Add payroll'}</button>
                     ${isEdit ? `<button class="btn-danger" type="button" onclick="deletePayroll(${JSON.stringify(entry.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
-                </div>
-            `;
+                </div>`;
             openModal('moneyModal');
+            loadEmployees().then(emp => {
+                const sel = document.getElementById('payName');
+                if (!sel) return;
+                const editName = isEdit ? (entry.workerName || '') : '';
+                if (editName && !emp.some(e => (e.displayName||e.username) === editName)) {
+                    sel.innerHTML = `<option selected>${esc(editName)}</option>` + emp.map(e => `<option>${esc(e.displayName || e.username)}</option>`).join('');
+                } else {
+                    sel.innerHTML = emp.length
+                        ? emp.map(e => `<option ${ (e.displayName||e.username)===editName?'selected':'' }>${esc(e.displayName || e.username)}</option>`).join('')
+                        : '<option value="">No employees yet</option>';
+                }
+            });
         }
 
         function savePayroll(id) {
@@ -316,9 +546,9 @@
             const rate = parseAmt(document.getElementById('payRate').value);
             const notes = document.getElementById('payNotes').value || '';
             const grossPay = Math.round(hours * rate * 100) / 100;
+            if (!workerName) { showToast('Pick an employee', 'error'); return; }
             if (!hours || hours <= 0) { showToast('Enter hours', 'error'); return; }
             if (!rate || rate <= 0) { showToast('Enter rate', 'error'); return; }
-
             if (id) {
                 CL_DATA.updatePayrollEntry(id, { date, workerName, hours, rate, grossPay, notes });
                 showToast('Payroll saved', 'success');
@@ -326,15 +556,8 @@
                 const nowIso = new Date().toISOString();
                 CL_DATA.addPayrollEntry({
                     id: 'pay_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8),
-                    date,
-                    workerName,
-                    hours,
-                    rate,
-                    grossPay,
-                    notes,
-                    createdAt: nowIso,
-                    lastUpdated: nowIso,
-                    taxCategory: 'wages'
+                    date, workerName, hours, rate, grossPay, notes,
+                    createdAt: nowIso, lastUpdated: nowIso, taxCategory: 'wages'
                 });
                 showToast('Payroll added', 'success');
             }
@@ -350,13 +573,84 @@
             render();
         }
 
+        async function renderPayroll() {
+            const employees = await loadEmployees();
+            const payroll = CL_DATA.getPayroll().slice().sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')));
+
+            // employee cards
+            let empHtml;
+            if (!employees.length) {
+                empHtml = `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
+                    <i class="fas fa-users text-3xl mb-2"></i>
+                    <p>No employees found</p>
+                    <p class="text-xs text-gray-500 mt-1">Add users in the Manager Panel (Managers &amp; Workers become employees here).</p>
+                </div>`;
+            } else {
+                empHtml = `<div class="glass-card" style="overflow:hidden;">${employees.map(u => {
+                    const name = u.displayName || u.username || '(unnamed)';
+                    const role = u.role === 'manager' ? '<span class="badge-soft mgr">Manager</span>' : '<span class="badge-soft">Worker</span>';
+                    const pay = u.payType === 'salary' ? 'Salary'
+                        : u.payType === 'per-job' ? 'Per job'
+                        : u.payRate ? `$${Number(u.payRate).toFixed(2)}/hr` : '—';
+                    const initials = name.split(/\s+/).map(s=>s[0]).slice(0,2).join('').toUpperCase();
+                    return `<div class="emp-card">
+                        <div class="emp-avatar">${esc(initials)}</div>
+                        <div style="min-width:0;flex:1;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <p style="font-weight:800;margin:0;">${esc(name)}</p>${role}
+                            </div>
+                            <p class="emp-meta">${esc(u.workerType ? u.workerType.charAt(0).toUpperCase()+u.workerType.slice(1) : (u.role==='manager'?'Manager':'Worker'))}${u.phone ? ' · '+esc(u.phone) : ''}</p>
+                        </div>
+                        <div class="money-amt" style="font-size:14px;color:#cbd5e1;">${esc(pay)}</div>
+                    </div>`;
+                }).join('')}</div>`;
+            }
+
+            // payroll entries
+            let payHtml;
+            if (!payroll.length) {
+                payHtml = `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
+                    <i class="fas fa-user-clock text-3xl mb-2"></i>
+                    <p>No payroll entries yet</p>
+                    <p class="text-xs text-gray-500 mt-1">Tap + to log hours for an employee.</p>
+                </div>`;
+            } else {
+                const totalPay = payroll.reduce((s,p)=>s + Number(p.grossPay || (Number(p.hours||0)*Number(p.rate||0))),0);
+                payHtml = `<div class="stats-grid stats-grid--4 mb-3">
+                        <div class="stat-card"><p class="value" style="color:var(--md-sys-color-secondary);">${payroll.length}</p><p class="label">Entries</p></div>
+                        <div class="stat-card"><p class="value" style="color:var(--md-sys-color-secondary);">${fmtMoney(totalPay)}</p><p class="label">Total paid</p></div>
+                        <div class="stat-card"><p class="value" style="color:var(--md-sys-color-secondary);">${employees.length}</p><p class="label">Employees</p></div>
+                        <div class="stat-card"><p class="value" style="color:var(--md-sys-color-secondary);">${moneyPeriod}</p><p class="label">Period</p></div>
+                    </div>
+                    <div class="glass-card" style="overflow:hidden;">${payroll.map(p => {
+                        const gross = Number(p.grossPay || (Number(p.hours||0)*Number(p.rate||0)));
+                        return `<a href="#" class="money-row" onclick="event.preventDefault(); openPayrollModal(${JSON.stringify(p)});">
+                            <span class="money-dot" style="background: rgba(167,139,250,0.55);"></span>
+                            <div style="min-width:0;">
+                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                    <p style="font-weight:800;margin:0;">${esc(p.workerName || 'Payroll')}</p>
+                                    <span class="pill pay">Payroll</span>
+                                </div>
+                                <p class="money-sub">${esc(p.date || '')} · ${Number(p.hours||0)}h @ ${fmtMoney(p.rate||0)}</p>
+                            </div>
+                            <div class="money-amt">${fmtMoney(gross)}</div>
+                        </a>`;
+                    }).join('')}</div>`;
+            }
+
+            return `<div class="subhead"><h3>Employees</h3></div>${empHtml}
+                    <div class="subhead"><h3>Payroll</h3></div>${payHtml}`;
+        }
+
+        // ------------------------------------------------------------------
+        //  REVENUE / TAXES (math fixed)
+        // ------------------------------------------------------------------
         function parseYmd(ymd) {
             const s = String(ymd || '');
             const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
             if (!m) return null;
             return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
         }
-
         function toYmd(d) {
             if (window.localYmd) return localYmd(d);
             const y = d.getFullYear();
@@ -364,141 +658,73 @@
             const day = String(d.getDate()).padStart(2, '0');
             return `${y}-${m}-${day}`;
         }
-
-        function addDays(d, n) {
-            const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-            x.setDate(x.getDate() + n);
-            return x;
-        }
-
+        function addDays(d, n) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() + n); return x; }
         function startOfWeek(d) {
-            // Local week starting Monday (common small-business week)
             const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-            const day = (x.getDay() + 6) % 7; // Mon=0 … Sun=6
+            const day = (x.getDay() + 6) % 7;
             x.setDate(x.getDate() - day);
             return x;
         }
-
         function periodRange(period, today = new Date()) {
             const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-            if (period === 'week') {
-                return { start: startOfWeek(end), end, label: 'This week' };
-            }
-            if (period === 'month') {
-                return { start: new Date(end.getFullYear(), end.getMonth(), 1), end, label: 'This month' };
-            }
+            if (period === 'week') return { start: startOfWeek(end), end, label: 'This week' };
+            if (period === 'month') return { start: new Date(end.getFullYear(), end.getMonth(), 1), end, label: 'This month' };
             return { start: new Date(end.getFullYear(), 0, 1), end, label: 'This year' };
         }
-
         function inRangeYmd(ymd, start, end) {
             const d = parseYmd(ymd);
             if (!d) return false;
             return d >= start && d <= end;
         }
-
-        function jobRevenue(job) {
-            return window.getJobDisplayTotal ? Number(getJobDisplayTotal(job) || 0) : 0;
-        }
-
-        function isCompletedJob(job) {
-            return job && (job.status === 'completed' || job.status === 'paid');
-        }
-
+        function jobRevenue(job) { return window.getJobDisplayTotal ? Number(getJobDisplayTotal(job) || 0) : 0; }
+        function isCompletedJob(job) { return job && (job.status === 'completed' || job.status === 'paid'); }
         function isBookedPipeline(job) {
             if (!job) return false;
             const st = String(job.status || '');
             return st === 'scheduled' || st === 'in_progress' || st === 'booked';
         }
-
-        function periodPnl(start, end) {
+        async function periodPnl(start, end) {
             const jobs = CL_DATA.getJobs();
-            const expenses = CL_DATA.getExpenses();
+            const [auto] = await Promise.all([loadAutoExpenses()]);
+            const manual = manualExpenses();
+            const expenses = [...manual, ...auto];
             const payroll = CL_DATA.getPayroll();
-
-            const rev = jobs
-                .filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, start, end))
-                .reduce((s, j) => s + jobRevenue(j), 0);
-
-            const exp = expenses
-                .filter(e => inRangeYmd(e.date, start, end))
-                .reduce((s, e) => s + Number(e.amount || 0), 0);
-
-            const pay = payroll
-                .filter(p => inRangeYmd(p.date, start, end))
-                .reduce((s, p) => s + Number(p.grossPay || (Number(p.hours || 0) * Number(p.rate || 0))), 0);
-
+            const rev = jobs.filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, start, end)).reduce((s, j) => s + jobRevenue(j), 0);
+            const exp = expenses.filter(e => inRangeYmd(e.date, start, end)).reduce((s, e) => s + Number(e.amount || 0), 0);
+            const pay = payroll.filter(p => inRangeYmd(p.date, start, end)).reduce((s, p) => s + Number(p.grossPay || (Number(p.hours||0)*Number(p.rate||0))), 0);
             return { rev, exp, pay, net: rev - exp - pay };
         }
-
-        /**
-         * Weekly-pace forecast (how most operators think about it):
-         *   avg weekly = YTD revenue ÷ weeks so far
-         *   est this year = avg weekly × 52
-         *   est next year = that same weekly pace × 52
-         *     (× YoY growth when prior-year comps exist)
-         */
         function calcForecasts(today = new Date()) {
             const jobs = CL_DATA.getJobs();
             const year = today.getFullYear();
             const yearStart = new Date(year, 0, 1);
             const priorYearStart = new Date(year - 1, 0, 1);
             const priorSameDay = new Date(year - 1, today.getMonth(), today.getDate());
-
             const weekRange = periodRange('week', today);
-            const thisWeek = jobs
-                .filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, weekRange.start, weekRange.end))
-                .reduce((s, j) => s + jobRevenue(j), 0);
-
-            const ytd = jobs
-                .filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, yearStart, today))
-                .reduce((s, j) => s + jobRevenue(j), 0);
-
-            const priorYtd = jobs
-                .filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, priorYearStart, priorSameDay))
-                .reduce((s, j) => s + jobRevenue(j), 0);
-
+            const thisWeek = jobs.filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, weekRange.start, weekRange.end)).reduce((s, j) => s + jobRevenue(j), 0);
+            const ytd = jobs.filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, yearStart, today)).reduce((s, j) => s + jobRevenue(j), 0);
+            const priorYtd = jobs.filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, priorYearStart, priorSameDay)).reduce((s, j) => s + jobRevenue(j), 0);
             const dayOfYear = Math.max(1, Math.floor((today - yearStart) / 86400000) + 1);
             const weeksSoFar = Math.max(1, Math.ceil(dayOfYear / 7));
             const avgWeekly = ytd / weeksSoFar;
             const estThisYear = avgWeekly * 52;
-
             let growth = null;
             if (priorYtd > 0) growth = (ytd - priorYtd) / priorYtd;
-            const growthUsed = growth === null ? 0 : growth;
-            // Next year: keep this weekly pace, nudge by YoY if we have history.
-            const estNextYear = avgWeekly * 52 * (1 + growthUsed);
-
-            return {
-                year,
-                nextYear: year + 1,
-                thisWeek,
-                ytd,
-                weeksSoFar,
-                avgWeekly,
-                estThisYear,
-                priorYtd,
-                growth,
-                estNextYear
-            };
+            const estNextYear = avgWeekly * 52 * (1 + (growth === null ? 0 : growth));
+            return { year, nextYear: year + 1, thisWeek, ytd, weeksSoFar, avgWeekly, estThisYear, priorYtd, growth, estNextYear };
         }
-
         function pieStyle(parts) {
             const total = parts.reduce((s, p) => s + Math.max(0, Number(p.value) || 0), 0);
-            if (total <= 0) {
-                return 'conic-gradient(var(--md-sys-color-surface-container-highest) 0deg 360deg)';
-            }
-            let acc = 0;
-            const stops = [];
+            if (total <= 0) return 'conic-gradient(var(--md-sys-color-surface-container-highest) 0deg 360deg)';
+            let acc = 0; const stops = [];
             parts.forEach(p => {
                 const v = Math.max(0, Number(p.value) || 0);
-                const start = (acc / total) * 360;
-                acc += v;
+                const start = (acc / total) * 360; acc += v;
                 const end = (acc / total) * 360;
                 stops.push(`${p.color} ${start.toFixed(2)}deg ${end.toFixed(2)}deg`);
             });
             return `conic-gradient(${stops.join(', ')})`;
         }
-
         function renderPieCard(title, parts) {
             const total = parts.reduce((s, p) => s + Math.max(0, Number(p.value) || 0), 0);
             const legend = parts.map(p => {
@@ -509,50 +735,34 @@
                     <span class="money-pie-legend-val">${p.money ? fmtMoney(p.value) : String(p.value || 0)} · ${pct}%</span>
                 </div>`;
             }).join('');
-            return `
-                <div class="glass-card rounded-xl p-4">
-                    <p class="section-title" style="margin-top:0;">${esc(title)}</p>
-                    <div class="money-pie" style="background:${pieStyle(parts)};" role="img" aria-label="${esc(title)}"></div>
-                    <div class="money-pie-legend">${legend || '<p class="money-sub">No data yet</p>'}</div>
-                </div>`;
+            return `<div class="glass-card rounded-xl p-4">
+                <p class="section-title" style="margin-top:0;">${esc(title)}</p>
+                <div class="money-pie" style="background:${pieStyle(parts)};" role="img" aria-label="${esc(title)}"></div>
+                <div class="money-pie-legend">${legend || '<p class="money-sub">No data yet</p>'}</div>
+            </div>`;
         }
-
         function allTimePipeline() {
             const jobs = CL_DATA.getJobs();
             const collected = jobs.filter(isCompletedJob).reduce((s, j) => s + jobRevenue(j), 0);
-            const open = jobs
-                .filter(j => j && (j.status === 'new' || j.status === 'scheduled' || j.status === 'in_progress' || j.status === 'booked'))
-                .reduce((s, j) => s + jobRevenue(j), 0);
-            const pipeline = collected + open;
-            return { jobs: jobs.length, collected, open, pipeline };
+            const open = jobs.filter(isBookedPipeline).reduce((s, j) => s + jobRevenue(j), 0);
+            return { jobs: jobs.length, collected, open, pipeline: collected + open };
         }
-
-        function expenseCategoryParts(limit = 6) {
-            const expenses = CL_DATA.getExpenses();
+        async function expenseCategoryParts(limit = 6) {
+            const [auto] = await Promise.all([loadAutoExpenses()]);
+            const all = [...manualExpenses(), ...auto];
             const by = {};
-            expenses.forEach(e => {
-                const id = e.taxCategory || 'other';
-                by[id] = (by[id] || 0) + Number(e.amount || 0);
-            });
-            const colors = ['#34d399', '#60a5fa', '#fbbf24', '#f87171', '#8ab4ff', '#a7f3d0', '#94a3b8'];
-            return Object.entries(by)
-                .map(([id, value]) => ({
-                    id,
-                    label: (TAX_CATS.find(c => c.id === id)?.label || 'Other'),
-                    value,
-                    money: true
-                }))
-                .sort((a, b) => b.value - a.value)
-                .slice(0, limit)
+            all.forEach(e => { by[e.category] = (by[e.category] || 0) + Number(e.amount || 0); });
+            const colors = ['#34d399','#60a5fa','#fbbf24','#f87171','#8ab4ff','#a7f3d0','#94a3b8'];
+            return Object.entries(by).map(([label, value]) => ({ label, value, money: true }))
+                .sort((a, b) => b.value - a.value).slice(0, limit)
                 .map((p, i) => ({ ...p, color: colors[i % colors.length] }));
         }
-
         function jobStatusParts() {
             const jobs = CL_DATA.getJobs();
             const counts = { completed: 0, scheduled: 0, lead: 0, other: 0 };
             jobs.forEach(j => {
                 if (isCompletedJob(j)) counts.completed += 1;
-                else if (j.status === 'scheduled' || j.status === 'in_progress' || j.status === 'booked') counts.scheduled += 1;
+                else if (isBookedPipeline(j)) counts.scheduled += 1;
                 else if (j.status === 'new') counts.lead += 1;
                 else counts.other += 1;
             });
@@ -560,18 +770,21 @@
                 { label: 'Completed', value: counts.completed, color: '#34d399', money: false },
                 { label: 'Booked', value: counts.scheduled, color: '#60a5fa', money: false },
                 { label: 'Leads', value: counts.lead, color: '#fbbf24', money: false },
-                { label: 'Other', value: counts.other, color: '#94a3b8', money: false },
+                { label: 'Other', value: counts.other, color: '#94a3b8', money: false }
             ].filter(p => p.value > 0);
         }
-
-        function renderStats() {
-            // Period controls live inside Revenue metrics now.
-            document.getElementById('statsRow').innerHTML = '';
+        function rollupByMonth(list, getDate, getAmt) {
+            const m = new Map();
+            for (const it of list) {
+                const d = getDate(it); if (!d) continue;
+                const k = monthKey(d);
+                m.set(k, (m.get(k) || 0) + Number(getAmt(it) || 0));
+            }
+            return Array.from(m.entries()).sort((a,b) => b[0].localeCompare(a[0]));
         }
-
-        function renderRevenue() {
+        async function renderRevenue() {
             const range = periodRange(moneyPeriod);
-            const pnl = periodPnl(range.start, range.end);
+            const pnl = await periodPnl(range.start, range.end);
             const fc = calcForecasts();
             const all = allTimePipeline();
             const growthPct = fc.growth === null ? null : (fc.growth * 100);
@@ -581,42 +794,41 @@
 
             const moneyPie = renderPieCard('Money in pipeline', [
                 { label: 'Collected', value: all.collected, color: '#34d399', money: true },
-                { label: 'Open', value: all.open, color: '#fbbf24', money: true },
+                { label: 'Open', value: all.open, color: '#fbbf24', money: true }
             ]);
             const statusPie = renderPieCard('Jobs by status', jobStatusParts());
-            const spendPie = renderPieCard('Spend by category', expenseCategoryParts());
+            const spendPie = renderPieCard('Spend by category', await expenseCategoryParts());
 
+            const [auto] = await Promise.all([loadAutoExpenses()]);
             const jobs = CL_DATA.getJobs().filter(j => isCompletedJob(j) && j.jobDate);
-            const expenses = CL_DATA.getExpenses().filter(e => e.date);
+            const expenses = [...manualExpenses(), ...auto].filter(e => e.date);
             const payroll = CL_DATA.getPayroll().filter(p => p.date);
             const revByMonth = rollupByMonth(jobs, j => j.jobDate, j => jobRevenue(j));
             const expByMonth = rollupByMonth(expenses, e => e.date, e => e.amount);
             const payByMonth = rollupByMonth(payroll, p => p.date, p => (p.grossPay || (Number(p.hours||0)*Number(p.rate||0))));
             const idx = (pairs) => new Map(pairs.map(([k,v]) => [k, v]));
             const iRev = idx(revByMonth), iExp = idx(expByMonth), iPay = idx(payByMonth);
-            const months = Array.from(new Set([ ...iRev.keys(), ...iExp.keys(), ...iPay.keys() ])).sort().reverse().slice(0, 6);
+            const months = Array.from(new Set([...iRev.keys(), ...iExp.keys(), ...iPay.keys()])).sort().reverse().slice(0, 6);
 
             return `
                 <div class="page-tabs page-tabs--segmented" style="margin-bottom:12px;">
-                    <button type="button" class="page-tab ${moneyPeriod === 'week' ? 'active' : ''}" onclick="setMoneyPeriod('week')">Week</button>
-                    <button type="button" class="page-tab ${moneyPeriod === 'month' ? 'active' : ''}" onclick="setMoneyPeriod('month')">Month</button>
-                    <button type="button" class="page-tab ${moneyPeriod === 'year' ? 'active' : ''}" onclick="setMoneyPeriod('year')">Year</button>
+                    <button type="button" class="page-tab ${moneyPeriod==='week'?'active':''}" onclick="setMoneyPeriod('week')">Week</button>
+                    <button type="button" class="page-tab ${moneyPeriod==='month'?'active':''}" onclick="setMoneyPeriod('month')">Month</button>
+                    <button type="button" class="page-tab ${moneyPeriod==='year'?'active':''}" onclick="setMoneyPeriod('year')">Year</button>
                 </div>
-
                 <p class="section-title" style="margin-top:0;">${esc(range.label)}</p>
                 <div class="stats-grid stats-grid--4 mb-3">
                     <div class="stat-card"><p class="value" style="color:#34d399;">${fmtMoney(pnl.rev)}</p><p class="label">Revenue</p></div>
                     <div class="stat-card"><p class="value" style="color:#fbbf24;">${fmtMoney(pnl.exp)}</p><p class="label">Expenses</p></div>
                     <div class="stat-card"><p class="value" style="color:var(--md-sys-color-secondary);">${fmtMoney(pnl.pay)}</p><p class="label">Payroll</p></div>
-                    <div class="stat-card"><p class="value" style="color:${pnl.net >= 0 ? '#60a5fa' : '#f87171'};">${fmtMoney(pnl.net)}</p><p class="label">Net</p></div>
+                    <div class="stat-card"><p class="value" style="color:${pnl.net>=0?'#60a5fa':'#f87171'};">${fmtMoney(pnl.net)}</p><p class="label">Net</p></div>
                 </div>
-
                 <p class="section-title">If this keeps up</p>
                 <div class="glass-card rounded-xl p-4 mb-3" style="display:grid;gap:14px;">
                     <div>
                         <p class="money-sub" style="margin:0;">This week ${fmtMoney(fc.thisWeek)}</p>
                         <p style="font-size:22px;font-weight:800;margin:2px 0 4px;color:#e2e8f0;">${fmtMoney(fc.avgWeekly)}<span style="font-size:13px;font-weight:600;color:#94a3b8;"> / week avg</span></p>
-                        <p class="money-sub" style="margin:0;">YTD ${fmtMoney(fc.ytd)} across ${fc.weeksSoFar} week${fc.weeksSoFar === 1 ? '' : 's'}</p>
+                        <p class="money-sub" style="margin:0;">YTD ${fmtMoney(fc.ytd)} across ${fc.weeksSoFar} week${fc.weeksSoFar===1?'':'s'}</p>
                     </div>
                     <div style="border-top:1px solid var(--md-sys-color-outline-variant);padding-top:12px;">
                         <p class="money-sub" style="margin:0;">Est. ${fc.year}</p>
@@ -629,7 +841,6 @@
                         <p class="money-sub" style="margin:0;">${esc(growthLine)}</p>
                     </div>
                 </div>
-
                 <p class="section-title">All-time</p>
                 <div class="stats-grid stats-grid--4 mb-3">
                     <div class="stat-card"><p class="value" style="color:#60a5fa;">${fmtMoney(all.pipeline)}</p><p class="label">Pipeline</p></div>
@@ -637,30 +848,20 @@
                     <div class="stat-card"><p class="value" style="color:#fbbf24;">${fmtMoney(all.open)}</p><p class="label">Open</p></div>
                     <div class="stat-card"><p class="value" style="color:var(--md-sys-color-secondary);">${all.jobs}</p><p class="label">Jobs</p></div>
                 </div>
-
-                <div class="money-pie-grid mb-3">
-                    ${moneyPie}
-                    ${statusPie}
-                    ${spendPie}
-                </div>
-
+                <div class="money-pie-grid mb-3">${moneyPie}${statusPie}${spendPie}</div>
                 <p class="section-title">Recent months</p>
                 ${months.length ? `<div class="glass-card" style="overflow:hidden;">
                     ${months.map(m => {
-                        const rev = iRev.get(m) || 0;
-                        const exp = iExp.get(m) || 0;
-                        const pay = iPay.get(m) || 0;
+                        const rev = iRev.get(m) || 0, exp = iExp.get(m) || 0, pay = iPay.get(m) || 0;
                         const profit = rev - exp - pay;
-                        return `
-                            <div class="money-row">
-                                <span class="money-dot" style="background: rgba(96,165,250,0.55);"></span>
-                                <div style="min-width:0;">
-                                    <p style="font-weight:900;margin:0;">${esc(m)}</p>
-                                    <p class="money-sub">Rev ${fmtMoney(rev)} · Exp ${fmtMoney(exp)} · Pay ${fmtMoney(pay)}</p>
-                                </div>
-                                <div class="money-amt" style="color:${profit >= 0 ? '#34d399' : '#f87171'};">${fmtMoney(profit)}</div>
+                        return `<div class="money-row">
+                            <span class="money-dot" style="background: rgba(96,165,250,0.55);"></span>
+                            <div style="min-width:0;">
+                                <p style="font-weight:900;margin:0;">${esc(m)}</p>
+                                <p class="money-sub">Rev ${fmtMoney(rev)} · Exp ${fmtMoney(exp)} · Pay ${fmtMoney(pay)}</p>
                             </div>
-                        `;
+                            <div class="money-amt" style="color:${profit>=0?'#34d399':'#f87171'};">${fmtMoney(profit)}</div>
+                        </div>`;
                     }).join('')}
                 </div>` : `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
                     <p>No monthly history yet</p>
@@ -668,167 +869,60 @@
                 </div>`}
             `;
         }
-
-        function renderOverview() {
-            return renderRevenue();
-        }
-
-        function renderExpenses() {
-            const expenses = CL_DATA.getExpenses().slice().sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')) || String(b.lastUpdated||'').localeCompare(String(a.lastUpdated||'')));
-            let listHtml;
-            if (!expenses.length) {
-                listHtml = `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
-                    <i class="fas fa-receipt text-3xl mb-2"></i>
-                    <p>No expenses yet</p>
-                    <p class="text-xs text-gray-500 mt-1">Tap + to add your first expense.</p>
+        async function renderTaxes() {
+            const [auto] = await Promise.all([loadAutoExpenses()]);
+            const manual = manualExpenses();
+            const byCatMonth = {}, byCatQuarter = {};
+            [...manual, ...auto].forEach(it => {
+                const cat = it.category || 'Other';
+                const mk = monthKey(it.date), qk = quarterKey(it.date);
+                byCatMonth[cat] = byCatMonth[cat] || {}; byCatMonth[cat][mk] = (byCatMonth[cat][mk] || 0) + it.amount;
+                byCatQuarter[cat] = byCatQuarter[cat] || {}; byCatQuarter[cat][qk] = (byCatQuarter[cat][qk] || 0) + it.amount;
+            });
+            const cats = Object.keys(byCatMonth).sort();
+            const months = Array.from(new Set([...manual, ...auto].map(it => monthKey(it.date)))).sort().reverse().slice(0, 6);
+            const quarters = Array.from(new Set([...manual, ...auto].map(it => quarterKey(it.date)))).sort().reverse().slice(0, 6);
+            const rowsFor = (bucket, keys) => cats.map(cat => ({
+                cat, total: keys.reduce((s,k) => s + Number((bucket[cat] && bucket[cat][k]) || 0), 0)
+            })).sort((a,b) => b.total - a.total);
+            const table = (title, keys, rows) => `
+                <p class="section-title" style="margin-top: 14px;">${title}</p>
+                <div class="glass-card" style="overflow:hidden;">
+                    ${rows.filter(r => r.total > 0).map(r => `<div class="money-row">
+                        <span class="money-dot" style="background: rgba(251,191,36,0.55);"></span>
+                        <div style="min-width:0;"><p style="font-weight:800;margin:0;">${esc(r.cat)}</p><p class="money-sub">${keys.join(' · ')}</p></div>
+                        <div class="money-amt">${fmtMoney(r.total)}</div>
+                    </div>`).join('')}
                 </div>`;
-            } else {
-                const catLabel = (id) => (TAX_CATS.find(c => c.id === id)?.label || 'Other');
-                listHtml = `<div class="glass-card" style="overflow:hidden;">
-                ${expenses.map(e => `
-                    <a href="#" class="money-row" onclick="event.preventDefault(); openExpenseModal(${JSON.stringify(e)});">
-                        <span class="money-dot" style="background: rgba(52,211,153,0.55);"></span>
-                        <div style="min-width:0;">
-                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                <p style="font-weight:800; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 220px;">${esc(e.vendor || e.description || 'Expense')}</p>
-                                <span class="pill exp">Expense</span>
-                                <span class="pill tax">${esc(catLabel(e.taxCategory))}</span>
-                            </div>
-                            <p class="money-sub">${esc(e.date || '')}${e.description ? ` · ${esc(e.description)}` : ''}</p>
-                        </div>
-                        <div class="money-amt">${fmtMoney(e.amount)}</div>
-                    </a>
-                `).join('')}
-            </div>`;
-            }
-            return listHtml + `<div style="margin-top:16px;">${renderTaxes()}</div>`;
+            if (!cats.length) return '';
+            return table('Monthly totals (latest)', months, rowsFor(byCatMonth, months))
+                 + table('Quarterly totals (latest)', quarters, rowsFor(byCatQuarter, quarters));
         }
-
-        function renderPayroll() {
-            const payroll = CL_DATA.getPayroll().slice().sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')) || String(b.lastUpdated||'').localeCompare(String(a.lastUpdated||'')));
-            if (!payroll.length) {
-                return `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
-                    <i class="fas fa-user-clock text-3xl mb-2"></i>
-                    <p>No payroll entries yet</p>
-                    <p class="text-xs text-gray-500 mt-1">Tap + to add hours and rate.</p>
-                </div>`;
-            }
-            return `<div class="glass-card" style="overflow:hidden;">
-                ${payroll.map(p => `
-                    <a href="#" class="money-row" onclick="event.preventDefault(); openPayrollModal(${JSON.stringify(p)});">
-                        <span class="money-dot" style="background: rgba(167,139,250,0.55);"></span>
-                        <div style="min-width:0;">
-                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                <p style="font-weight:800; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 220px;">${esc(p.workerName || 'Payroll')}</p>
-                                <span class="pill pay">Payroll</span>
-                            </div>
-                            <p class="money-sub">${esc(p.date || '')} · ${Number(p.hours||0)}h @ ${fmtMoney(p.rate||0)}</p>
-                        </div>
-                        <div class="money-amt">${fmtMoney(p.grossPay || (Number(p.hours||0) * Number(p.rate||0)))}</div>
-                    </a>
-                `).join('')}
-            </div>`;
-        }
-
-        function rollupByMonth(list, getDate, getAmt) {
-            const m = new Map();
-            for (const it of list) {
-                const d = getDate(it);
-                if (!d) continue;
-                const k = monthKey(d);
-                m.set(k, (m.get(k) || 0) + Number(getAmt(it) || 0));
-            }
-            return Array.from(m.entries()).sort((a,b) => b[0].localeCompare(a[0]));
-        }
-
         function quarterKey(ymd) {
             const m = parseInt(String(ymd||'').slice(5,7), 10) || 0;
             const q = m <= 3 ? 1 : m <= 6 ? 2 : m <= 9 ? 3 : 4;
             return String(ymd||'').slice(0,4) + '-Q' + q;
         }
 
-        function renderTaxes() {
-            const expenses = CL_DATA.getExpenses();
-            const payroll = CL_DATA.getPayroll();
-            const all = expenses
-                .map(e => ({ kind:'expense', date: e.date, taxCategory: e.taxCategory || 'other', amount: Number(e.amount||0) }))
-                .concat(payroll.map(p => ({ kind:'payroll', date: p.date, taxCategory: 'wages', amount: Number(p.grossPay||0) })));
-
-            if (!all.length) {
-                return `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
-                    <i class="fas fa-file-invoice text-3xl mb-2"></i>
-                    <p>No tax data yet</p>
-                    <p class="text-xs text-gray-500 mt-1">Add expenses or payroll to see category totals.</p>
-                </div>`;
-            }
-
-            const byCatMonth = {};
-            const byCatQuarter = {};
-            for (const it of all) {
-                const cat = it.taxCategory || 'other';
-                const mk = monthKey(it.date);
-                const qk = quarterKey(it.date);
-                byCatMonth[cat] = byCatMonth[cat] || {};
-                byCatMonth[cat][mk] = (byCatMonth[cat][mk] || 0) + it.amount;
-                byCatQuarter[cat] = byCatQuarter[cat] || {};
-                byCatQuarter[cat][qk] = (byCatQuarter[cat][qk] || 0) + it.amount;
-            }
-
-            const catLabel = (id) => (TAX_CATS.find(c => c.id === id)?.label || 'Other');
-            const cats = Object.keys(byCatMonth).sort();
-            const months = Array.from(new Set(all.map(it => monthKey(it.date)))).sort().reverse().slice(0, 6);
-            const quarters = Array.from(new Set(all.map(it => quarterKey(it.date)))).sort().reverse().slice(0, 6);
-
-            const rowsFor = (bucket, keys) => cats.map(cat => {
-                const total = keys.reduce((s,k) => s + Number((bucket[cat] && bucket[cat][k]) || 0), 0);
-                return { cat, total };
-            }).sort((a,b) => b.total - a.total);
-
-            const monthRows = rowsFor(byCatMonth, months);
-            const quarterRows = rowsFor(byCatQuarter, quarters);
-
-            const table = (title, keys, rows) => `
-                <p class="section-title" style="margin-top: 6px;">${title}</p>
-                <div class="glass-card" style="overflow:hidden;">
-                    ${rows.filter(r => r.total > 0).map(r => `
-                        <div class="money-row">
-                            <span class="money-dot" style="background: rgba(251,191,36,0.55);"></span>
-                            <div style="min-width:0;">
-                                <p style="font-weight:800;margin:0;">${esc(catLabel(r.cat))}</p>
-                                <p class="money-sub">${keys.join(' · ')}</p>
-                            </div>
-                            <div class="money-amt">${fmtMoney(r.total)}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-
-            return table('Monthly totals (latest)', months, monthRows) + table('Quarterly totals (latest)', quarters, quarterRows);
-        }
-
-        function render() {
+        // ------------------------------------------------------------------
+        async function render() {
             showOwnerOnlyUI();
             renderStats();
-
             const body = document.getElementById('moneyBody');
             if (!ensureOwner()) {
                 body.innerHTML = `<div class="glass-card rounded-xl p-4 text-center text-gray-400">
-                    <i class="fas fa-lock text-3xl mb-2"></i>
-                    <p>Owner only</p>
-                    <p class="text-xs text-gray-500 mt-1">Ask your owner for access to Money.</p>
-                </div>`;
+                    <i class="fas fa-lock text-3xl mb-2"></i><p>Owner only</p>
+                    <p class="text-xs text-gray-500 mt-1">Ask your owner for access to Money.</p></div>`;
                 return;
             }
-
-            if (currentTab === 'expenses') body.innerHTML = renderExpenses();
-            else if (currentTab === 'payroll') body.innerHTML = renderPayroll();
-            else body.innerHTML = renderRevenue();
+            if (currentTab === 'expenses') body.innerHTML = await renderExpenses();
+            else if (currentTab === 'payroll') body.innerHTML = await renderPayroll();
+            else body.innerHTML = await renderRevenue();
         }
+        function renderStats() { document.getElementById('statsRow').innerHTML = ''; }
 
-        function start(profile) {
-            myProfile = profile;
-            render();
-        }
+        // ------------------------------------------------------------------
+        function start(profile) { myProfile = profile; render(); }
 
         document.addEventListener('DOMContentLoaded', () => {
             setActiveNav();
@@ -838,7 +932,8 @@
         });
         window.addEventListener('cl-profile-updated', (e) => start(e.detail && e.detail.profile));
         window.addEventListener('cl-sync-updated', () => render());
+        // re-render when a new receipt CSV is published
+        window.addEventListener('cl-expenses-updated', () => { csvCache = null; csvError = false; render(); });
     </script>
 </body>
 </html>
-
