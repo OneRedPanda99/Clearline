@@ -89,6 +89,35 @@
         .badge-soft.mgr { background: color-mix(in srgb, var(--md-sys-color-secondary) 18%, transparent); color: var(--md-sys-color-secondary); }
         .subhead { display:flex; align-items:center; justify-content:space-between; margin:18px 0 8px; }
         .subhead h3 { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:#94a3b8; margin:0; }
+        /* Fullscreen receipt viewer */
+        .lightbox {
+            position: fixed; inset: 0; z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(8,10,12,0.96);
+            padding: 24px;
+            cursor: zoom-out;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .lightbox[hidden] { display: none; }
+        .lightbox img {
+            max-width: 100%; max-height: 100%;
+            width: auto; height: auto;
+            object-fit: contain;
+            border-radius: 14px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+        }
+        .lightbox .lb-close {
+            position: fixed; top: 16px; right: 16px;
+            width: 44px; height: 44px; border-radius: 999px;
+            border: none; background: rgba(255,255,255,0.12);
+            color: #fff; font-size: 22px; line-height: 1;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            z-index: 1001;
+        }
+        .lightbox .lb-hint {
+            position: fixed; bottom: 18px; left: 0; right: 0; text-align: center;
+            color: rgba(255,255,255,0.5); font-size: 12px; pointer-events: none;
+        }
         @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
     </style>
 </head>
@@ -135,7 +164,9 @@
     </div>
 
     <div id="lightbox" class="lightbox" hidden onclick="closeLightbox()">
+        <button class="lb-close" type="button" onclick="event.stopPropagation(); closeLightbox()" aria-label="Close">&times;</button>
         <img id="lightboxImg" src="" alt="Receipt">
+        <div class="lb-hint">Tap anywhere to close</div>
     </div>
 
     <script>
@@ -459,7 +490,9 @@
                     const onClick = x.source === 'auto'
                         ? `onclick="openAutoExpense(${JSON.stringify(x.id)})"`
                         : `onclick="event.preventDefault(); openExpenseModal(${JSON.stringify(x.raw)})"`;
-                    const photoThumb = x.photo ? `<img src="${esc(x.photo)}" alt="" style="width:40px;height:40px;border-radius:10px;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none'">` : `<span class="money-dot" style="background:${x.source==='auto'?'rgba(96,165,250,0.55)':'rgba(52,211,153,0.55)'};"></span>`;
+                    const photoThumb = x.photo
+                        ? `<img src="${esc(x.photo)}" alt="" onclick="event.stopPropagation(); openLightbox(${JSON.stringify(x.photo)})" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex-shrink:0;cursor:zoom-in;" onerror="this.style.display='none'">`
+                        : `<span class="money-dot" style="background:${x.source==='auto'?'rgba(96,165,250,0.55)':'rgba(52,211,153,0.55)'};"></span>`;
                     return `<a href="#" class="money-row" ${onClick}>
                         ${photoThumb}
                         <div style="min-width:0;">
@@ -512,9 +545,10 @@
             if (!x) return;
             document.getElementById('moneyModalTitle').textContent = 'Receipt detail';
             const photoBlock = x.photo
-                ? `<button type="button" onclick="openLightbox(${JSON.stringify(x.photo)})" style="display:block;width:100%;padding:0;border:none;background:transparent;cursor:zoom-in;margin-bottom:14px;">
+                ? `<button type="button" onclick="openLightbox(${JSON.stringify(x.photo)})" style="display:block;width:100%;padding:0;border:none;background:transparent;cursor:zoom-in;margin-bottom:8px;">
                         <img src="${esc(x.photo)}" alt="Receipt" style="width:100%;border-radius:14px;border:1px solid var(--md-sys-color-outline-variant);" onerror="this.style.display='none'">
-                   </button>`
+                   </button>
+                   <button type="button" class="sort-btn" style="width:100%;justify-content:center;margin-bottom:14px;" onclick="openLightbox(${JSON.stringify(x.photo)})"><i class="fas fa-expand mr-1"></i> View full receipt</button>`
                 : '';
             document.getElementById('moneyModalBody').innerHTML = `
                 ${photoBlock}
@@ -538,8 +572,15 @@
         function openLightbox(url) {
             document.getElementById('lightboxImg').src = url;
             document.getElementById('lightbox').hidden = false;
+            document.body.style.overflow = 'hidden';
+            document.addEventListener('keydown', lightboxEsc);
         }
-        function closeLightbox() { document.getElementById('lightbox').hidden = true; }
+        function lightboxEsc(e) { if (e.key === 'Escape') closeLightbox(); }
+        function closeLightbox() {
+            document.getElementById('lightbox').hidden = true;
+            document.body.style.overflow = '';
+            document.removeEventListener('keydown', lightboxEsc);
+        }
 
         // ------------------------------------------------------------------
         //  PAYROLL / EMPLOYEES  (reads Firebase users + local payroll)
