@@ -275,8 +275,8 @@
                     <div><label>Tax category</label><select id="expCat">${opts}</select></div>
                     <div><label>Vendor (optional)</label><input id="expVendor" placeholder="Home Depot" value="${expense ? String(expense.vendor || '') : ''}"></div>
                     <div><label>Description</label><input id="expDesc" placeholder="Gas, detergent, etc." value="${expense ? String(expense.description || '') : ''}"></div>
-                    <button class="btn-primary" type="button" onclick="saveExpense(${expense ? JSON.stringify(expense.id) : 'null'})">${isEdit ? 'Save changes' : 'Add expense'}</button>
-                    ${isEdit ? `<button class="btn-danger" type="button" onclick="deleteExpense(${JSON.stringify(expense.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
+                    <button class="btn-primary" type="button" onclick='saveExpense(${expense ? JSON.stringify(expense.id) : "null"})'>${isEdit ? 'Save changes' : 'Add expense'}</button>
+                    ${isEdit ? `<button class="btn-danger" type="button" onclick='deleteExpense(${JSON.stringify(expense.id)})'><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
                 </div>`;
             openModal('moneyModal');
         }
@@ -490,12 +490,14 @@
                     const isAuto = x.source === 'auto';
                     // Receipts: tap the whole row to fullscreen the photo.
                     // Manual: tap the row to open the edit modal.
-                    // A small "Details" button opens the read-only detail modal.
+                    // NOTE: inline handlers use SINGLE-quote delimiters so the
+                    // URL/id (which contain double quotes when JSON-stringified)
+                    // does not break the attribute.
                     const rowClick = isAuto
-                        ? (x.photo ? `onclick="openLightbox(${JSON.stringify(x.photo)})"` : `onclick="openAutoExpense(${JSON.stringify(x.id)})"`)
-                        : `onclick="event.preventDefault(); openExpenseModal(${JSON.stringify(x.raw)})"`;
+                        ? (x.photo ? `onclick='openLightbox("${esc(x.photo)}")'` : `onclick='openAutoExpense("${esc(x.id)}")'`)
+                        : `onclick='event.preventDefault(); openExpenseModal(${JSON.stringify(x.raw)})'`;
                     const detailsBtn = isAuto
-                        ? `<button type="button" onclick="event.stopPropagation(); openAutoExpense(${JSON.stringify(x.id)})" style="margin-left:8px;background:rgba(148,163,184,0.16);border:1px solid rgba(148,163,184,0.28);color:#94a3b8;border-radius:999px;font-size:10px;font-weight:800;padding:3px 8px;cursor:pointer;flex-shrink:0;">Details</button>`
+                        ? `<button type="button" onclick='event.stopPropagation(); openAutoExpense("${esc(x.id)}")' style="margin-left:8px;background:rgba(148,163,184,0.16);border:1px solid rgba(148,163,184,0.28);color:#94a3b8;border-radius:999px;font-size:10px;font-weight:800;padding:3px 8px;cursor:pointer;flex-shrink:0;">Details</button>`
                         : '';
                     const photoThumb = x.photo
                         ? `<img src="${esc(x.photo)}" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex-shrink:0;cursor:zoom-in;pointer-events:none;" onerror="this.style.visibility='hidden'">`
@@ -553,10 +555,10 @@
             if (!x) return;
             document.getElementById('moneyModalTitle').textContent = 'Receipt detail';
             const photoBlock = x.photo
-                ? `<button type="button" onclick="openLightbox(${JSON.stringify(x.photo)})" style="display:block;width:100%;padding:0;border:none;background:transparent;cursor:zoom-in;margin-bottom:8px;">
+                ? `<button type="button" onclick='openLightbox(${JSON.stringify(x.photo)})' style="display:block;width:100%;padding:0;border:none;background:transparent;cursor:zoom-in;margin-bottom:8px;">
                         <img src="${esc(x.photo)}" alt="Receipt" style="width:100%;border-radius:14px;border:1px solid var(--md-sys-color-outline-variant);" onerror="this.style.display='none'">
                    </button>
-                   <button type="button" class="sort-btn" style="width:100%;justify-content:center;margin-bottom:14px;" onclick="openLightbox(${JSON.stringify(x.photo)})"><i class="fas fa-expand mr-1"></i> View full receipt</button>`
+                   <button type="button" class="sort-btn" style="width:100%;justify-content:center;margin-bottom:14px;" onclick='openLightbox(${JSON.stringify(x.photo)})'><i class="fas fa-expand mr-1"></i> View full receipt</button>`
                 : '';
             document.getElementById('moneyModalBody').innerHTML = `
                 ${photoBlock}
@@ -626,8 +628,8 @@
                         <div><label>Rate</label><input id="payRate" inputmode="decimal" placeholder="0" value="${entry ? String(entry.rate || '') : ''}"></div>
                     </div>
                     <div><label>Notes (optional)</label><input id="payNotes" placeholder="Week ending…" value="${entry ? String(entry.notes || '') : ''}"></div>
-                    <button class="btn-primary" type="button" onclick="savePayroll(${entry ? JSON.stringify(entry.id) : 'null'})">${isEdit ? 'Save changes' : 'Add payroll'}</button>
-                    ${isEdit ? `<button class="btn-danger" type="button" onclick="deletePayroll(${JSON.stringify(entry.id)})"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
+                    <button class="btn-primary" type="button" onclick='savePayroll(${entry ? JSON.stringify(entry.id) : "null"})'>${isEdit ? 'Save changes' : 'Add payroll'}</button>
+                    ${isEdit ? `<button class="btn-danger" type="button" onclick='deletePayroll(${JSON.stringify(entry.id)})'><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
                 </div>`;
             openModal('moneyModal');
             loadEmployees().then(emp => {
@@ -729,7 +731,7 @@
                     </div>
                     <div class="glass-card" style="overflow:hidden;">${payroll.map(p => {
                         const gross = Number(p.grossPay || (Number(p.hours||0)*Number(p.rate||0)));
-                        return `<a href="#" class="money-row" onclick="event.preventDefault(); openPayrollModal(${JSON.stringify(p)});">
+                        return `<a href="#" class="money-row" onclick='event.preventDefault(); openPayrollModal(${JSON.stringify(p)})'>
                             <span class="money-dot" style="background: rgba(167,139,250,0.55);"></span>
                             <div style="min-width:0;">
                                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
