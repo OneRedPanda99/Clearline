@@ -358,7 +358,7 @@
                         : '';
                     return {
                         id: r.id,
-                        date: (r.purchase_date || r.created_at || '').slice(0, 10),
+                        date: (r.purchase_date || '').slice(0, 10),
                         vendor: r.vendor || '',
                         amount: parseAmt(r.total),
                         subtotal: parseAmt(r.subtotal),

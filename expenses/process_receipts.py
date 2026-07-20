@@ -226,9 +226,11 @@ def ollama_extract(image_bytes: bytes, note: str, filename: str = "") -> dict:
         "You are a receipt parser. Read this receipt image and return ONLY a JSON "
         "object (no markdown, no commentary) with these exact keys:\n"
         "  vendor: string (store name)\n"
-        "  date_raw: string — the transaction date EXACTLY as printed on the receipt, "
-        "character for character (e.g. '05-12-26' or '05/12/2026'). Do NOT reformat or "
-        "reorder it. Copy the digits and separators verbatim.\n"
+        "  date_raw: string — the transaction date EXACTLY as PRINTED on the receipt, "
+        "character for character (e.g. '05-12-26' or '05/12/2026'). This is the date the "
+        "purchase happened, NOT the upload date and NOT today. Do NOT reformat or "
+        "reorder it. Copy the digits and separators verbatim. If the receipt shows a date, "
+        "you MUST return it here. Only use empty string if no date is visible anywhere.\n"
         "  items: array of {name: string, price: number}\n"
         "  subtotal: number\n"
         "  tax: number\n"
@@ -391,7 +393,7 @@ def process_one(key: str, dry_run: bool) -> dict | None:
     row = {
         "id": "",   # assigned by run() with a unique, incrementing id
         "vendor": vendor,
-        "purchase_date": purchase_date or uploaded_at[:10],
+        "purchase_date": purchase_date,  # leave empty if unreadable -> needs_review (never default to today)
         "items": json.dumps(norm_items, ensure_ascii=False),
         "subtotal": f"{subtotal:.2f}" if subtotal else "",
         "tax": f"{tax:.2f}" if tax else "",
