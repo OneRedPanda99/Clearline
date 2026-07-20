@@ -43,7 +43,7 @@ jobs:
       - name: Verify config.js exists
         run: test -f ${{ github.workspace }}/config.js && echo "config.js generated successfully"
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
         with:
           enablement: true
 
