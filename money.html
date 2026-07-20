@@ -147,6 +147,7 @@
         let expSortKey = 'date';     // date | amount | vendor | source
         let expSortDir = 'desc';    // asc | desc
         let expFilter = 'all';      // all | manual | auto
+        let expHideDupes = true;   // hide manual entries that duplicate a receipt
         let csvCache = null;        // parsed receipt rows (auto), or null
         let csvError = false;
 
@@ -363,9 +364,37 @@
             }));
         }
 
+        // A manual entry is a "dupe" of a receipt when they share the same
+        // amount AND similar date (same calendar day) OR same vendor. This
+        // catches the common case: a receipt was typ ed in before the
+        // photo pipeline existed, then the pipeline added the same receipt.
+        function isDupeOfReceipt(manual, auto) {
+            if (Math.abs(manual.amount - auto.amount) > 0.01) return false;
+            const sameDay = manual.date && manual.date.slice(0, 10) === (auto.date || '').slice(0, 10);
+            const sameVendor = manual.vendor && auto.vendor &&
+                manual.vendor.toLowerCase().replace(/[^a-z0-9]/g, '') ===
+                auto.vendor.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return sameDay || sameVendor;
+        }
+        function markDupes(items) {
+            const auto = items.filter(x => x.source === 'auto');
+            items.forEach(x => {
+                x.dupe = false;
+                if (x.source === 'manual') {
+                    x.dupe = auto.some(a => isDupeOfReceipt(x, a));
+                }
+            });
+            return items;
+        }
+
         async function renderExpenses() {
             const [auto] = await Promise.all([loadAutoExpenses()]);
             let items = [...manualExpenses(), ...auto];
+            markDupes(items);
+
+            // apply hide-dupes BEFORE filter so the counts reflect what's shown
+            const dupeManual = items.filter(x => x.source === 'manual' && x.dupe);
+            if (expHideDupes) items = items.filter(x => !(x.source === 'manual' && x.dupe));
 
             if (expFilter === 'manual') items = items.filter(x => x.source === 'manual');
             else if (expFilter === 'auto') items = items.filter(x => x.source === 'auto');
@@ -387,6 +416,7 @@
 
             const sortArrow = (key) => expSortKey === key ? `<span class="arrow">${expSortDir === 'asc' ? '▲' : '▼'}</span>` : '';
             const setSort = (k) => `setExpSort('${k}')`;
+            const dupeCount = dupeManual.length;
 
             const toolbar = `
                 <div class="toolbar">
@@ -395,6 +425,8 @@
                         <button type="button" class="${expFilter==='manual'?'active':''}" onclick="setExpFilter('manual')">Manual</button>
                         <button type="button" class="${expFilter==='auto'?'active':''}" onclick="setExpFilter('auto')">From receipts</button>
                     </div>
+                    <button type="button" class="sort-btn ${expHideDupes?'active':''}" onclick="toggleHideDupes()">${expHideDupes?'✓ ' : ''}Hide dupes</button>
+                    ${dupeCount ? `<button type="button" class="sort-btn" onclick="removeDupes()" style="color:#f87171;border-color:rgba(248,113,113,0.3);">Remove ${dupeCount} dupe${dupeCount===1?'':'s'}</button>` : ''}
                     <span class="spacer"></span>
                     <button class="sort-btn" type="button" onclick="${setSort('date')}">Date ${sortArrow('date')}</button>
                     <button class="sort-btn" type="button" onclick="${setSort('amount')}">Amount ${sortArrow('amount')}</button>
@@ -407,7 +439,8 @@
                     <div class="stat-card"><p class="value" style="color:#94a3b8;">${manualCount}</p><p class="label">Manual</p></div>
                     <div class="stat-card"><p class="value" style="color:#60a5fa;">${autoCount}</p><p class="label">From receipts</p></div>
                     <div class="stat-card"><p class="value" style="color:#fbbf24;">${fmtMoney(total)}</p><p class="label">Total</p></div>
-                </div>`;
+                </div>
+                ${dupeCount ? `<div class="glass-card rounded-xl p-2 mb-3 text-sm" style="color:#94a3b8;border:1px solid rgba(248,113,113,0.2);"><i class="fas fa-info-circle mr-1" style="color:#f87171;"></i>${dupeCount} manual entr${dupeCount===1?'y':'ies'} match${dupeCount===1?'es':''} a receipt (same amount & vendor/date). Hidden by default — use "Remove dupes" to delete the manual copies for good.</div>` : ''}`;
 
             let listHtml;
             if (!items.length) {
@@ -450,6 +483,29 @@
             render();
         }
         function setExpFilter(f) { expFilter = f; render(); }
+        function toggleHideDupes() { expHideDupes = !expHideDupes; render(); }
+        function removeDupes() {
+            // permanently delete manual entries that duplicate a receipt
+            const auto = [...manualExpenses().filter(()=>false), ...(csvCache||[])];
+            const manual = CL_DATA.getExpenses();
+            const keep = manual.filter(e => {
+                const m = { amount: parseAmt(e.amount), vendor: e.vendor||'', date: (e.date||'').slice(0,10) };
+                const isDupe = (csvCache||[]).some(a => {
+                    if (Math.abs(m.amount - a.amount) > 0.01) return false;
+                    const sameDay = m.date && m.date === (a.date||'').slice(0,10);
+                    const sameVendor = m.vendor && a.vendor &&
+                        m.vendor.toLowerCase().replace(/[^a-z0-9]/g,'') === a.vendor.toLowerCase().replace(/[^a-z0-9]/g,'');
+                    return sameDay || sameVendor;
+                });
+                return !isDupe;
+            });
+            const removed = manual.length - keep.length;
+            if (!removed) { showToast('No dupes to remove', 'success'); return; }
+            if (!confirm(`Delete ${removed} manual dupe${removed===1?'':'s'}? The receipt-backed entries stay.`)) return;
+            CL_DATA.saveExpenses(keep);
+            showToast(`Removed ${removed} dupe${removed===1?'':'s'}`, 'success');
+            render();
+        }
 
         function openAutoExpense(id) {
             const x = (csvCache || []).find(r => r.id === id);
