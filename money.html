@@ -352,19 +352,23 @@
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const text = await res.text();
                 const recs = parseCsv(text).filter(r => r.id && r.id !== 'id');
-                csvCache = recs.map(r => {
+                const ovMap = loadOverrides();
+                csvCache = recs
+                    .filter(r => !(ovMap[r.id] && ovMap[r.id]._hidden))
+                    .map(r => {
                     const photoUrl = r.photo
                         ? (r.photo.startsWith('http') ? r.photo : PHOTO_BASE + r.photo.replace(/^expenses\//, ''))
                         : '';
+                    const ov = ovMap[r.id] || {};
                     return {
                         id: r.id,
-                        date: (r.purchase_date || '').slice(0, 10),
-                        vendor: r.vendor || '',
-                        amount: parseAmt(r.total),
-                        subtotal: parseAmt(r.subtotal),
-                        tax: parseAmt(r.tax),
-                        category: r.category || '',
-                        note: r.note || '',
+                        date: ov.date || (r.purchase_date || '').slice(0, 10),
+                        vendor: ov.vendor || r.vendor || '',
+                        amount: ov.amount || parseAmt(r.total),
+                        subtotal: ov.amount ? 0 : parseAmt(r.subtotal),
+                        tax: ov.amount ? 0 : parseAmt(r.tax),
+                        category: ov.category || r.category || '',
+                        note: ov.note || r.note || '',
                         status: r.status || 'ok',
                         source: 'auto',
                         photo: photoUrl
@@ -376,6 +380,65 @@
                 console.warn('Could not load receipt expenses:', e);
                 return [];
             }
+        }
+
+        // ---- Client-side overrides for receipt (auto) expenses ----
+        // Receipt data lives in expenses.csv (repo file) which the browser can't
+        // write. We keep editable overrides in localStorage, keyed by receipt id,
+        // and merge them on top of the CSV values.
+        const OV_KEY = 'cl-expense-overrides';
+        function loadOverrides() {
+            try { return JSON.parse(localStorage.getItem(OV_KEY) || '{}'); } catch (e) { return {}; }
+        }
+        function saveOverride(id, fields) {
+            const o = loadOverrides();
+            o[id] = Object.assign(o[id] || {}, fields);
+            localStorage.setItem(OV_KEY, JSON.stringify(o));
+        }
+        function hideAutoExpense(id) {
+            if (!confirm('Hide this receipt? (You can undo by clearing site data.)')) return;
+            saveOverride(id, { _hidden: true });
+            closeModal('moneyModal');
+            showToast('Receipt hidden', 'success');
+            render();
+        }
+        function editAutoExpense(id) {
+            const x = (csvCache || []).find(r => r.id === id);
+            if (!x) return;
+            const o = loadOverrides()[id] || {};
+            const cur = {
+                date: o.date || x.date || '',
+                vendor: o.vendor || x.vendor || '',
+                amount: o.amount || x.amount || 0,
+                category: o.category || x.category || '',
+                note: o.note || x.note || ''
+            };
+            document.getElementById('moneyModalTitle').textContent = 'Edit receipt';
+            const opts = TAX_CATS.map(c => `<option value="${c.id}" ${cur.category === c.id ? 'selected' : ''}>${c.label}</option>`).join('');
+            document.getElementById('moneyModalBody').innerHTML = `
+                <div class="form-grid">
+                    <div><label>Date</label><input id="autoDate" type="date" value="${cur.date}"></div>
+                    <div><label>Amount</label><input id="autoAmount" inputmode="decimal" placeholder="0.00" value="${cur.amount}"></div>
+                    <div><label>Tax category</label><select id="autoCat">${opts}</select></div>
+                    <div><label>Vendor</label><input id="autoVendor" value="${esc(cur.vendor)}"></div>
+                    <div style="grid-column:1/-1;"><label>Note</label><input id="autoNote" value="${esc(cur.note)}"></div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:14px;">
+                    <button type="button" class="sort-btn" style="flex:1;justify-content:center;" onclick="saveAutoExpense('${esc(id)}')"><i class="fas fa-save mr-1"></i> Save</button>
+                    <button type="button" class="sort-btn" style="background:rgba(239,68,68,0.16);border-color:rgba(239,68,68,0.4);color:#fca5a5;justify-content:center;" onclick="hideAutoExpense('${esc(id)}')"><i class="fas fa-trash mr-1"></i> Delete</button>
+                </div>`;
+        }
+        function saveAutoExpense(id) {
+            const date = document.getElementById('autoDate').value || ymdNow();
+            const amount = parseAmt(document.getElementById('autoAmount').value);
+            const category = document.getElementById('autoCat').value || 'other';
+            const vendor = document.getElementById('autoVendor').value || '';
+            const note = document.getElementById('autoNote').value || '';
+            if (!amount || amount <= 0) { showToast('Enter an amount', 'error'); return; }
+            saveOverride(id, { date, amount, category, vendor, note, _edited: true });
+            closeModal('moneyModal');
+            showToast('Receipt updated', 'success');
+            render();
         }
 
         function manualExpenses() {
@@ -574,8 +637,9 @@
                     </div>
                     <div><label>Category</label><input value="${esc(x.category || '—')}" disabled></div>
                     <div><label>Note</label><input value="${esc(x.note || '—')}" disabled></div>
-                    <p class="money-sub" style="margin:0;">This entry is managed by the receipt pipeline. To adjust it, edit the receipt photo or add a manual expense instead.</p>
-                </div>`;
+                    <p class="money-sub" style="margin:0;">This entry comes from a receipt. You can edit it below (changes are saved on this device).</p>
+                </div>
+                <button type="button" class="sort-btn" style="width:100%;justify-content:center;margin-top:14px;" onclick='editAutoExpense("${esc(x.id)}")'><i class="fas fa-pen mr-1"></i> Edit this receipt</button>`;
             openModal('moneyModal');
         }
 
