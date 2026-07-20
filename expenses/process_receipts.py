@@ -353,10 +353,13 @@ def process_one(key: str, dry_run: bool) -> dict | None:
     # (re-upload, resend, or a second shot of the same receipt) collapse to one.
     digest = hashlib.sha256(data).hexdigest()
 
-    if ollama_available():
-        parsed = ollama_extract(data, note, orig)
-    else:
-        parsed = {}
+    if not ollama_available():
+        # Vision model is down — don't write a garbage row. Signal a
+        # transient error so run() retries this receipt next time.
+        sys.stderr.write(f"[process_one] ollama unavailable for {key}; deferring\n")
+        raise RuntimeError("ollama unavailable")
+
+    parsed = ollama_extract(data, note, orig)
 
     vendor = str(parsed.get("vendor", "") or "").strip() or "Unknown"
     # Parse the raw date string ourselves (US MM-DD-YY) — vision models reliably
@@ -486,7 +489,8 @@ def run(dry_run: bool = False) -> int:
     # so it must not permanently exclude a receipt.
     done = {"ok", "needs_review", "skipped", "duplicate"}
     pending = [o for o in objs if items.get(o["key"], {}).get("status") not in done]
-    # guard: never re-add an r2_key that's already recorded as done
+    # content-hash de-dup: any digest we've already committed should not reappear
+    seen_digests = {v.get("sha256") for v in items.values() if v.get("sha256")}
     recorded_keys = {v["r2_key"] for v in items.values() if v.get("r2_key") and v.get("status") in done}
     pending = [o for o in pending if o["key"] not in recorded_keys]
     if not pending:
@@ -503,6 +507,7 @@ def run(dry_run: bool = False) -> int:
         except Exception:
             pass
 
+    next_n = max_n
     added = 0
     for o in pending:
         try:

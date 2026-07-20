@@ -1,25 +1,6 @@
-{
-  "_v": 1,
-  "items": {
-    "receipts/2026/07/2026-07-20T00-19-53-654Z-68564767.jpg": {
-      "status": "ok",
-      "csv_id": "exp_6",
-      "sha256": "7fd88c1e97e9090351658dac7c27b6ec1022fdf076fb42b56693d7bbd18b5662"
-    },
-    "receipts/2026/07/2026-07-20T01-47-43-767Z-7c8f54cd.jpg": {
-      "status": "ok",
-      "csv_id": "exp_7",
-      "sha256": "2b506a9c6ffa326ca7559f276f278326775d62bce4f8377747b8f67b11dfcbeb"
-    },
-    "receipts/2026/07/2026-07-20T01-48-15-014Z-28e9d594.jpg": {
-      "status": "ok",
-      "csv_id": "exp_8",
-      "sha256": "8b6d7142e85a4643f3b7bdb3bcc1107802017bb947ac43c1081f8133a24c2a1c"
-    },
-    "receipts/2026/07/2026-07-20T01-48-38-703Z-058ee4ce.jpg": {
-      "status": "ok",
-      "csv_id": "exp_9",
-      "sha256": "8a921d9db6c4770fae4f8701772b3c92403c872adf5d032ae97bc70149bd3b38"
-    }
-  }
-}
+{"_v": 1, "items": {
+  "receipts/2026/07/2026-07-20T00-19-53-654Z-68564767.jpg": {"status": "ok", "csv_id": "exp_2", "sha256": "local"},
+  "receipts/2026/07/2026-07-20T01-47-43-767Z-7c8f54cd.jpg": {"status": "ok", "csv_id": "exp_3", "sha256": "local"},
+  "receipts/2026/07/2026-07-20T01-48-15-014Z-28e9d594.jpg": {"status": "ok", "csv_id": "exp_4", "sha256": "local"},
+  "receipts/2026/07/2026-07-20T01-48-38-703Z-058ee4ce.jpg": {"status": "ok", "csv_id": "exp_5", "sha256": "local"}
+}}
