@@ -572,14 +572,15 @@ def selftest() -> int:
         n = run(dry_run=False)
         assert n == 1, f"expected 1 added, got {n}"
         rows = read_csv_rows()
-        assert any(r["vendor"] == "Shell" and r["total"] == "64.20" for r in rows), \
-            "Shell row missing/incorrect in CSV"
+        shell = [r for r in rows if r["vendor"] == "Shell" and r["total"] == "64.20"]
+        assert shell, "Shell row missing/incorrect in CSV"
+        shell_id = shell[0]["id"]
         # corrections path
-        CORRECTIONS_PATH.write_text(json.dumps({"exp_1": {"vendor": "Shell Gas",
+        CORRECTIONS_PATH.write_text(json.dumps({shell_id: {"vendor": "Shell Gas",
                                                           "total": "70.00"}}),
                                     encoding="utf-8")
         rows2 = apply_corrections(rows)
-        fixed = [r for r in rows2 if r["id"] == "exp_1"][0]
+        fixed = [r for r in rows2 if r["id"] == shell_id][0]
         assert fixed["vendor"] == "Shell Gas" and fixed["total"] == "70.00", \
             "corrections not applied"
         assert fixed["status"] == "ok", "status not flipped by correction"
