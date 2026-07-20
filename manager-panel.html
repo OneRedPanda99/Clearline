@@ -88,19 +88,35 @@
                 </p>
             </section>
 
-            <!-- Centralized job assignment. Owner sees every job; Manager
-                 sees only jobs on their team (assignedManager == me OR
-                 createdBy == me). Workers won't reach this page. -->
-            <section id="assignSection" class="mb-5 mt-6">
+            <!-- Dedicated Assign Jobs flow: tap the button -> a focused
+                 screen lists jobs; tap a job -> assign workers. -->
+            <section id="assignEntry" class="mb-5 mt-6">
                 <div class="flex justify-between items-end mb-2">
-                    <h2 class="section-title">Assign Jobs</h2>
-                    <input id="assignSearch" placeholder="Search…" oninput="renderAssignList()"
-                           class="bg-slate-700/60 text-white text-sm rounded-lg px-3 py-1.5 w-40">
+                    <h2 class="section-title">Jobs</h2>
                 </div>
-                <p class="text-xs text-gray-500 mb-2" id="assignCount"></p>
-                <div id="assignList" class="space-y-2"></div>
-                <p id="assignEmpty" class="hidden text-gray-500 text-sm py-4">No jobs available to assign.</p>
+                <button type="button" onclick="openAssignScreen()"
+                        class="btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;">
+                    <i class="fas fa-people-arrows"></i> Assign Jobs
+                </button>
+                <p class="text-xs text-gray-500 mt-2">Open a job to assign it to a worker or manager.</p>
             </section>
+
+            <!-- Assign screen overlay -->
+            <div id="assignScreen" class="modal" hidden role="dialog" aria-modal="true"
+                 style="position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:300;align-items:stretch;justify-content:center;padding:0;">
+                <div class="glass-card" role="document"
+                     style="width:100%;max-width:640px;margin:auto;height:100dvh;max-height:100dvh;border-radius:0;display:flex;flex-direction:column;overflow:hidden;">
+                    <div class="modal-header sticky top-0" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.08);">
+                        <h2 style="font-size:17px;font-weight:800;margin:0;">Assign Jobs</h2>
+                        <button class="modal-close-btn" onclick="closeAssignScreen()" aria-label="Close">&times;</button>
+                    </div>
+                    <div style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                        <input id="assignSearch" placeholder="Search customer, address, service…" oninput="renderAssignScreen()"
+                               class="w-full bg-slate-700/60 text-white text-sm rounded-lg px-3 py-2">
+                    </div>
+                    <div id="assignScreenList" style="flex:1;overflow-y:auto;padding:10px 12px;"></div>
+                </div>
+            </div>
 
             <!-- Owner-only audit trail: "who did what, when". -->
             <section id="activityLogSection" class="hidden mb-5 mt-6">
@@ -829,31 +845,16 @@
             // Hide completed jobs. they don't need reassignment.
             assignableJobs = docs.filter(j => j.status !== 'completed')
                 .sort((a, b) => (b.jobDate || '').localeCompare(a.jobDate || ''));
-            renderAssignList();
+            // Screen renders on open (openAssignScreen), not inline anymore.
         }
 
-        function renderAssignList() {
-            const search = (document.getElementById('assignSearch').value || '').toLowerCase().trim();
-            const container = document.getElementById('assignList');
-            const empty = document.getElementById('assignEmpty');
-            const count = document.getElementById('assignCount');
+        function openAssignScreen() { document.getElementById('assignScreen').hidden = false; renderAssignScreen(); }
+        function closeAssignScreen() { document.getElementById('assignScreen').hidden = true; }
 
-            const filtered = assignableJobs.filter(j => {
-                if (!search) return true;
-                return (j.customerName || '').toLowerCase().includes(search)
-                    || (j.address || '').toLowerCase().includes(search)
-                    || (j.serviceType || '').toLowerCase().includes(search);
-            });
-            count.textContent = filtered.length + ' job(s)';
+        // which job's picker is open
+        let assignOpenJob = null;
 
-            if (!filtered.length) {
-                container.innerHTML = '';
-                empty.classList.remove('hidden');
-                return;
-            }
-            empty.classList.add('hidden');
-
-            // Owner can assign to any worker; Manager only to their own.
+        function assignTargets() {
             const myUid = CL_FIREBASE.getCurrentUser().uid;
             const targetWorkers = myProfile.role === 'owner'
                 ? workers.filter(w => w.active !== false)
@@ -861,87 +862,104 @@
             const targetManagers = myProfile.role === 'owner'
                 ? managers.filter(m => m.active !== false)
                 : [];
-            const targets = [...targetManagers, ...targetWorkers];
+            return { targetWorkers, targetManagers };
+        }
 
-            if (!targets.length) {
-                container.innerHTML = '<p class="text-gray-500 text-sm">No active staff available to assign.</p>';
+        function renderAssignScreen() {
+            const search = (document.getElementById('assignSearch').value || '').toLowerCase().trim();
+            const filtered = assignableJobs.filter(j => {
+                if (!search) return true;
+                return (j.customerName || '').toLowerCase().includes(search)
+                    || (j.address || '').toLowerCase().includes(search)
+                    || (j.serviceType || '').toLowerCase().includes(search);
+            });
+            const list = document.getElementById('assignScreenList');
+            if (!filtered.length) {
+                list.innerHTML = '<p class="text-gray-500 text-sm text-center py-6">No jobs available to assign.</p>';
                 return;
             }
+            const { targetWorkers, targetManagers } = assignTargets();
+            const mgrOpts = ['<option value="">Unassigned</option>']
+                .concat(targetManagers.map(m =>
+                    `<option value="${m.uid}">${escapeHtml(m.displayName || m.username || m.uid)}</option>`)).join('');
 
-            container.innerHTML = filtered.map(j => {
-                const mgrOpts = ['<option value="">Unassigned</option>']
-                    .concat(targetManagers.map(m =>
-                        `<option value="${m.uid}" ${m.uid === j.assignedManager ? 'selected' : ''}>${escapeHtml(m.displayName || m.username || m.uid)}</option>`
-                    )).join('');
-                // assignedWorkers is a crew list now; assignedTo is a fallback for jobs assigned before that change.
+            list.innerHTML = filtered.map(j => {
+                const open = assignOpenJob === j.id;
                 const assignedWorkerIds = Array.isArray(j.assignedWorkers) && j.assignedWorkers.length
-                    ? j.assignedWorkers
-                    : (j.assignedTo ? [j.assignedTo] : []);
-                const workerChecks = targetWorkers.length
-                    ? targetWorkers.map(w => `
-                        <label style="display:flex;align-items:center;gap:6px;padding:4px 2px;font-size:12px;">
-                            <input type="checkbox" data-assign-worker="${w.uid}" ${assignedWorkerIds.includes(w.uid) ? 'checked' : ''} style="width:15px;height:15px;accent-color:#0ea5e9;">
-                            <span>${escapeHtml(w.displayName || w.username || w.uid)}</span>
-                        </label>
-                    `).join('')
-                    : '<p class="text-gray-500 text-xs">No workers available.</p>';
+                    ? j.assignedWorkers : (j.assignedTo ? [j.assignedTo] : []);
                 const dateLabel = j.jobDate
                     ? new Date(j.jobDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                     : 'No date';
-                return `
-                    <div class="glass-card rounded-xl p-3" data-job-id="${j.id}">
-                        <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0 flex-1">
-                                <p class="font-semibold truncate">${j.customerName || 'Job'}</p>
-                                <p class="text-[11px] text-gray-500">${dateLabel} • ${j.serviceType || 'Service'}${j.address ? ' • ' + j.address : ''}</p>
-                            </div>
-                            <span class="status-badge status-${j.status || 'new'}">${j.status || 'new'}</span>
-                        </div>
+                const assignedNames = assignedWorkerIds
+                    .map(id => (workers.find(w => w.uid === id) || {}).displayName || (workers.find(w => w.uid === id) || {}).username || id)
+                    .filter(Boolean);
+                const crewLine = assignedNames.length
+                    ? `<span class="text-[11px] text-emerald-300">→ ${escapeHtml(assignedNames.join(', '))}</span>`
+                    : '<span class="text-[11px] text-gray-500">Unassigned</span>';
+
+                const picker = open ? `
+                    <div class="mt-3 pt-3" style="border-top:1px solid rgba(255,255,255,0.08);">
                         ${targetManagers.length ? `
-                            <label class="text-[11px] text-gray-500 block mt-2 mb-1">Manager</label>
-                            <select class="assign-manager-select w-full bg-slate-700/60 text-white text-sm rounded-lg px-2 py-1.5" data-job-id="${j.id}">
-                                ${mgrOpts}
+                            <label class="text-[11px] text-gray-400 block mb-1">Manager</label>
+                            <select class="assign-manager-select w-full bg-slate-700/60 text-white text-sm rounded-lg px-2 py-1.5 mb-3" data-job-id="${j.id}">
+                                ${mgrOpts.replace(`value="${j.assignedManager || ''}"`, `value="${j.assignedManager || ''}" selected`)}
                             </select>
                         ` : ''}
-                        <label class="text-[11px] text-gray-500 block mt-2 mb-1">Workers (crew)</label>
-                        <div class="assign-worker-checks" data-job-id="${j.id}" style="max-height:120px;overflow-y:auto;background:rgba(15,23,42,0.4);border-radius:8px;padding:4px 8px;">
-                            ${workerChecks}
-                        </div>
-                        <button class="btn-primary btn-sm mt-2" style="width:auto"
-                                onclick="saveAssignment('${j.id}', this)">
-                            Save
-                        </button>
+                        <label class="text-[11px] text-gray-400 block mb-1">Workers (crew)</label>
+                        ${targetWorkers.length ? `
+                            <div class="assign-worker-checks" data-job-id="${j.id}" style="max-height:160px;overflow-y:auto;background:rgba(15,23,42,0.5);border-radius:8px;padding:6px 10px;">
+                                ${targetWorkers.map(w => `
+                                    <label style="display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:13px;">
+                                        <input type="checkbox" data-assign-worker="${w.uid}" ${assignedWorkerIds.includes(w.uid) ? 'checked' : ''} style="width:16px;height:16px;accent-color:#0ea5e9;">
+                                        <span>${escapeHtml(w.displayName || w.username || w.uid)}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        ` : '<p class="text-gray-500 text-xs">No workers available.</p>'}
+                        <button class="btn-primary btn-sm mt-3" style="width:auto;" onclick="saveAssignJob('${j.id}', this)">Save assignment</button>
                     </div>
-                `;
+                ` : '';
+
+                return `
+                    <div class="glass-card rounded-xl p-3 mb-2">
+                        <button type="button" onclick="toggleAssignJob('${j.id}')" class="w-full text-left" style="background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                            <div class="min-w-0">
+                                <p class="font-semibold truncate" style="margin:0;">${escapeHtml(j.customerName || 'Job')}</p>
+                                <p class="text-[11px] text-gray-500">${dateLabel} • ${escapeHtml(j.serviceType || 'Service')}${j.address ? ' • ' + escapeHtml(j.address) : ''}</p>
+                                <p style="margin:2px 0 0;">${crewLine}</p>
+                            </div>
+                            <i class="fas ${open ? 'fa-chevron-up' : 'fa-chevron-down'} text-gray-400" style="flex-shrink:0;"></i>
+                        </button>
+                        ${picker}
+                    </div>`;
             }).join('');
         }
 
-        async function saveAssignment(jobId, btn) {
+        function toggleAssignJob(id) {
+            assignOpenJob = (assignOpenJob === id) ? null : id;
+            renderAssignScreen();
+        }
+
+        async function saveAssignJob(jobId, btn) {
             const db = CL_FIREBASE.getFirestore();
             const workerBox = document.querySelector(`.assign-worker-checks[data-job-id="${jobId}"]`);
             if (!workerBox) return;
             const assignedWorkers = [...workerBox.querySelectorAll('[data-assign-worker]:checked')]
                 .map(cb => cb.getAttribute('data-assign-worker'));
-
-            // The manager dropdown only renders for the Owner (Managers can
-            // only assign within their own team, so they can't reassign
-            // that team-level relationship). A Manager assigning workers
-            // stays the manager of record automatically, same as before.
             const mgrSelect = document.querySelector(`select.assign-manager-select[data-job-id="${jobId}"]`);
             const assignedManager = mgrSelect
                 ? (mgrSelect.value || null)
                 : (myProfile.role === 'manager' ? CL_FIREBASE.getCurrentUser().uid : null);
 
-            const origLabel = btn.textContent;
+            const orig = btn.textContent;
             btn.disabled = true; btn.textContent = 'Saving…';
             try {
                 await db.collection('jobs').doc(jobId).set({
                     assignedWorkers,
                     assignedManager,
-                    assignedTo: null, // superseded by assignedWorkers
+                    assignedTo: null,
                     lastUpdated: new Date().toISOString()
                 }, { merge: true });
-                // Keep local state in sync
                 const j = assignableJobs.find(x => x.id === jobId);
                 if (j) { j.assignedWorkers = assignedWorkers; j.assignedManager = assignedManager; j.assignedTo = null; }
                 CL_FIREBASE.logActivity('job.updated', {
@@ -949,11 +967,10 @@
                     message: `crew set to ${assignedWorkers.length} worker(s)`
                 });
                 btn.textContent = 'Saved ✓';
-                setTimeout(() => { btn.textContent = origLabel; btn.disabled = false; }, 1200);
+                setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1200);
             } catch (err) {
                 console.error(err);
-                btn.textContent = origLabel;
-                btn.disabled = false;
+                btn.textContent = orig; btn.disabled = false;
                 showToast('Assign failed: ' + (err.code || err.message), 'error');
             }
         }
