@@ -98,6 +98,9 @@ def load_corrections() -> dict:
             pass
     return {}
 
+def save_corrections(data: dict) -> None:
+    CORRECTIONS_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
 # ----------------------------------------------------------- R2 helpers ----
 def _sigv4(method: str, canonical_uri: str, query: str = "", body: bytes = b"") -> dict:
     import hashlib
@@ -651,6 +654,7 @@ def corrections_watchdog() -> dict:
     """
     Apply user corrections and permanently rewrite expenses.csv.
     Edits from the UI sync into corrections.json on this PC.
+    A correction of {"__delete": true} removes that row entirely.
     """
     corrections = load_corrections()
     if not corrections:
@@ -658,24 +662,53 @@ def corrections_watchdog() -> dict:
     rows = read_csv_rows()
     by_id = {r.get("id"): r for r in rows}
     changes = 0
-    for rid, fields in corrections.items():
-        target = by_id.get(rid)
-        if not target:
-            continue
-        dirty = False
-        for k, v in fields.items():
-            if k in CSV_COLUMNS and k != "id":
-                if target.get(k) != v:
-                    target[k] = v
-                    dirty = True
-        if dirty:
-            target["updated_at"] = datetime.now(timezone.utc).isoformat()
-            if target.get("status") == "needs_review":
-                target["status"] = "ok"
+    deleted = 0
+    keep = []
+    for r in rows:
+        rid = r.get("id")
+        fields = corrections.get(rid)
+        if fields and fields.get("__delete"):
+            deleted += 1
             changes += 1
+            # also mark the processed entry so it isn't re-added
+            mark_processed_deleted(rid)
+            continue
+        if fields:
+            dirty = False
+            for k, v in fields.items():
+                if k in CSV_COLUMNS and k != "id" and k != "__delete":
+                    if r.get(k) != v:
+                        r[k] = v
+                        dirty = True
+            if dirty:
+                r["updated_at"] = datetime.now(timezone.utc).isoformat()
+                if r.get("status") == "needs_review":
+                    r["status"] = "ok"
+                changes += 1
+        keep.append(r)
     if changes:
-        write_csv_rows(rows)
-    return {"changed": bool(changes), "applied": changes}
+        write_csv_rows(keep)
+        # clear applied corrections so they aren't re-applied
+        remaining = {rid: f for rid, f in corrections.items()
+                     if not (by_id.get(rid) is None and f.get("__delete"))}
+        # drop delete instructions that have been honored
+        applied_delete = {rid for rid, f in corrections.items() if f.get("__delete")}
+        save_corrections({rid: f for rid, f in remaining.items() if rid not in applied_delete})
+    return {"changed": bool(changes), "applied": changes, "deleted": deleted}
+
+
+def mark_processed_deleted(csv_id: str) -> None:
+    """Mark any processed items pointing at this csv_id as deleted so the
+    deleted receipt is never re-ingested from R2."""
+    state = load_processed()
+    items = state.get("items", {})
+    changed = False
+    for key, v in items.items():
+        if v.get("csv_id") == csv_id and v.get("status") != "deleted":
+            v["status"] = "deleted"
+            changed = True
+    if changed:
+        save_processed(state)
 
 # ------------------------------------------------------------- main run -----
 def run(dry_run: bool = False) -> int:

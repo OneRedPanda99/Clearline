@@ -56,6 +56,9 @@
         .pill.review { background: color-mix(in srgb, var(--md-sys-color-tertiary) 18%, transparent); color: var(--md-sys-color-tertiary); }
         .pill.note { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); color: var(--md-sys-color-on-surface-variant); }
 
+        .btn-danger-sm { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: var(--md-radius-full); border: 1px solid color-mix(in srgb, var(--md-sys-color-error) 45%, transparent); background: transparent; color: var(--md-sys-color-error); cursor: pointer; transition: background-color var(--md-duration-short) var(--md-easing-standard); white-space: nowrap; }
+        .btn-danger-sm:active { transform: scale(0.94); background: color-mix(in srgb, var(--md-sys-color-error) 14%, transparent); }
+
         .sort-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--md-sys-color-on-surface-variant); background: transparent; border: none; cursor: pointer; padding: 4px 2px; transition: color var(--md-duration-short) var(--md-easing-standard); }
         .sort-btn.active { color: var(--md-sys-color-primary); font-weight: 600; }
         .range-seg { display: flex; gap: 6px; }
@@ -478,6 +481,26 @@
             }
         }
 
+        function deleteExpense(id) {
+            const e = reviewExpenses.find(x => x.id === id);
+            const label = e ? (e.vendor || 'this expense') : 'this expense';
+            if (!confirm('Delete ' + label + '? This removes it from your expenses. (You can undo by re-running the pipeline until it is pushed.)')) return;
+            try {
+                let corrections = {};
+                try { corrections = JSON.parse(localStorage.getItem('cl-expenses-corrections') || '{}'); } catch (e2) {}
+                corrections[id] = Object.assign({}, corrections[id] || {}, { __delete: true });
+                localStorage.setItem('cl-expenses-corrections', JSON.stringify(corrections));
+                reviewExpenses = reviewExpenses.filter(x => x.id !== id);
+                allExpenses = allExpenses.filter(x => x.id !== id);
+                showToast('Marked for deletion — will sync on next pipeline run', 'success');
+                renderAll(); updateQuickStats();
+                if (currentView === 'review') loadReview();
+                if (selectedId === id) closeModal('detailSheet');
+            } catch (e3) {
+                showToast('Delete failed. Try again.', 'error');
+            }
+        }
+
         // Edits are written to a corrections file that the local pipeline applies
         // on its next run (the CSV is the pipeline's source of truth, committed
         // from this PC — the browser can't write to the repo directly).
@@ -631,18 +654,31 @@
 
         function reviewRowHtml(e) {
             const vendor = e.vendor || 'Unknown vendor';
+            const isDup = (e.note || '').includes('Possible duplicate of');
+            const dupPill = isDup
+                ? `<span class="pill note"><i class="fas fa-clone mr-1"></i>Duplicate review</span>`
+                : '<span class="pill review">Review</span>';
             const catPill = e.category ? `<span class="pill cat">${esc(catLabel(e.category))}</span>` : '';
+            const thumb = e.photo_url
+                ? `<img src="${esc(e.photo_url)}" alt="" loading="lazy" style="width:54px;height:54px;border-radius:12px;object-fit:cover;flex-shrink:0;cursor:zoom-in;" onclick="event.stopPropagation();openLightbox(${JSON.stringify(e.photo_url)})" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span class="ex-dot" style="display:none;"></span>`
+                : '<span class="ex-dot ex-dot--review"></span>';
+            const matchedNote = (e.note || '').replace(/\[Possible duplicate of (exp_\d+)\]/i, '').trim();
             return `
                 <div class="ex-row" onclick="openDetail(${JSON.stringify(e.id)})">
-                    <span class="ex-dot ex-dot--review"></span>
-                    <div style="min-width:0;">
+                    ${thumb}
+                    <div style="min-width:0;flex:1;">
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                             <p class="ex-vendor">${esc(vendor)}</p>
-                            ${catPill}
+                            ${catPill}${dupPill}
                         </div>
-                        <p class="ex-sub">${esc(fmtDateShort(e.purchase_date))} · ${esc(String(e.status || 'needs review'))}</p>
+                        <p class="ex-sub">${esc(fmtDateShort(e.purchase_date))}${matchedNote ? ' · ' + esc(matchedNote) : ''}</p>
                     </div>
-                    <div class="ex-amt">${fmtMoney(e.total)}</div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+                        <div class="ex-amt">${fmtMoney(e.total)}</div>
+                        <button class="btn-danger-sm" type="button" onclick="event.stopPropagation();deleteExpense(${JSON.stringify(e.id)})">
+                            <i class="fas fa-trash mr-1"></i>Delete
+                        </button>
+                    </div>
                 </div>`;
         }
 
