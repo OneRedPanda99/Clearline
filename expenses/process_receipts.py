@@ -6,18 +6,10 @@ Flow:
   Cloudflare R2 (photo + note metadata)  ──▶  this PC downloads new images
       ──▶ local vision model (Ollama llama3.2-vision) reads each receipt
       ──▶ structured fields appended to expenses/expenses.csv
-      ──▶ git add + commit + push  (so Clearline's expenses.html can read it)
+      ──▶ git add + commit + push  (so expenses.html can read it)
 
-The UI (expenses.html) fetches the committed CSV from GitHub raw — no server
-needed. This script is the only "backend"; it runs on this PC on a schedule
-(recommended: Windows Task Scheduler every 15 min, or manually).
-
-Config: expenses/.env  (gitignored). See expenses/.env.example.
-
-Usage:
-  python process_receipts.py            # normal run (pull, OCR, commit)
-  python process_receipts.py --dry-run  # don't write CSV / don't push
-  python process_receipts.py --selftest # offline test w/ mock R2 + mock Ollama
+Local pipeline is the source of truth. The browser cannot write back to the
+repo directly, so this script applies corrections permanently on each run.
 """
 from __future__ import annotations
 
@@ -25,12 +17,11 @@ import argparse
 import base64
 import csv
 import hashlib
-import io
 import json
 import os
+import re
 import subprocess
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -44,8 +35,6 @@ PROCESSED_PATH = HERE / "processed.json"     # {r2_key: {status, csv_row_id, not
 CORRECTIONS_PATH = HERE / "corrections.json" # user edits: {row_id: {field: value}}
 STATE_VERSION = 1
 
-# Set True during --selftest so the pipeline never writes the real CSV or
-# touches git. The selftest runs against temp backups instead.
 SELFTEST = False
 
 # ---------------------------------------------------------------- config ----
@@ -69,13 +58,12 @@ R2_ENDPOINT = ENV.get("R2_ENDPOINT",
                       f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com")
 R2_ACCESS_KEY = ENV.get("R2_ACCESS_KEY_ID", "")
 R2_SECRET = ENV.get("R2_SECRET_ACCESS_KEY", "")
-R2_PREFIX = ENV.get("R2_PREFIX", "receipts/")  # where the Worker stores photos
+R2_PREFIX = ENV.get("R2_PREFIX", "receipts/")
 
 OLLAMA_URL = ENV.get("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = ENV.get("OLLAMA_MODEL", "llama3.2-vision")
 OLLAMA_TIMEOUT = int(ENV.get("OLLAMA_TIMEOUT", "120"))
 
-# GitHub raw URL the UI fetches. Override in .env if the repo/path differs.
 DEFAULT_CSV_URL = ("https://raw.githubusercontent.com/OneRedPanda99/Clearline/"
                    "main/expenses/expenses.csv")
 CSV_URL = ENV.get("EXPENSES_CSV_URL", DEFAULT_CSV_URL)
@@ -85,7 +73,7 @@ CSV_COLUMNS = [
     "note", "category", "status", "r2_key", "photo", "created_at", "updated_at",
 ]
 
-# ----------------------------------------------------------------- state ----
+# ------------------------------------------------------------- state -------
 def load_processed() -> dict:
     if PROCESSED_PATH.exists():
         try:
@@ -110,9 +98,6 @@ def load_corrections() -> dict:
 
 # ----------------------------------------------------------- R2 helpers ----
 def _sigv4(method: str, canonical_uri: str, query: str = "", body: bytes = b"") -> dict:
-    """Minimal AWS SigV4 for R2 (S3-compatible), path-style. No boto dependency.
-    canonical_uri must be the full path incl. bucket, e.g. '/receipts/2026/07/a.jpg'
-    and already percent-encoded. query is the canonical (sorted, encoded) query string."""
     import hashlib
     import hmac
 
@@ -154,21 +139,18 @@ def _sigv4(method: str, canonical_uri: str, query: str = "", body: bytes = b"") 
     }
 
 def _encode_uri_path(path: str) -> str:
-    """Percent-encode each path segment, keeping '/' separators."""
     import urllib.parse
     return "/".join(urllib.parse.quote(seg, safe="~") for seg in path.split("/"))
 
 def r2_list_objects(prefix: str = R2_PREFIX) -> list[dict]:
-    """List objects under prefix (path-style: /<bucket>?list-type=2&prefix=...)."""
     out = []
     token = ""
     while True:
-        # canonical query MUST be sorted by key and percent-encoded
         params = {"list-type": "2", "prefix": prefix}
         if token:
             params["continuation-token"] = token
         query = "&".join(f"{requests_path_quote(k)}={requests_path_quote(v)}"
-                          for k, v in sorted(params.items()))
+                         for k, v in sorted(params.items()))
         canonical_uri = "/" + R2_BUCKET
         headers = _sigv4("GET", canonical_uri, query)
         import urllib.request
@@ -237,16 +219,13 @@ def ollama_extract(image_bytes: bytes, note: str, filename: str = "") -> dict:
         "  total: number\n"
         "  category: string (one of: Supplies, Chemicals, Fuel, Equipment, Vehicle, "
         "Advertising, Software, Meals, Utilities, Rent, Insurance, Labor, Other)\n"
-        "If a field is unreadable, use empty string or 0. Estimate tax = total - subtotal "
-        "if not shown. Be precise with numbers.\n"
+        "If a field is unreadable, use empty string or 0. Be precise with numbers.\n"
         + (f"User note about this receipt: {note}\n" if note else "")
     )
     payload = {
         "model": OLLAMA_MODEL,
         "format": "json",
         "stream": False,
-        # Vision receipts + the parser prompt run ~4-6k tokens; the default 4096
-        # context truncates and 400s ("exceeds available context size"). Give it room.
         "options": {"num_ctx": 8192, "temperature": 0},
         "messages": [
             {"role": "user", "content": prompt,
@@ -273,7 +252,6 @@ def parse_model_json(text: str) -> dict:
     try:
         return json.loads(text)
     except Exception:
-        # try to find first { ... last }
         s, e = text.find("{"), text.rfind("}")
         if s != -1 and e != -1:
             try:
@@ -290,7 +268,6 @@ def read_csv_rows() -> list[dict]:
         return list(csv.DictReader(f))
 
 def write_csv_rows(rows: list[dict]) -> None:
-    # ensure header order
     for row in rows:
         for col in CSV_COLUMNS:
             row.setdefault(col, "")
@@ -314,11 +291,10 @@ def git_push(commit_msg: str) -> bool:
     try:
         subprocess.run(["git", "-C", str(REPO_ROOT), "add", "expenses/"],
                        check=True, capture_output=True)
-        # only commit if there are staged changes
         diff = subprocess.run(["git", "-C", str(REPO_ROOT), "diff", "--cached", "--quiet"],
                               capture_output=True)
         if diff.returncode == 0:
-            return False  # nothing to commit
+            return False
         subprocess.run(["git", "-C", str(REPO_ROOT), "commit", "-m", commit_msg],
                        check=True, capture_output=True)
         subprocess.run(["git", "-C", str(REPO_ROOT), "push"],
@@ -328,50 +304,188 @@ def git_push(commit_msg: str) -> bool:
         sys.stderr.write(f"[git] push failed: {e}\n")
         return False
 
+# --------------------------------------------------- duplicate helpers -----
+def _safe_float(v):
+    try:
+        return round(float(v or 0), 2)
+    except Exception:
+        return None
+
+def _meta_dt_to_iso(raw: str | None) -> str | None:
+    value = (raw or "").strip()
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).isoformat()
+    except Exception:
+        return None
+
+def _to_timestamp(value: str) -> float:
+    try:
+        dt = datetime.fromisoformat(str(value or "").replace("Z", "+00:00"))
+        return dt.timestamp()
+    except Exception:
+        return 0.0
+
+def _vendor_key(vendor: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", (vendor or "").lower())
+
+def _row_sig(row: dict) -> dict:
+    return {
+        "vendor": str(row.get("vendor") or "").strip(),
+        "vendor_key": _vendor_key(row.get("vendor")),
+        "total": _safe_float(row.get("total")),
+        "purchase_date": str(row.get("purchase_date") or "").strip()[:10],
+        "meta_created_at": _meta_dt_to_iso(row.get("created_at") or row.get("uploaded_at") or ""),
+        "exif_dt": str(row.get("_exif_dt") or "").strip() or None,
+    }
+
+def _is_exact_vendor_match(a: str, b: str) -> bool:
+    va, vb = _vendor_key(a), _vendor_key(b)
+    if not va or not vb:
+        return False
+    return va == vb or va in vb or vb in va
+
+def _near_money(a, b, tol: float = 0.02) -> bool:
+    if a is None or b is None:
+        return False
+    return abs(float(a) - float(b)) <= tol
+
+def _within_seconds(a, b, window: int) -> bool:
+    if not a or not b:
+        return False
+    try:
+        return abs(_to_timestamp(a) - _to_timestamp(b)) <= window
+    except Exception:
+        return False
+
+def _as_items(value):
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return []
+        try:
+            parsed = json.loads(text)
+            return parsed if isinstance(parsed, list) else []
+        except Exception:
+            return []
+    return []
+
+def _receipt_numbers(items) -> tuple[set[str], set[str]]:
+    texts = []
+    for item in _as_items(items):
+        if isinstance(item, dict):
+            texts.append(" ".join(str(item.get(f) or "") for f in ("name", "price", "sku") if item.get(f) is not None))
+        elif isinstance(item, str):
+            texts.append(item)
+    text = "\n".join(texts).upper()
+    txn = set(re.findall(r"\b[0-9A-Z]{5,12}\b", text))
+    prices = set(re.findall(r"\b\d+\.\d{2}\b", text))
+    return txn, prices
+
+def _decision(new_row: dict, candidates: list[dict]) -> tuple[bool, str | None]:
+    """
+    Strong signal: same purchase date, same vendor, same total -> duplicate.
+    Soft signal: same vendor/total within small metadata or EXIF time window.
+    Tie-breaker: shared transaction/price tokens across parsed items.
+    If we cannot safely say same vs different -> flag for human review.
+    """
+    if not candidates:
+        return False, None
+
+    left = _row_sig(new_row)
+    strong = []
+    soft = []
+
+    for cand in candidates:
+        right = _row_sig(cand)
+        strong_match = (
+            _near_money(left["total"], right["total"]) and
+            bool(left["purchase_date"]) and
+            left["purchase_date"] == right["purchase_date"] and
+            _is_exact_vendor_match(left["vendor"], right["vendor"])
+        )
+        if strong_match:
+            strong.append(cand)
+            continue
+
+        soft_match = (
+            left["vendor"] and right["vendor"] and
+            _near_money(left["total"], right["total"]) and
+            (_within_seconds(left["meta_created_at"], right["meta_created_at"], 180) or
+             _within_seconds(left["exif_dt"], right["exif_dt"], 600))
+        )
+        if soft_match:
+            soft.append(cand)
+
+    if len(strong) == 1:
+        return True, strong[0].get("id")
+
+    exact = [c for c in candidates if _safe_float(c.get("total")) == left["total"]
+             and left["purchase_date"] == str(c.get("purchase_date") or "").strip()[:10]]
+    if exact:
+        return True, exact[0].get("id")
+
+    if len(strong) > 1:
+        return True, strong[0].get("id")
+
+    if len(soft) == 1:
+        lt, lp = _receipt_numbers(new_row.get("items") or [])
+        rt, rp = _receipt_numbers(soft[0].get("items") or [])
+        if lt and rt and (lt & rt):
+            return True, soft[0].get("id")
+        if len(lp & rp) >= 2:
+            return True, soft[0].get("id")
+        return False, soft[0].get("id")
+
+    if soft:
+        lt, lp = _receipt_numbers(new_row.get("items") or [])
+        rt, rp = _receipt_numbers(soft[0].get("items") or [])
+        if lt and rt and (lt & rt):
+            return True, soft[0].get("id")
+        if len(lp & rp) >= 2:
+            return True, soft[0].get("id")
+        if lt and rt and not (lt & rt) and not _near_money(left["total"], _row_sig(soft[0]).get("total")):
+            return False, None
+        return False, soft[0].get("id")
+
+    return False, None
+
 # ----------------------------------------------------------- pipeline -------
 def process_one(key: str, dry_run: bool) -> dict | None:
     """Download + OCR one R2 object. Returns a CSV row dict, or None to skip."""
     data, meta = r2_get_object(key)
-    # R2 custom metadata is lowercased in headers
     note = (meta.get("X-Amz-Meta-Note") or meta.get("x-amz-meta-note") or "").strip()
     orig = (meta.get("X-Amz-Meta-Originalfilename") or
             meta.get("x-amz-meta-originalfilename") or "")
     uploaded_at = (meta.get("X-Amz-Meta-Uploadedat") or
                    meta.get("x-amz-meta-uploadedat") or
                    datetime.now(timezone.utc).isoformat())
+    created_at_meta = _meta_dt_to_iso(uploaded_at)
 
-    # save local copy (gitignored under images/)
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     ext = Path(key).suffix or ".jpg"
     local_path = IMAGES_DIR / (Path(key).name)
     if not dry_run:
         local_path.write_bytes(data)
-    # compact preview for the UI (committed; ~80KB each)
     thumb_rel = None
     if not dry_run:
         thumb_rel = make_thumb(local_path, key)
 
-    # content hash — the real de-dup key. Two R2 objects with identical bytes
-    # (re-upload, resend, or a second shot of the same receipt) collapse to one.
     digest = hashlib.sha256(data).hexdigest()
-    # EXIF capture time + GPS — secondary de-dup signal for re-photographed
-    # uploads of the same receipt (different bytes, same moment/place).
     exif_dt, exif_gps = extract_exif(local_path)
 
     if not ollama_available():
-        # Vision model is down — don't write a garbage row. Signal a
-        # transient error so run() retries this receipt next time.
         sys.stderr.write(f"[process_one] ollama unavailable for {key}; deferring\n")
         raise RuntimeError("ollama unavailable")
 
     parsed = ollama_extract(data, note, orig)
 
     vendor = str(parsed.get("vendor", "") or "").strip() or "Unknown"
-    # Parse the raw date string ourselves (US MM-DD-YY) — vision models reliably
-    # read the digits but unreliably reorder month/day, so we never let them format it.
     purchase_date = parse_us_date(parsed.get("date_raw") or parsed.get("purchase_date") or "")
     items = parsed.get("items", []) or []
-    # normalize items to {name, price}
     norm_items = []
     for it in items:
         if isinstance(it, dict):
@@ -392,11 +506,10 @@ def process_one(key: str, dry_run: bool) -> dict | None:
     needs_review = (not parsed) or vendor == "Unknown" or not total or not purchase_date
     status = "needs_review" if needs_review else "ok"
 
-    rows = read_csv_rows()
     row = {
-        "id": "",   # assigned by run() with a unique, incrementing id
+        "id": "",
         "vendor": vendor,
-        "purchase_date": purchase_date,  # leave empty if unreadable -> needs_review (never default to today)
+        "purchase_date": purchase_date,
         "items": json.dumps(norm_items, ensure_ascii=False),
         "subtotal": f"{subtotal:.2f}" if subtotal else "",
         "tax": f"{tax:.2f}" if tax else "",
@@ -406,9 +519,10 @@ def process_one(key: str, dry_run: bool) -> dict | None:
         "status": status,
         "r2_key": key,
         "photo": thumb_rel or f"expenses/images/{local_path.name}",
-        "_sha256": digest,   # internal: content de-dup (stripped before CSV write)
-        "_exif_dt": exif_dt,  # internal: capture-time de-dup (stripped before CSV write)
-        "_exif_gps": exif_gps,  # internal: location de-dup (stripped before CSV write)
+        "_sha256": digest,
+        "_exif_dt": exif_dt,
+        "_exif_gps": exif_gps,
+        "_created_at_meta": created_at_meta,
         "created_at": uploaded_at,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -425,26 +539,21 @@ def to_float(v) -> float:
         return 0.0
 
 def parse_us_date(raw: str) -> str:
-    """Parse a receipt date string (US MM-DD-YY / MM/DD/YYYY) to ISO YYYY-MM-DD.
-    Vision models read the digits reliably but reorder month/day, so we do the
-    ordering deterministically here. Returns '' if unparseable."""
+    """Parse a receipt date string (US MM-DD-YY / MM/DD/YYYY) to ISO YYYY-MM-DD."""
     import re
     s = str(raw or "").strip()
     if not s:
         return ""
-    # already ISO? (YYYY-MM-DD) — trust it
     m = re.search(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b", s)
     if m:
         y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
     else:
-        # US M-D-Y with - or / separators, 2- or 4-digit year
         m = re.search(r"\b(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})\b", s)
         if not m:
             return ""
         mo, d, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
         if y < 100:
             y += 2000
-    # sanity: if month>12 but day<=12, they're swapped
     if mo > 12 and d <= 12:
         mo, d = d, mo
     if not (1 <= mo <= 12 and 1 <= d <= 31):
@@ -452,9 +561,7 @@ def parse_us_date(raw: str) -> str:
     return f"{y:04d}-{mo:02d}-{d:02d}"
 
 def make_thumb(src: Path, r2_key: str) -> str | None:
-    """Write a small compressed JPEG preview (committed to thumbs/) and return
-    its repo-relative path, or None if Pillow isn't available. Keeps the
-    expenses.html 'photo' column showing an actual receipt image cheaply."""
+    """Write a small compressed JPEG preview and return repo-relative path."""
     try:
         from PIL import Image
     except Exception:
@@ -471,8 +578,7 @@ def make_thumb(src: Path, r2_key: str) -> str | None:
                 pass
             if im.mode in ("RGBA", "P", "LA"):
                 im = im.convert("RGB")
-            # Rotate 90 degrees clockwise so receipts read upright.
-            im = im.rotate(-90, expand=True)
+            im.rotate(-90, expand=True)
             im.thumbnail((900, 1200))
             im.save(out, "JPEG", quality=72, optimize=True, progressive=True)
         return f"expenses/thumbs/{name}"
@@ -480,21 +586,20 @@ def make_thumb(src: Path, r2_key: str) -> str | None:
         return None
 
 def extract_exif(path: Path) -> tuple[str | None, str | None]:
-    """Pull capture timestamp + coarse GPS from a photo's EXIF.
-    Used to de-dupe re-uploads of the same receipt: the photo is taken once,
-    so two uploads of it share an identical capture time (and usually place)."""
+    """Pull capture timestamp + coarse GPS from a photo's EXIF."""
     try:
         from PIL import Image
         from PIL.ExifTags import TAGS, GPSTAGS
         with Image.open(path) as im:
             exif = im.getexif()
-            dt = exif.get(36867) or exif.get(306)  # DateTimeOriginal / DateTime
+            dt = exif.get(36867) or exif.get(306)
             dt = str(dt).strip() if dt else None
             gps = None
             try:
                 gps_ifd = exif.get_ifd(0x8825)
                 if gps_ifd:
-                    lat = gps_ifd.get(2); lon = gps_ifd.get(4)
+                    lat = gps_ifd.get(2)
+                    lon = gps_ifd.get(4)
                     if lat and lon:
                         def dec(v):
                             d, m, s = v
@@ -506,52 +611,58 @@ def extract_exif(path: Path) -> tuple[str | None, str | None]:
     except Exception:
         return None, None
 
-def fingerprint(vendor: str, total, date: str, exif_dt: str | None) -> tuple:
-    """Normalized duplicate key. Two receipts collide if they share the same
-    capture timestamp OR the same (vendor, total, purchase-date) signature."""
-    v = re.sub(r'[^a-z0-9]', '', str(vendor or '').lower())
-    try:
-        t = round(float(total or 0), 2)
-    except Exception:
-        t = 0.0
-    d = str(date or '')[:10]
-    return (v, t, d, (exif_dt or '').strip())
-
-def apply_corrections(rows: list[dict]) -> list[dict]:
+# --------------------------------------------------------- corrections -------
+def corrections_watchdog() -> dict:
+    """
+    Apply user corrections and permanently rewrite expenses.csv.
+    Edits from the UI sync into corrections.json on this PC.
+    """
     corrections = load_corrections()
     if not corrections:
-        return rows
+        return {"changed": False}
+    rows = read_csv_rows()
     by_id = {r.get("id"): r for r in rows}
+    changes = 0
     for rid, fields in corrections.items():
-        if rid in by_id:
-            for k, v in fields.items():
-                if k in CSV_COLUMNS and k not in ("id",):
-                    by_id[rid][k] = v
-            by_id[rid]["updated_at"] = datetime.now(timezone.utc).isoformat()
-            if by_id[rid].get("status") == "needs_review":
-                by_id[rid]["status"] = "ok"
-    return list(by_id.values())
+        target = by_id.get(rid)
+        if not target:
+            continue
+        dirty = False
+        for k, v in fields.items():
+            if k in CSV_COLUMNS and k != "id":
+                if target.get(k) != v:
+                    target[k] = v
+                    dirty = True
+        if dirty:
+            target["updated_at"] = datetime.now(timezone.utc).isoformat()
+            if target.get("status") == "needs_review":
+                target["status"] = "ok"
+            changes += 1
+    if changes:
+        write_csv_rows(rows)
+    return {"changed": bool(changes), "applied": changes}
 
+# ------------------------------------------------------------- main run -----
 def run(dry_run: bool = False) -> int:
     state = load_processed()
     items = state.setdefault("items", {})
     objs = r2_list_objects()
-    # Retry anything that previously errored — only skip terminal states
-    # (ok / needs_review / skipped). An error is transient (model down, network),
-    # so it must not permanently exclude a receipt.
     done = {"ok", "needs_review", "skipped", "duplicate"}
     pending = [o for o in objs if items.get(o["key"], {}).get("status") not in done]
-    # content-hash de-dup: any digest we've already committed should not reappear
     seen_digests = {v.get("sha256") for v in items.values() if v.get("sha256")}
-    recorded_keys = {v["r2_key"] for v in items.values() if v.get("r2_key") and v.get("status") in done}
+    recorded_keys = {v["r2_key"] for v in items.values()
+                     if v.get("r2_key") and v.get("status") in done}
     pending = [o for o in pending if o["key"] not in recorded_keys]
     if not pending:
         print(f"[run] nothing new ({len(objs)} objects, all processed)")
         return 0
 
     print(f"[run] {len(pending)} new receipt(s) to process")
+
+    # Apply corrections before ingestion so CSV is source of truth.
+    corrections_watchdog()
+
     rows = read_csv_rows()
-    # unique, never-reused id: start above the max existing id, then increment
     max_n = 0
     for r in rows:
         try:
@@ -559,31 +670,38 @@ def run(dry_run: bool = False) -> int:
         except Exception:
             pass
 
-    # Semantic de-dup: flag re-uploads of the same receipt for review.
-    # Two independent signals:
-    #   1) purchase signature (vendor + total + date) — matches even when the
-    #      photo is re-shot/re-saved with a different EXIF time.
-    #   2) EXIF capture time — matches when the SAME photo file is uploaded
-    #      twice (identical capture moment), even if vendor/date parse differs.
-    seen_purchase = {}   # (vendor, total, date) -> id
-    seen_exif = {}       # exif_capture_dt -> id
+    # Build candidate pool for duplicate detection from processed metadata
+    # and existing CSV rows. Include a lightweight row shape for comparison.
+    candidates: list[dict] = []
     for r in rows:
-        try:
-            pk = (re.sub(r'[^a-z0-9]', '', str(r.get("vendor", "")).lower()),
-                  round(float(r.get("total", 0) or 0), 2),
-                  str(r.get("purchase_date", ""))[:10])
-            if pk[0] or pk[1]:
-                seen_purchase.setdefault(pk, r.get("id", "?"))
-        except Exception:
-            pass
+        candidates.append({
+            "id": r.get("id"),
+            "vendor": r.get("vendor"),
+            "total": _safe_float(r.get("total")),
+            "purchase_date": str(r.get("purchase_date") or "").strip()[:10],
+            "created_at": r.get("created_at"),
+            "updated_at": r.get("updated_at"),
+            "items": _as_items(r.get("items") or ""),
+            "_exif_dt": None,
+        })
     for it in items.values():
+        if it.get("status") not in done:
+            continue
+        cid = it.get("csv_id")
         fp = it.get("fp")
-        if isinstance(fp, (list, tuple)) and len(fp) == 4:
-            pk = (fp[0], fp[1], fp[2])
-            if pk[0] or pk[1]:
-                seen_purchase.setdefault(pk, it.get("csv_id", "?"))
-            if fp[3]:
-                seen_exif.setdefault(fp[3], it.get("csv_id", "?"))
+        exif_dt = None
+        if isinstance(fp, (list, tuple)) and len(fp) >= 4:
+            exif_dt = str(fp[3] or "").strip() or None
+        candidates.append({
+            "id": cid,
+            "vendor": "",
+            "total": None,
+            "purchase_date": "",
+            "created_at": "",
+            "updated_at": "",
+            "items": [],
+            "_exif_dt": exif_dt,
+        })
 
     next_n = max_n
     added = 0
@@ -593,32 +711,62 @@ def run(dry_run: bool = False) -> int:
             if row is None:
                 items[o["key"]] = {"status": "skipped"}
                 continue
+
             digest = row.pop("_sha256", None)
             exif_dt = row.pop("_exif_dt", None)
             exif_gps = row.pop("_exif_gps", None)
+            created_at_meta = row.pop("_created_at_meta", None)
+
             if digest and digest in seen_digests:
-                # identical bytes to an already-processed receipt -> skip, no duplicate row
                 items[o["key"]] = {"status": "duplicate", "sha256": digest}
                 print(f"  = skip duplicate of existing receipt ({o['key']})")
                 continue
-            # semantic duplicate?
-            new_pk = (re.sub(r'[^a-z0-9]', '', str(row.get("vendor", "")).lower()),
-                      round(float(row.get("total", 0) or 0), 2),
-                      str(row.get("purchase_date", ""))[:10])
-            dup_id = seen_purchase.get(new_pk) or (seen_exif.get(exif_dt) if exif_dt else None)
-            if dup_id and str(dup_id) != str(row.get("id", "")):
-                # Flag for review (don't silently drop) — user confirms/removes.
+
+            decision_row = {
+                "vendor": row.get("vendor"),
+                "total": row.get("total"),
+                "purchase_date": row.get("purchase_date"),
+                "created_at": created_at_meta or row.get("created_at"),
+                "_exif_dt": exif_dt,
+                "items": row.get("items"),
+            }
+            is_dup, dup_id = _decision(decision_row, candidates)
+            if is_dup and dup_id and str(dup_id) != str(row.get("id", "")):
                 row["status"] = "needs_review"
                 row["note"] = (row.get("note") or "") + f" [Possible duplicate of {dup_id}]"
                 print(f"  ! {row['vendor']} {row['total']} flagged possible duplicate of {dup_id}")
-            fp = fingerprint(row.get("vendor", ""), row.get("total", ""), row.get("purchase_date", ""), exif_dt)
+            elif dup_id and str(dup_id) != str(row.get("id", "")) and not is_dup:
+                row["status"] = "needs_review"
+                row["note"] = (row.get("note") or "") + f" [Possible duplicate of {dup_id}]"
+                print(f"  ? {row['vendor']} {row['total']} marked uncertain duplicate of {dup_id}")
+
+            fp = (
+                _vendor_key(row.get("vendor", "")),
+                _safe_float(row.get("total")),
+                str(row.get("purchase_date") or "").strip()[:10],
+                (exif_dt or "").strip(),
+            )
             next_n += 1
             row["id"] = f"exp_{next_n}"
             if not dry_run:
                 rows.append(row)
-            items[o["key"]] = {"status": row["status"], "csv_id": row["id"],
-                               "sha256": digest, "fp": list(fp)}
+            items[o["key"]] = {
+                "status": row["status"],
+                "csv_id": row["id"],
+                "sha256": digest,
+                "fp": list(fp),
+            }
             seen_digests.add(digest)
+            candidates.append({
+                "id": row["id"],
+                "vendor": row.get("vendor"),
+                "total": _safe_float(row.get("total")),
+                "purchase_date": str(row.get("purchase_date") or "").strip()[:10],
+                "created_at": created_at_meta or row.get("created_at"),
+                "updated_at": row.get("updated_at"),
+                "items": _as_items(row.get("items") or ""),
+                "_exif_dt": exif_dt,
+            })
             added += 1
             print(f"  + {row['vendor']}  {row['total'] or '?'}  [{row['status']}]  ({o['key']})")
         except Exception as e:
@@ -629,20 +777,18 @@ def run(dry_run: bool = False) -> int:
         print("[run] dry-run: not writing CSV / not pushing")
         return added
 
-    # apply manual corrections, then write
     rows = apply_corrections(rows)
     write_csv_rows(rows)
     save_processed(state)
 
     if added and not SELFTEST:
         ok = git_push(f"expenses: add {added} receipt(s) from R2 pipeline")
-        print(f"[run] committed+{ 'pushed' if ok else 'nothing-to-push'}")
+        print(f"[run] committed+{'pushed' if ok else 'nothing-to-push'}")
     return added
 
 # ------------------------------------------------------------- selftest -----
 def selftest() -> int:
-    """Offline verification: feed a fake image + canned model output through the
-    same pipeline code paths (list→process→CSV→corrections→git check)."""
+    """Offline verification of pipeline code paths."""
     global SELFTEST
     SELFTEST = True
     print("[selftest] starting offline self-test")
@@ -664,7 +810,8 @@ def selftest() -> int:
         return True
     def fake_extract(data, note, filename=""):
         return {
-            "vendor": "Shell", "purchase_date": "2026-07-19",
+            "vendor": "Shell",
+            "purchase_date": "2026-07-19",
             "items": [{"name": "Diesel", "price": 64.2}],
             "subtotal": 64.2, "tax": 0, "total": 64.2, "category": "Fuel",
         }
@@ -674,7 +821,6 @@ def selftest() -> int:
     ollama_available = fake_avail
     ollama_extract = fake_extract
 
-    # run on a temp CSV/state to avoid clobbering real files
     import tempfile, shutil
     backup = (CSV_PATH, PROCESSED_PATH, CORRECTIONS_PATH)
     tmp = Path(tempfile.mkdtemp())
@@ -688,26 +834,39 @@ def selftest() -> int:
         shell = [r for r in rows if r["vendor"] == "Shell" and r["total"] == "64.20"]
         assert shell, "Shell row missing/incorrect in CSV"
         shell_id = shell[0]["id"]
-        # corrections path
         CORRECTIONS_PATH.write_text(json.dumps({shell_id: {"vendor": "Shell Gas",
                                                           "total": "70.00"}}),
                                     encoding="utf-8")
-        rows2 = apply_corrections(rows)
+        result = corrections_watchdog()
+        assert result["changed"], "corrections watchdog did not apply changes"
+        rows2 = read_csv_rows()
         fixed = [r for r in rows2 if r["id"] == shell_id][0]
-        assert fixed["vendor"] == "Shell Gas" and fixed["total"] == "70.00", \
-            "corrections not applied"
-        assert fixed["status"] == "ok", "status not flipped by correction"
+        assert fixed["vendor"] == "Shell Gas" and fixed["total"] == "70.00", "corrections not applied"
         print("[selftest] PASS: pipeline produced CSV row + corrections applied")
         return 0
     except AssertionError as e:
         sys.stderr.write(f"[selftest] FAIL: {e}\n")
         return 1
     finally:
-        # restore real files
         for p in backup:
             if (tmp / p.name).exists():
                 shutil.copy(tmp / p.name, p)
         shutil.rmtree(tmp, ignore_errors=True)
+
+def apply_corrections(rows: list[dict]) -> list[dict]:
+    corrections = load_corrections()
+    if not corrections:
+        return rows
+    by_id = {r.get("id"): r for r in rows}
+    for rid, fields in corrections.items():
+        if rid in by_id:
+            for k, v in fields.items():
+                if k in CSV_COLUMNS and k != "id":
+                    by_id[rid][k] = v
+            by_id[rid]["updated_at"] = datetime.now(timezone.utc).isoformat()
+            if by_id[rid].get("status") == "needs_review":
+                by_id[rid]["status"] = "ok"
+    return list(by_id.values())
 
 # ----------------------------------------------------------------- main -----
 def main() -> int:

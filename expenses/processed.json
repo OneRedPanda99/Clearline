@@ -80,6 +80,21 @@
       "status": "ok",
       "csv_id": "exp_17",
       "sha256": "2b506a9c6ffa326ca7559f276f278326775d62bce4f8377747b8f67b11dfcbeb"
+    },
+    "receipts/2026/07/2026-07-20T17-13-47-542Z-c3ffa4b9.jpg": {
+      "status": "error",
+      "error": "timed out"
+    },
+    "receipts/2026/07/2026-07-21T23-49-28-829Z-8b7c8523.jpg": {
+      "status": "ok",
+      "csv_id": "exp_18",
+      "sha256": "0b38404c757f085016ebf9797afb25cc62e407026abe31dcb789b14272093d95",
+      "fp": [
+        "essilorluxotticaitaliaspa",
+        588.98,
+        "2026-02-07",
+        ""
+      ]
     }
   }
 }
