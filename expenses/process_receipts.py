@@ -61,8 +61,10 @@ R2_SECRET = ENV.get("R2_SECRET_ACCESS_KEY", "")
 R2_PREFIX = ENV.get("R2_PREFIX", "receipts/")
 
 OLLAMA_URL = ENV.get("OLLAMA_URL", "http://localhost:11434")
-OLLAMA_MODEL = ENV.get("OLLAMA_MODEL", "llama3.2-vision")
+OLLAMA_MODEL = ENV.get("OLLAMA_MODEL", "qwen2.5vl:7b")
 OLLAMA_TIMEOUT = int(ENV.get("OLLAMA_TIMEOUT", "120"))
+OLLAMA_EXTRACT_TIMEOUT = int(ENV.get("OLLAMA_EXTRACT_TIMEOUT", "180"))
+OLLAMA_VISION_CTX = int(ENV.get("OLLAMA_VISION_CTX", "8192"))
 
 DEFAULT_CSV_URL = ("https://raw.githubusercontent.com/OneRedPanda99/Clearline/"
                    "main/expenses/expenses.csv")
@@ -203,16 +205,34 @@ def ollama_available() -> bool:
 
 def ollama_extract(image_bytes: bytes, note: str, filename: str = "") -> dict:
     """Ask the local vision model to read the receipt and return structured JSON."""
-    b64 = base64.b64encode(image_bytes).decode("ascii")
+    try:
+        from PIL import Image
+    except Exception:
+        Image = None
+    b64_source = image_bytes
+    if Image is not None:
+        try:
+            with Image.open(io.BytesIO(image_bytes)) as im:
+                if im.mode in ("RGBA", "P", "LA"):
+                    im = im.convert("RGB")
+                if max(im.size) > 1600:
+                    scale = 1600 / max(im.size)
+                    new_size = (int(im.width * scale), int(im.height * scale))
+                    im = im.resize(new_size, Image.LANCZOS)
+                out = io.BytesIO()
+                im.save(out, "JPEG", quality=80, optimize=True)
+                b64_source = out.getvalue()
+        except Exception:
+            b64_source = image_bytes
+    b64 = base64.b64encode(b64_source).decode("ascii")
     prompt = (
-        "You are a receipt parser. Read this receipt image and return ONLY a JSON "
-        "object (no markdown, no commentary) with these exact keys:\n"
+        "Read this receipt image. Return ONLY a JSON object with these exact keys "
+        "(no markdown, no commentary, no code fences):\n"
         "  vendor: string (store name)\n"
         "  date_raw: string — the transaction date EXACTLY as PRINTED on the receipt, "
         "character for character (e.g. '05-12-26' or '05/12/2026'). This is the date the "
-        "purchase happened, NOT the upload date and NOT today. Do NOT reformat or "
-        "reorder it. Copy the digits and separators verbatim. If the receipt shows a date, "
-        "you MUST return it here. Only use empty string if no date is visible anywhere.\n"
+        "purchase happened, NOT the upload date and NOT today. Copy digits and separators "
+        "verbatim. Only use empty string if no date is visible.\n"
         "  items: array of {name: string, price: number}\n"
         "  subtotal: number\n"
         "  tax: number\n"
@@ -222,25 +242,40 @@ def ollama_extract(image_bytes: bytes, note: str, filename: str = "") -> dict:
         "If a field is unreadable, use empty string or 0. Be precise with numbers.\n"
         + (f"User note about this receipt: {note}\n" if note else "")
     )
-    payload = {
-        "model": OLLAMA_MODEL,
-        "format": "json",
-        "stream": False,
-        "options": {"num_ctx": 8192, "temperature": 0},
-        "messages": [
-            {"role": "user", "content": prompt,
-             "images": [b64]},
-        ],
-    }
     import urllib.request
-    req = urllib.request.Request(
-        f"{OLLAMA_URL}/api/chat",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(req, timeout=OLLAMA_TIMEOUT) as r:
-        data = json.loads(r.read().decode("utf-8"))
-    text = data.get("message", {}).get("content", "")
+    if OLLAMA_MODEL == "moondream":
+        payload = {
+            "model": OLLAMA_MODEL,
+            "prompt": prompt,
+            "images": [b64],
+            "stream": False,
+        }
+        endpoint = f"{OLLAMA_URL}/api/generate"
+        with urllib.request.urlopen(
+            urllib.request.Request(endpoint, data=json.dumps(payload).encode("utf-8"),
+                                  headers={"Content-Type": "application/json"}),
+            timeout=OLLAMA_EXTRACT_TIMEOUT,
+        ) as r:
+            data = json.loads(r.read().decode("utf-8"))
+        text = data.get("response", "")
+    else:
+        payload = {
+            "model": OLLAMA_MODEL,
+            "format": "json",
+            "stream": False,
+            "options": {"num_ctx": OLLAMA_VISION_CTX, "temperature": 0},
+            "messages": [
+                {"role": "user", "content": prompt, "images": [b64]},
+            ],
+        }
+        endpoint = f"{OLLAMA_URL}/api/chat"
+        with urllib.request.urlopen(
+            urllib.request.Request(endpoint, data=json.dumps(payload).encode("utf-8"),
+                                  headers={"Content-Type": "application/json"}),
+            timeout=OLLAMA_EXTRACT_TIMEOUT,
+        ) as r:
+            data = json.loads(r.read().decode("utf-8"))
+        text = data.get("message", {}).get("content", "")
     return parse_model_json(text)
 
 def parse_model_json(text: str) -> dict:

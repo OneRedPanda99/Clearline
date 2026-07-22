@@ -2,92 +2,167 @@
   "_v": 1,
   "items": {
     "receipts/2026/07/2026-07-20T00-19-53-654Z-68564767.jpg": {
-      "status": "ok",
-      "csv_id": "exp_2",
-      "sha256": "local"
+      "status": "needs_review",
+      "csv_id": "exp_19",
+      "sha256": "7fd88c1e97e9090351658dac7c27b6ec1022fdf076fb42b56693d7bbd18b5662",
+      "fp": [
+        "loweshomecentersllc",
+        93.87,
+        "",
+        "2026:05:12 11:10:40"
+      ]
     },
     "receipts/2026/07/2026-07-20T01-47-43-767Z-7c8f54cd.jpg": {
-      "status": "ok",
-      "csv_id": "exp_3",
-      "sha256": "local"
+      "status": "needs_review",
+      "csv_id": "exp_20",
+      "sha256": "2b506a9c6ffa326ca7559f276f278326775d62bce4f8377747b8f67b11dfcbeb",
+      "fp": [
+        "jackoliverpools",
+        43.64,
+        "2026-06-01",
+        "2026:06:01 12:21:36"
+      ]
     },
     "receipts/2026/07/2026-07-20T01-48-15-014Z-28e9d594.jpg": {
-      "status": "ok",
-      "csv_id": "exp_4",
-      "sha256": "local"
+      "status": "needs_review",
+      "csv_id": "exp_21",
+      "sha256": "8b6d7142e85a4643f3b7bdb3bcc1107802017bb947ac43c1081f8133a24c2a1c",
+      "fp": [
+        "columbiashomeimprovementheadquarters",
+        32.88,
+        "2026-05-30",
+        "2026:05:30 15:31:52"
+      ]
     },
     "receipts/2026/07/2026-07-20T01-48-38-703Z-058ee4ce.jpg": {
-      "status": "ok",
-      "csv_id": "exp_5",
-      "sha256": "local"
+      "status": "needs_review",
+      "csv_id": "exp_22",
+      "sha256": "8a921d9db6c4770fae4f8701772b3c92403c872adf5d032ae97bc70149bd3b38",
+      "fp": [
+        "jackoliverpools",
+        43.42,
+        "2026-05-28",
+        "2026:05:28 10:05:10"
+      ]
     },
     "receipts/2026/07/2026-07-20T06-09-38-779Z-2a5f979d.jpg": {
-      "status": "ok",
-      "csv_id": "exp_6",
-      "sha256": "ec1aba83cb6248427b7616ac41358dc6ebd82490c71186882a36f2e071a8a639"
+      "status": "needs_review",
+      "csv_id": "exp_23",
+      "sha256": "ec1aba83cb6248427b7616ac41358dc6ebd82490c71186882a36f2e071a8a639",
+      "fp": [
+        "lowes",
+        75.6,
+        "2026-04-18",
+        "2026:04:18 15:32:51"
+      ]
     },
     "receipts/2026/07/2026-07-20T06-09-46-610Z-f1777a57.jpg": {
-      "status": "ok",
-      "csv_id": "exp_7",
-      "sha256": "69511ad6c7f8d769ecd3cd27641d226ee91ef9dc54b7ef2ab3e49bca321088bc"
+      "status": "needs_review",
+      "csv_id": "exp_24",
+      "sha256": "69511ad6c7f8d769ecd3cd27641d226ee91ef9dc54b7ef2ab3e49bca321088bc",
+      "fp": [
+        "homedepot",
+        89.52,
+        "2026-05-08",
+        "2026:05:08 15:51:25"
+      ]
     },
     "receipts/2026/07/2026-07-20T06-09-49-352Z-00b15bd2.jpg": {
-      "status": "ok",
-      "csv_id": "exp_8",
-      "sha256": "49f8515873fa2ef373deb090a54468623e25263d31eb73afb90d607107afbd87"
+      "status": "needs_review",
+      "csv_id": "exp_25",
+      "sha256": "49f8515873fa2ef373deb090a54468623e25263d31eb73afb90d607107afbd87",
+      "fp": [
+        "lowes",
+        93.87,
+        "2026-05-12",
+        "2026:05:12 11:10:36"
+      ]
     },
     "receipts/2026/07/2026-07-20T06-09-52-574Z-08f7b1e1.jpg": {
-      "status": "ok",
-      "csv_id": "exp_9",
+      "status": "duplicate",
       "sha256": "7fd88c1e97e9090351658dac7c27b6ec1022fdf076fb42b56693d7bbd18b5662"
     },
     "receipts/2026/07/2026-07-20T06-09-54-268Z-57338709.jpg": {
-      "status": "ok",
-      "csv_id": "exp_10",
-      "sha256": "bb7e31f80eb06d17ff81d7ddb660fd6e080d15aaa45a63ab0b61b05529ee9fa2"
+      "status": "needs_review",
+      "csv_id": "exp_26",
+      "sha256": "bb7e31f80eb06d17ff81d7ddb660fd6e080d15aaa45a63ab0b61b05529ee9fa2",
+      "fp": [
+        "jackoliverpools",
+        33.4,
+        "2026-05-13",
+        "2026:05:13 15:11:38"
+      ]
     },
     "receipts/2026/07/2026-07-20T06-09-55-932Z-1b84f0d2.jpg": {
-      "status": "ok",
-      "csv_id": "exp_11",
-      "sha256": "d3a7bc3412fe6203619e57ba64d6df8dc13309f79ac500b4ca2ad05c3e9c851f"
+      "status": "needs_review",
+      "csv_id": "exp_27",
+      "sha256": "d3a7bc3412fe6203619e57ba64d6df8dc13309f79ac500b4ca2ad05c3e9c851f",
+      "fp": [
+        "lowes",
+        48.58,
+        "2026-05-15",
+        "2026:05:15 18:10:21"
+      ]
     },
     "receipts/2026/07/2026-07-20T06-09-57-843Z-3e58a43c.jpg": {
-      "status": "ok",
-      "csv_id": "exp_12",
-      "sha256": "7b9493ad8ce0701712089dc6df21ec0cf3d0e704a203114955c8f988ef371adb"
+      "status": "needs_review",
+      "csv_id": "exp_28",
+      "sha256": "7b9493ad8ce0701712089dc6df21ec0cf3d0e704a203114955c8f988ef371adb",
+      "fp": [
+        "lowes",
+        48.58,
+        "2026-05-15",
+        "2026:05:15 18:10:21"
+      ]
     },
     "receipts/2026/07/2026-07-20T06-09-59-391Z-fc1dfbaf.jpg": {
-      "status": "ok",
-      "csv_id": "exp_13",
-      "sha256": "6b8dff66529ed03e249af54ce882dd0a6a5bbc7eb2f1bed0609bace0fed4f848"
+      "status": "needs_review",
+      "csv_id": "exp_29",
+      "sha256": "6b8dff66529ed03e249af54ce882dd0a6a5bbc7eb2f1bed0609bace0fed4f848",
+      "fp": [
+        "thehomedepot",
+        62.51,
+        "2026-05-27",
+        "2026:05:27 17:25:51"
+      ]
     },
     "receipts/2026/07/2026-07-20T06-10-00-912Z-59d64cf1.jpg": {
-      "status": "ok",
-      "csv_id": "exp_14",
-      "sha256": "8db1af6128dfab4fb1d57d9bee523f62ea3989dd99de113727bb9277cca63d19"
+      "status": "needs_review",
+      "csv_id": "exp_30",
+      "sha256": "8db1af6128dfab4fb1d57d9bee523f62ea3989dd99de113727bb9277cca63d19",
+      "fp": [
+        "walmart",
+        42.1,
+        "2026-05-28",
+        "2026:05:28 09:42:57"
+      ]
     },
     "receipts/2026/07/2026-07-20T06-10-02-239Z-f9447026.jpg": {
-      "status": "ok",
-      "csv_id": "exp_15",
+      "status": "duplicate",
       "sha256": "8a921d9db6c4770fae4f8701772b3c92403c872adf5d032ae97bc70149bd3b38"
     },
     "receipts/2026/07/2026-07-20T06-10-03-800Z-d3f2a338.jpg": {
-      "status": "ok",
-      "csv_id": "exp_16",
+      "status": "duplicate",
       "sha256": "8b6d7142e85a4643f3b7bdb3bcc1107802017bb947ac43c1081f8133a24c2a1c"
     },
     "receipts/2026/07/2026-07-20T06-10-05-037Z-9ae42f17.jpg": {
-      "status": "ok",
-      "csv_id": "exp_17",
+      "status": "duplicate",
       "sha256": "2b506a9c6ffa326ca7559f276f278326775d62bce4f8377747b8f67b11dfcbeb"
     },
     "receipts/2026/07/2026-07-20T17-13-47-542Z-c3ffa4b9.jpg": {
-      "status": "error",
-      "error": "timed out"
+      "status": "ok",
+      "csv_id": "exp_31",
+      "sha256": "22943f67b8223d541f32a3a5c160fd9bc4fb6a9274c880c7fbe407b86f13ac06",
+      "fp": [
+        "lowes",
+        28.58,
+        "2026-07-20",
+        ""
+      ]
     },
     "receipts/2026/07/2026-07-21T23-49-28-829Z-8b7c8523.jpg": {
-      "status": "ok",
-      "csv_id": "exp_18",
+      "status": "needs_review",
+      "csv_id": "exp_32",
       "sha256": "0b38404c757f085016ebf9797afb25cc62e407026abe31dcb789b14272093d95",
       "fp": [
         "essilorluxotticaitaliaspa",
