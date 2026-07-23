@@ -170,6 +170,17 @@
         "2026-02-07",
         ""
       ]
+    },
+    "receipts/2026/07/2026-07-23T16-38-33-952Z-a9bb438b.jpg": {
+      "status": "needs_review",
+      "csv_id": "exp_33",
+      "sha256": "e542e72feb938b1b2e3ccaddf3ad99e938b5cd2367d8d6afe8cd2a181418360e",
+      "fp": [
+        "evansacehardware",
+        2.34,
+        "",
+        ""
+      ]
     }
   }
 }
