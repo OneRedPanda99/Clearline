@@ -568,11 +568,39 @@ const CL_FIREBASE = (function() {
         const canPushAll = userProfile && userProfile.role === 'owner';
         const mine = (v) => canPushAll || !v || !v.createdBy || v.createdBy === myUid;
 
+        // For jobs, the assignment fields (assignedWorkers / assignedManager /
+        // assignedTo / accessUids) are the source of truth in the CLOUD, not
+        // in this device's local CL_DATA. A Manager Panel assignment made from
+        // another session would otherwise be clobbered the next time this
+        // device's syncToCloud re-pushes its (stale) local copy with
+        // assignedWorkers:[] and a recomputed accessUids that drops readers.
+        // So for jobs we fetch the existing cloud doc and keep its assignment
+        // fields, only stamping accessUids to stay consistent with them.
+        let cloudAssign = null;
+        if (collName === 'jobs') {
+            const ids = (items || []).filter(it => it && it.id && mine(it)).map(it => it.id);
+            if (ids.length) {
+                const snaps = await Promise.all(ids.map(id => coll.doc(id).get()));
+                cloudAssign = new Map();
+                snaps.forEach(s => { if (s.exists) cloudAssign.set(s.id, s.data()); });
+            }
+        }
+
         const ops = [];
         (items || []).forEach(it => {
             if (!it || !it.id) return;
             if (!mine(it)) return; // skip docs we can't write
-            ops.push({ type: 'set', ref: coll.doc(it.id), data: _stampForCloud(it) });
+            let entity = it;
+            if (cloudAssign && cloudAssign.has(it.id)) {
+                const cloud = cloudAssign.get(it.id);
+                entity = Object.assign({}, it, {
+                    assignedWorkers: cloud.assignedWorkers,
+                    assignedManager: cloud.assignedManager,
+                    assignedTo: cloud.assignedTo
+                    // accessUids recomputed by _stampForCloud from the above
+                });
+            }
+            ops.push({ type: 'set', ref: coll.doc(it.id), data: _stampForCloud(entity) });
         });
         (tombstones || []).forEach(t => {
             if (!t || !t.id) return;
