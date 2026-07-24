@@ -778,13 +778,17 @@ const CL_FIREBASE = (function() {
             await _runMigrationIfNeeded();
 
             const userRef = db.collection('users').doc(currentUser.uid);
-            const [userSnap, customers, jobs, expenses, payroll] = await Promise.all([
-                userRef.get(),
-                _fetchAllCustomers(),
-                _fetchJobsForRole(),
-                _fetchOwnerOnlyCollection('expenses'),
-                _fetchOwnerOnlyCollection('payroll')
-            ]);
+            // Pull each collection separately and tag failures so the toast
+            // names the exact denied collection (debug aid for permission bugs).
+            const tag = async (label, p) => {
+                try { return await p; }
+                catch (e) { throw new Error(label + ': ' + (e.code || e.message)); }
+            };
+            const userSnap = await tag('users/'+currentUser.uid, userRef.get());
+            const customers = await tag('customers', _fetchAllCustomers());
+            const jobs = await tag('jobs', _fetchJobsForRole());
+            const expenses = await tag('expenses', _fetchOwnerOnlyCollection('expenses'));
+            const payroll = await tag('payroll', _fetchOwnerOnlyCollection('payroll'));
 
             if (!userSnap.exists) {
                 console.log('New user - uploading local data');
