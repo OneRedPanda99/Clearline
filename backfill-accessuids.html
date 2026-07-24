@@ -31,6 +31,8 @@
 
     <button id="run" class="hidden bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded disabled:opacity-50"
             onclick="runBackfill()">Backfill all jobs</button>
+    <button id="diag" class="hidden bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-2 rounded"
+            onclick="runDiagnose()">Diagnose (dump assignments)</button>
 
     <pre id="log" class="bg-black/40 rounded p-3 text-xs whitespace-pre-wrap h-64 overflow-auto"></pre>
   </div>
@@ -69,9 +71,24 @@
       if (user) {
         document.getElementById('login').style.display = 'none';
         document.getElementById('run').classList.remove('hidden');
+        document.getElementById('diag').classList.remove('hidden');
         log('Signed in as ' + user.email + ' (uid ' + user.uid + ')');
       }
     });
+
+    async function runDiagnose() {
+      const me = auth.currentUser;
+      if (!me) { log('Not signed in.'); return; }
+      const snap = await db.collection('jobs').get();
+      log('--- ' + snap.size + ' jobs: raw assignment fields + accessUids ---');
+      for (const doc of snap.docs) {
+        const d = doc.data();
+        const aw = Array.isArray(d.assignedWorkers) ? d.assignedWorkers : (d.assignedTo ? [d.assignedTo] : []);
+        log(doc.id + '\n  createdBy=' + d.createdBy + '\n  assignedManager=' + d.assignedManager
+          + '\n  assignedWorkers=' + JSON.stringify(aw) + '\n  accessUids=' + JSON.stringify(d.accessUids || []));
+      }
+      log('--- end ---');
+    }
 
     async function runBackfill() {
       const me = auth.currentUser;
