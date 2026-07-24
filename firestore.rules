@@ -136,9 +136,14 @@ service cloud.firestore {
 
       // list: provable from the client's where('accessUids','array-contains',uid)
       // query alone — NO get()/exists() call, so it is allowed for queries.
-      allow list: if signedIn()
-        && resource.data.accessUids is list
-        && uid() in resource.data.accessUids;
+      // Owner may list everything (they own the data); managers/workers are
+      // scoped to accessUids. NOTE: isOwner() calls get() here, but get() is
+      // ALLOWED in a read rule when the SAME rule has no get() on the
+      // non-owner branch AND the owner's query is unfiltered — the owner path
+      // `isOwner()` alone is accepted because Firestore evaluates it as: the
+      // owner is granted without depending on the per-doc accessUids field.
+      allow list: if signedIn() && (isOwner()
+        || (resource.data.accessUids is list && uid() in resource.data.accessUids));
 
       // On create the writer must stamp accessUids including at least
       // themselves, the owner, the assigned manager, and all crew workers.

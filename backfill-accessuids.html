@@ -6,21 +6,30 @@
   <title>Clearline — Backfill job accessUids</title>
   <script src="config.js"></script>
   <script src="utils.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="firebase-sync.js?v=5"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 p-6">
   <div class="max-w-2xl mx-auto space-y-4">
     <h1 class="text-xl font-bold">Backfill job <code>accessUids</code></h1>
     <p class="text-sm text-gray-400">
-      Signs you in with your normal Clearline account, then stamps
+      Signs you in directly (no dependency on the app), then stamps
       <code>accessUids</code> on every existing job so the new Firestore
       <code>list</code> rule works. Safe to run more than once.
     </p>
 
-    <div id="status" class="text-sm">Loading…</div>
+    <div id="login" class="space-y-2">
+      <button id="google" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded text-sm w-full">Sign in with Google</button>
+      <div class="text-center text-xs text-gray-500">— or —</div>
+      <input id="email" placeholder="email" class="w-full bg-gray-800 rounded px-3 py-2 text-sm" value="parkerbranham@gmail.com" />
+      <input id="pass" type="password" placeholder="password" class="w-full bg-gray-800 rounded px-3 py-2 text-sm" />
+      <button id="signin" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm w-full">Sign in with email</button>
+      <div id="loginErr" class="text-red-400 text-xs"></div>
+    </div>
 
-    <button id="run" class="hidden bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50"
+    <button id="run" class="hidden bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded disabled:opacity-50"
             onclick="runBackfill()">Backfill all jobs</button>
 
     <pre id="log" class="bg-black/40 rounded p-3 text-xs whitespace-pre-wrap h-64 overflow-auto"></pre>
@@ -28,46 +37,56 @@
 
   <script>
     const logEl = document.getElementById('log');
-    const statusEl = document.getElementById('status');
-    function log(msg) {
-      logEl.textContent += msg + '\n';
-      logEl.scrollTop = logEl.scrollHeight;
-    }
+    function log(msg) { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; }
 
-    async function init() {
+    firebase.initializeApp(window.CL_SECRETS.firebase);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    document.getElementById('google').addEventListener('click', async () => {
+      document.getElementById('loginErr').textContent = '';
       try {
-        await CL_FIREBASE.init();
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.addScope('https://www.googleapis.com/auth/calendar.events');
+        await auth.signInWithPopup(provider);
       } catch (e) {
-        statusEl.textContent = 'Firebase init failed: ' + e.message;
-        return;
+        document.getElementById('loginErr').textContent = e.message;
       }
-      CL_FIREBASE.onAuth((user) => {
-        if (user) {
-          statusEl.textContent = 'Signed in as ' + user.email + ' (uid ' + user.uid + ')';
-          document.getElementById('run').classList.remove('hidden');
-        } else {
-          statusEl.textContent = 'Sign in from the app first, then return to this page.';
-        }
-      });
-      CL_FIREBASE.watchAuth();
-    }
+    });
+
+    document.getElementById('signin').addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim();
+      const pass = document.getElementById('pass').value;
+      document.getElementById('loginErr').textContent = '';
+      try {
+        await auth.signInWithEmailAndPassword(email, pass);
+      } catch (e) {
+        document.getElementById('loginErr').textContent = e.message;
+      }
+    });
+
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        document.getElementById('login').style.display = 'none';
+        document.getElementById('run').classList.remove('hidden');
+        log('Signed in as ' + user.email + ' (uid ' + user.uid + ')');
+      }
+    });
 
     async function runBackfill() {
-      const db = CL_FIREBASE.getFirestore();
-      const me = CL_FIREBASE.getCurrentUser();
+      const me = auth.currentUser;
       if (!me) { log('Not signed in.'); return; }
       const ownerUid = (window.CL_SECRETS && window.CL_SECRETS.ownerUid) || me.uid;
-      log('Owner uid used for backfill: ' + ownerUid);
+      log('Owner uid used: ' + ownerUid);
 
       const snap = await db.collection('jobs').get();
       log('Found ' + snap.size + ' jobs.');
       let updated = 0, skipped = 0, failed = 0;
       for (const doc of snap.docs) {
         const d = doc.data();
-        const arr = window.buildAccessUids(d, d); // merges existing readers
+        const arr = window.buildAccessUids(d, d);
         const existing = Array.isArray(d.accessUids) ? d.accessUids : [];
-        const same = existing.length === arr.length
-          && existing.every((u, i) => u === arr[i]);
+        const same = existing.length === arr.length && existing.every((u, i) => u === arr[i]);
         if (same) { skipped++; continue; }
         try {
           await doc.ref.update({ accessUids: arr });
@@ -80,8 +99,6 @@
       }
       log('\nDone. updated=' + updated + ' skipped=' + skipped + ' failed=' + failed);
     }
-
-    init();
   </script>
 </body>
 </html>
