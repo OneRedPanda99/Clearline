@@ -26,8 +26,9 @@ jobs:
         run: |
           cat > ${{ github.workspace }}/config.js << EOF
           window.CL_SECRETS = {
+            ownerUid: "${{ secrets.FIREBASE_OWNER_UID }}",
             firebase: {
-              apiKey: "${{ secrets.FIREBASE_API_KEY }}",
+              apiKey: ${{ secrets.FIREBASE_API_KEY }},
               authDomain: "${{ secrets.FIREBASE_AUTH_DOMAIN }}",
               databaseURL: "${{ secrets.FIREBASE_DATABASE_URL }}",
               projectId: "${{ secrets.FIREBASE_PROJECT_ID }}",
@@ -36,7 +37,7 @@ jobs:
               appId: "${{ secrets.FIREBASE_APP_ID }}",
               measurementId: "${{ secrets.FIREBASE_MEASUREMENT_ID }}"
             },
-            mapsApiKey: "${{ secrets.MAPS_API_KEY }}"
+            mapsApiKey: ${{ secrets.MAPS_API_KEY }}
           };
           EOF
 
