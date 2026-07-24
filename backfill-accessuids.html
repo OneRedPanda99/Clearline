@@ -33,6 +33,8 @@
             onclick="runBackfill()">Backfill all jobs</button>
     <button id="diag" class="hidden bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-2 rounded"
             onclick="runDiagnose()">Diagnose (dump assignments)</button>
+    <button id="mgr" class="hidden bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded"
+            onclick="makeMeManager()">Make me manager of all workers</button>
 
     <pre id="log" class="bg-black/40 rounded p-3 text-xs whitespace-pre-wrap h-64 overflow-auto"></pre>
   </div>
@@ -72,9 +74,36 @@
         document.getElementById('login').style.display = 'none';
         document.getElementById('run').classList.remove('hidden');
         document.getElementById('diag').classList.remove('hidden');
+        document.getElementById('mgr').classList.remove('hidden');
         log('Signed in as ' + user.email + ' (uid ' + user.uid + ')');
       }
     });
+
+    // Owner acts as manager: set assignedManager = my uid on every worker doc.
+    // This only writes the `assignedManager` field, which the users update
+    // rule permits the owner to change on any user. Workers then show your
+    // name instead of "Unassigned" in the Manager Panel.
+    async function makeMeManager() {
+      const me = auth.currentUser;
+      if (!me) { log('Not signed in.'); return; }
+      const snap = await db.collection('users').get();
+      const workers = snap.docs.filter(d => (d.data().role || 'worker') === 'worker');
+      log('Found ' + workers.length + ' worker(s). Setting assignedManager=' + me.uid + ' ...');
+      let updated = 0, skipped = 0, failed = 0;
+      for (const doc of workers) {
+        const d = doc.data();
+        if (d.assignedManager === me.uid) { skipped++; continue; }
+        try {
+          await doc.ref.update({ assignedManager: me.uid });
+          updated++;
+          log('  updated ' + (d.username || d.displayName || doc.id));
+        } catch (e) {
+          failed++;
+          log('  FAILED ' + doc.id + ': ' + e.message);
+        }
+      }
+      log('Done. updated=' + updated + ' skipped=' + skipped + ' failed=' + failed);
+    }
 
     async function runDiagnose() {
       const me = auth.currentUser;
