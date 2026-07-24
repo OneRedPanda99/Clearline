@@ -825,23 +825,9 @@
             const db = CL_FIREBASE.getFirestore();
             const uid = CL_FIREBASE.getCurrentUser().uid;
             let docs;
-            if (myProfile.role === 'owner') {
-                const snap = await db.collection('jobs').get();
-                docs = snap.docs.map(d => d.data());
-            } else {
-                // Manager: jobs on my team or that I created.
-                const [aSnap, cSnap] = await Promise.all([
-                    db.collection('jobs').where('assignedManager', '==', uid).get(),
-                    db.collection('jobs').where('createdBy', '==', uid).get()
-                ]);
-                const seen = new Set();
-                docs = [];
-                [aSnap, cSnap].forEach(s => s.forEach(d => {
-                    if (seen.has(d.id)) return;
-                    seen.add(d.id);
-                    docs.push(d.data());
-                }));
-            }
+            // All roles use the same provable query: accessUids contains me.
+            const snap = await db.collection('jobs').where('accessUids', 'array-contains', uid).get();
+            docs = snap.docs.map(d => d.data());
             // Hide completed jobs. they don't need reassignment.
             assignableJobs = docs.filter(j => j.status !== 'completed')
                 .sort((a, b) => (b.jobDate || '').localeCompare(a.jobDate || ''));
@@ -954,11 +940,20 @@
             const orig = btn.textContent;
             btn.disabled = true; btn.textContent = 'Saving…';
             try {
+                const existing = assignableJobs.find(x => x.id === jobId) || {};
                 await db.collection('jobs').doc(jobId).set({
                     assignedWorkers,
                     assignedManager,
                     assignedTo: null,
-                    lastUpdated: new Date().toISOString()
+                    lastUpdated: new Date().toISOString(),
+                    // Recompute the reader set so the Firestore read rule
+                    // (uid() in accessUids) stays provable. Merge the
+                    // existing assigned fields so we don't drop readers who
+                    // were already granted access.
+                    accessUids: window.buildAccessUids(
+                        { assignedWorkers, assignedManager, assignedTo: null, createdBy: existing.createdBy },
+                        existing
+                    )
                 }, { merge: true });
                 const j = assignableJobs.find(x => x.id === jobId);
                 if (j) { j.assignedWorkers = assignedWorkers; j.assignedManager = assignedManager; j.assignedTo = null; }

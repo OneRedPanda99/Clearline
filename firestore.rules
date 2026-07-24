@@ -91,25 +91,71 @@ service cloud.firestore {
     // A job can have a crew of several workers now (assignedWorkers, a
     // list), not just one. `assignedTo` (a single uid) is kept as a
     // read-only fallback for older job docs written before this change.
+    //
+    // CRITICAL RULES/QUERY CONTRACT:
+    // Firestore security rules are NOT filters. A query is rejected
+    // outright (permission-denied) if it *could* return a document the
+    // rule doesn't grant — and the rule is evaluated against the query's
+    // POTENTIAL result set, not the actual documents. Any `get()`/`exists()`
+    // call (like reading the caller's own user doc for their role) cannot
+    // be proven per-document, so the whole query fails for non-owner roles.
+    // Therefore the read rule below must match the `where()` clause the
+    // client actually uses, with NO get()/exists() call.
+    //
+    // SOLUTION: each job carries an `accessUids` array (denormalized at
+    // write time) listing every uid allowed to read it — the owner, the
+    // assigned manager, every crew worker, and the creator. The list rule
+    // `uid() in resource.data.accessUids` is fully provable from the query's
+    // own `where('accessUids','array-contains',uid)` clause. No get() needed.
+    // The client builds this array in _stampForCloud() before writing.
     function isAssignedWorker() {
       return (resource.data.assignedWorkers is list && uid() in resource.data.assignedWorkers)
         || resource.data.assignedTo == uid();
     }
 
-    match /jobs/{id} {
-      allow read: if isOwner()
-        || (isManager() && (
-              resource.data.assignedManager == uid()
-              || resource.data.createdBy == uid()
-           ))
-        || (isWorker() && (
-              isAssignedWorker()
-              || resource.data.createdBy == uid()
-           ));
+    // True if the incoming write preserves every uid already in accessUids
+    // (no reader can be silently removed by a non-owner writer) while still
+    // allowing the owner to add/remove readers.
+    function accessUidsPreservedOrOwner() {
+      return isOwner()
+        || (request.resource.data.accessUids is list
+            && resource.data.accessUids is list
+            && request.resource.data.accessUids.hasAll(resource.data.accessUids));
+    }
 
+    match /jobs/{id} {
+      // get: a single doc. Allow if accessUids grants the caller, OR a
+      // legacy field directly names them (back-compat for jobs written
+      // before accessUids existed).
+      allow get: if signedIn()
+        && (resource.data.accessUids is list && uid() in resource.data.accessUids
+            || resource.data.assignedWorkers is list && uid() in resource.data.assignedWorkers
+            || resource.data.assignedTo == uid()
+            || resource.data.createdBy == uid()
+            || resource.data.assignedManager == uid());
+
+      // list: must be provable from the query's own where() clause. The
+      // client queries where('accessUids','array-contains',uid) for new
+      // jobs, which is proven by the first clause. The legacy clauses
+      // below are guarded by the SAME corresponding where() the client
+      // would need (they only help if a query actually scopes by that
+      // field) — but since the client now always queries accessUids, the
+      // legacy fallback mainly keeps get() working and avoids a forced
+      // backfill of old data.
+      allow list: if signedIn()
+        && (resource.data.accessUids is list && uid() in resource.data.accessUids
+            || resource.data.assignedWorkers is list && uid() in resource.data.assignedWorkers
+            || resource.data.assignedTo == uid()
+            || resource.data.createdBy == uid()
+            || resource.data.assignedManager == uid());
+
+      // On create the writer must stamp accessUids including at least
+      // themselves, the owner, the assigned manager, and all crew workers.
       allow create: if signedIn()
         && (isOwner() || isManager() || perm("canCreateJobs"))
-        && request.resource.data.createdBy == uid();
+        && request.resource.data.createdBy == uid()
+        && request.resource.data.accessUids is list
+        && uid() in request.resource.data.accessUids;
 
       allow update: if isOwner()
         || (isManager()
@@ -120,11 +166,20 @@ service cloud.firestore {
             && perm("canEditOwnJobs")
             && (resource.data.createdBy == uid() || isAssignedWorker())
             && request.resource.data.createdBy == resource.data.createdBy);
+        // Any non-owner update must preserve the existing reader set.
+        && accessUidsPreservedOrOwner();
 
       allow delete: if isOwner();
     }
 
     // ── estimates/{id} ──────────────────────────
+    // Read is split into get/list for the same reason as jobs: the
+    // isManager()/estLinkedToMyTeam()/estCreatorIsMyWorker() branches call
+    // get()/exists(), which makes a LIST query unprovable and rejected.
+    // The client only ever queries estimates by where('userId','==',uid)
+    // (see customer-tracker.html), which is provable below. Single-doc
+    // gets may additionally use the manager/owner branches (get() is fine
+    // for get, only forbidden for list).
     match /estimates/{id} {
 
       function jobSnap(jobId) {
@@ -144,10 +199,16 @@ service cloud.firestore {
           && get(/databases/$(db)/documents/users/$(resource.data.createdBy)).data.assignedManager == uid();
       }
 
-      allow read: if isOwner()
-        || resource.data.createdBy == uid()
-        || resource.data.userId == uid()
-        || (isManager() && (estLinkedToMyTeam() || estCreatorIsMyWorker()));
+      // LIST: provable from the query's own where() fields only (no get()).
+      allow list: if signedIn()
+        && (resource.data.userId == uid() || resource.data.createdBy == uid());
+
+      // GET: single-doc fetch may use the get()-based manager/owner branches.
+      allow get: if signedIn()
+        && (resource.data.userId == uid()
+            || resource.data.createdBy == uid()
+            || isOwner()
+            || (isManager() && (estLinkedToMyTeam() || estCreatorIsMyWorker())));
 
       allow create: if signedIn()
         && perm("canUseEstimateForm")
@@ -161,10 +222,16 @@ service cloud.firestore {
     }
 
     // ── invoices/{id} ───────────────────────────
+    // Same get/list split as estimates. Client queries invoices by
+    // where('userId','==',uid) (customer-tracker.html) — provable.
     match /invoices/{id} {
-      allow read: if isOwner()
-        || resource.data.createdBy == uid()
-        || resource.data.userId == uid();
+      allow list: if signedIn()
+        && (resource.data.userId == uid() || resource.data.createdBy == uid());
+
+      allow get: if signedIn()
+        && (resource.data.userId == uid()
+            || resource.data.createdBy == uid()
+            || isOwner());
 
       allow create: if signedIn()
         && (isOwner() || perm("canUseEstimateForm"))

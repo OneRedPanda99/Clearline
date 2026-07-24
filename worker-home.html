@@ -163,20 +163,13 @@
         async function load(profile) {
             const db = CL_FIREBASE.getFirestore();
             const uid = CL_FIREBASE.getCurrentUser().uid;
-            // assignedWorkers is a crew list now, not a single assignee.
-            // assignedTo is kept as a fallback for jobs written before that change.
-            const [crewSnap, assignedSnap, createdSnap] = await Promise.all([
-                db.collection('jobs').where('assignedWorkers', 'array-contains', uid).get(),
-                db.collection('jobs').where('assignedTo', '==', uid).get(),
-                db.collection('jobs').where('createdBy', '==', uid).get()
-            ]);
-            const seen = new Set();
+            // accessUids holds every uid allowed to read this job
+            // (owner + manager + crew + creator), denormalized at write
+            // time. This single provable query replaces the three legacy
+            // per-field queries and matches the Firestore read rule.
+            const snap = await db.collection('jobs').where('accessUids', 'array-contains', uid).get();
             const jobs = [];
-            [crewSnap, assignedSnap, createdSnap].forEach(s => s.forEach(d => {
-                if (seen.has(d.id)) return;
-                seen.add(d.id);
-                jobs.push(d.data());
-            }));
+            snap.forEach(d => jobs.push(d.data()));
             renderJobs(jobs);
         }
 

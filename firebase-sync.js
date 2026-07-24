@@ -264,30 +264,13 @@ const CL_FIREBASE = (function() {
             // the one-shot fetch, just as real-time listeners instead.
             const role = userProfile && userProfile.role;
             const uid = currentUser.uid;
-            if (role === 'owner') {
-                db.collection('jobs').onSnapshot(() => {
-                    syncFromCloud();
-                }, onSnapErr('jobs'));
-            } else if (role === 'manager') {
-                db.collection('jobs').where('assignedManager', '==', uid).onSnapshot(() => {
-                    syncFromCloud();
-                }, onSnapErr('jobs'));
-                db.collection('jobs').where('createdBy', '==', uid).onSnapshot(() => {
-                    syncFromCloud();
-                }, onSnapErr('jobs'));
-            } else {
-                // Worker: a crew list (assignedWorkers) now, plus the legacy
-                // single-assignee field for jobs written before that change.
-                db.collection('jobs').where('assignedWorkers', 'array-contains', uid).onSnapshot(() => {
-                    syncFromCloud();
-                }, onSnapErr('jobs'));
-                db.collection('jobs').where('assignedTo', '==', uid).onSnapshot(() => {
-                    syncFromCloud();
-                }, onSnapErr('jobs'));
-                db.collection('jobs').where('createdBy', '==', uid).onSnapshot(() => {
-                    syncFromCloud();
-                }, onSnapErr('jobs'));
-            }
+            // All roles use the same provable listener query:
+            // where('accessUids','array-contains',uid) — matches the
+            // Firestore read rule (uid() in accessUids) with no get() call.
+            const jobsListener = db.collection('jobs').where('accessUids', 'array-contains', uid);
+            jobsListener.onSnapshot(() => {
+                syncFromCloud();
+            }, onSnapErr('jobs'));
             // `customers` reads are `allow read: if signedIn()` — not
             // resource-scoped, so an unfiltered listener is fine for any role.
             db.collection('customers').onSnapshot(() => {
@@ -548,11 +531,29 @@ const CL_FIREBASE = (function() {
     // collection (createdBy + lastUpdated). Never overwrites an
     // existing createdBy. records keep their original author so
     // future rules scope them correctly.
+    // For jobs, also build the denormalized `accessUids` list so the
+    // Firestore read rule (uid() in accessUids) is provable without a
+    // get() call. accessUids = owner + creator + assigned manager + every
+    // crew worker + legacy single assignee. The owner uid comes from
+    // CL_SECRETS.ownerUid (stamped at app config time).
     function _stampForCloud(entity) {
         if (!entity) return entity;
         const out = { ...entity };
         if (!out.createdBy && currentUser) out.createdBy = currentUser.uid;
         if (!out.lastUpdated) out.lastUpdated = new Date().toISOString();
+        if (out && (out.assignedWorkers !== undefined || out.assignedTo !== undefined
+                || out.assignedManager !== undefined)) {
+            const ownerUid = (window.CL_SECRETS && window.CL_SECRETS.ownerUid) || '';
+            const set = new Set();
+            if (ownerUid) set.add(ownerUid);
+            if (out.createdBy) set.add(out.createdBy);
+            if (out.assignedManager) set.add(out.assignedManager);
+            if (out.assignedTo) set.add(out.assignedTo);
+            (Array.isArray(out.assignedWorkers) ? out.assignedWorkers : []).forEach(u => {
+                if (u) set.add(u);
+            });
+            out.accessUids = Array.from(set);
+        }
         return out;
     }
 
@@ -702,38 +703,19 @@ const CL_FIREBASE = (function() {
     }
 
     // Role-aware job fetch.
-    //   Owner:   every job
-    //   Manager: jobs where assignedManager == me OR createdBy == me
-    //   Worker:  jobs where I'm in assignedWorkers (a crew list), or the
-    //            legacy single-assignee assignedTo == me, OR createdBy == me
-    // Firestore has no native OR across fields, so the non-owner cases
-    // run multiple queries and dedupe by doc id.
+    //   Owner:   every job (owner uid is in accessUids of all jobs)
+    //   Manager: jobs where the manager is in accessUids
+    //   Worker:  jobs where the worker is in accessUids
+    // All roles use the SAME query shape — where('accessUids',
+    // 'array-contains', uid) — which matches the Firestore read rule
+    // (uid() in resource.data.accessUids). No get() call, so the query is
+    // provable and won't be rejected. (The older assignedWorkers/
+    // assignedTo/createdBy/assignedManager fields are still denormalized
+    // into accessUids by _stampForCloud, so no per-field queries needed.)
     async function _fetchJobsForRole() {
         const uid = currentUser.uid;
-        const role = (userProfile && userProfile.role) || 'worker';
-        if (role === 'owner') {
-            const snap = await db.collection('jobs').get();
-            return snap.docs.map(d => d.data());
-        }
-        const queries = role === 'manager'
-            ? [
-                db.collection('jobs').where('assignedManager', '==', uid).get(),
-                db.collection('jobs').where('createdBy', '==', uid).get()
-              ]
-            : [
-                db.collection('jobs').where('assignedWorkers', 'array-contains', uid).get(),
-                db.collection('jobs').where('assignedTo', '==', uid).get(),
-                db.collection('jobs').where('createdBy', '==', uid).get()
-              ];
-        const snaps = await Promise.all(queries);
-        const seen = new Set();
-        const out = [];
-        snaps.forEach(s => s.forEach(d => {
-            if (seen.has(d.id)) return;
-            seen.add(d.id);
-            out.push(d.data());
-        }));
-        return out;
+        const snap = await db.collection('jobs').where('accessUids', 'array-contains', uid).get();
+        return snap.docs.map(d => d.data());
     }
 
     // Customers are readable by any authenticated user (rules enforce).

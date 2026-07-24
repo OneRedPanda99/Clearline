@@ -46,6 +46,41 @@ window.escapeHtml = function(value) {
 window.escapeAttr = window.escapeHtml;
 
 /**
+ * Build the denormalized `accessUids` array for a job so the Firestore
+ * read rule (uid() in resource.data.accessUids) is provable WITHOUT a
+ * get()/exists() call. Firestore rejects any jobs query whose rule relies
+ * on a get() lookup of the caller's user doc (the old isOwner()/isManager()/
+ * isWorker() path), so we instead stamp every allowed reader's uid directly
+ * onto the job: the company owner (from CL_SECRETS.ownerUid), the job's
+ * creator, the assigned manager, the legacy single assignee, and every
+ * worker in the assignedWorkers crew.
+ *
+ * Pass the job's CURRENT assigned fields (`existing`) when you are only
+ * updating a subset (e.g. manager-panel reassign) so readers who were
+ * already granted access aren't dropped — the rules require non-owner
+ * updates to preserve the existing reader set.
+ *
+ * @param {object} fields  The assigned fields being written (any of
+ *   assignedWorkers, assignedTo, assignedManager, createdBy).
+ * @param {object} [existing] The job's previously-stored assigned fields,
+ *   used to merge in currently-granted readers that aren't in `fields`.
+ * @returns {string[]} array of unique uids (may be empty if nothing known).
+ */
+window.buildAccessUids = function(fields, existing) {
+  const f = fields || {};
+  const e = existing || {};
+  const ownerUid = (window.CL_SECRETS && window.CL_SECRETS.ownerUid) || '';
+  const set = new Set();
+  if (ownerUid) set.add(ownerUid);
+  [f.createdBy, e.createdBy, f.assignedManager, e.assignedManager,
+   f.assignedTo, e.assignedTo].forEach(u => { if (u) set.add(u); });
+  (Array.isArray(f.assignedWorkers) ? f.assignedWorkers : [])
+    .concat(Array.isArray(e.assignedWorkers) ? e.assignedWorkers : [])
+    .forEach(u => { if (u) set.add(u); });
+  return Array.from(set);
+};
+
+/**
  * Safe localStorage read with JSON parsing.
  * Returns `defaultValue` if key is missing, null, or corrupt JSON.
  */

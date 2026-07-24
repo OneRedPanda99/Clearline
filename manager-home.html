@@ -115,17 +115,11 @@
         async function load() {
             const db = CL_FIREBASE.getFirestore();
             const uid = CL_FIREBASE.getCurrentUser().uid;
-            const [mgrSnap, createdSnap] = await Promise.all([
-                db.collection('jobs').where('assignedManager', '==', uid).get(),
-                db.collection('jobs').where('createdBy', '==', uid).get()
-            ]);
-            const seen = new Set();
+            // Single provable query: accessUids contains me (owner/manager/
+            // creator/crew). Matches the Firestore read rule.
+            const snap = await db.collection('jobs').where('accessUids', 'array-contains', uid).get();
             const jobs = [];
-            [mgrSnap, createdSnap].forEach(s => s.forEach(d => {
-                if (seen.has(d.id)) return;
-                seen.add(d.id);
-                jobs.push(d.data());
-            }));
+            snap.forEach(d => jobs.push(d.data()));
             renderJobs(jobs);
         }
 
