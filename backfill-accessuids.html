@@ -23,8 +23,10 @@
     <div id="login" class="space-y-2">
       <button id="google" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded text-sm w-full">Sign in with Google</button>
       <div class="text-center text-xs text-gray-500">— or —</div>
-      <input id="email" placeholder="email" class="w-full bg-gray-800 rounded px-3 py-2 text-sm" value="parkerbranham@gmail.com" />
-      <input id="pass" type="password" placeholder="password" class="w-full bg-gray-800 rounded px-3 py-2 text-sm" />
+      <label for="email" class="sr-only">Email</label>
+      <input id="email" name="email" placeholder="email" class="w-full bg-gray-800 rounded px-3 py-2 text-sm" value="parkerbranham@gmail.com" />
+      <label for="pass" class="sr-only">Password</label>
+      <input id="pass" name="pass" type="password" placeholder="password" class="w-full bg-gray-800 rounded px-3 py-2 text-sm" />
       <button id="signin" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm w-full">Sign in with email</button>
       <div id="loginErr" class="text-red-400 text-xs"></div>
     </div>
@@ -35,6 +37,8 @@
             onclick="runDiagnose()">Diagnose (dump assignments)</button>
     <button id="mgr" class="hidden bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded"
             onclick="makeMeManager()">Make me manager of all workers</button>
+    <button id="assignx" class="hidden bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded"
+            onclick="assignCrewToJob()">Add me + Xavier as crew to a job</button>
 
     <pre id="log" class="bg-black/40 rounded p-3 text-xs whitespace-pre-wrap h-64 overflow-auto"></pre>
   </div>
@@ -75,6 +79,7 @@
         document.getElementById('run').classList.remove('hidden');
         document.getElementById('diag').classList.remove('hidden');
         document.getElementById('mgr').classList.remove('hidden');
+        document.getElementById('assignx').classList.remove('hidden');
         log('Signed in as ' + user.email + ' (uid ' + user.uid + ')');
       }
     });
@@ -103,6 +108,54 @@
         }
       }
       log('Done. updated=' + updated + ' skipped=' + skipped + ' failed=' + failed);
+    }
+
+    // Add the OWNER (you) + Xavier as crew to ONE job. Does not touch
+    // other jobs or managers. Finds Xavier by username/displayName.
+    async function assignCrewToJob() {
+      const me = auth.currentUser;
+      if (!me) { log('Not signed in.'); return; }
+      const ownerUid = (window.CL_SECRETS && window.CL_SECRETS.ownerUid) || me.uid;
+
+      // Resolve Xavier's uid from the users collection.
+      const users = await db.collection('users').get();
+      let xavierUid = null;
+      for (const d of users.docs) {
+        const u = d.data();
+        if ((u.username || '').toLowerCase() === 'xavierf'
+          || (u.displayName || '').toLowerCase() === 'xavier ferrand') { xavierUid = d.id; break; }
+      }
+      if (!xavierUid) { log('Could not find XavierF user.'); return; }
+      log('Xavier uid=' + xavierUid);
+
+      // List jobs so you can pick one by id or customer name.
+      const snap = await db.collection('jobs').get();
+      log('Jobs (id — customer):');
+      snap.forEach(d => log('  ' + d.id + ' — ' + (d.data().customerName || d.data().customer || '(no name)')));
+
+      const target = (prompt('Paste the job id (or customer name) to add crew to:') || '').trim();
+      if (!target) { log('Cancelled.'); return; }
+      let doc = snap.docs.find(d => d.id === target)
+        || snap.docs.find(d => (d.data().customerName || d.data().customer || '').toLowerCase() === target.toLowerCase());
+      if (!doc) { log('No job matched "' + target + '".'); return; }
+
+      const d = doc.data();
+      const workers = Array.isArray(d.assignedWorkers) ? d.assignedWorkers.slice() : [];
+      if (!workers.includes(ownerUid)) workers.push(ownerUid);
+      if (!workers.includes(xavierUid)) workers.push(xavierUid);
+      const out = {
+        assignedWorkers: workers,
+        accessUids: window.buildAccessUids(
+          { assignedWorkers: workers, assignedManager: d.assignedManager, assignedTo: d.assignedTo, createdBy: d.createdBy },
+          d
+        )
+      };
+      try {
+        await doc.ref.update(out);
+        log('Updated ' + doc.id + ' crew=[' + workers.join(', ') + ']');
+      } catch (e) {
+        log('FAILED ' + doc.id + ': ' + e.message);
+      }
     }
 
     async function runDiagnose() {
