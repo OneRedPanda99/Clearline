@@ -134,20 +134,11 @@ service cloud.firestore {
             || resource.data.createdBy == uid()
             || resource.data.assignedManager == uid());
 
-      // list: must be provable from the query's own where() clause. The
-      // client queries where('accessUids','array-contains',uid) for new
-      // jobs, which is proven by the first clause. The legacy clauses
-      // below are guarded by the SAME corresponding where() the client
-      // would need (they only help if a query actually scopes by that
-      // field) — but since the client now always queries accessUids, the
-      // legacy fallback mainly keeps get() working and avoids a forced
-      // backfill of old data.
+      // list: provable from the client's where('accessUids','array-contains',uid)
+      // query alone — NO get()/exists() call, so it is allowed for queries.
       allow list: if signedIn()
-        && (resource.data.accessUids is list && uid() in resource.data.accessUids
-            || resource.data.assignedWorkers is list && uid() in resource.data.assignedWorkers
-            || resource.data.assignedTo == uid()
-            || resource.data.createdBy == uid()
-            || resource.data.assignedManager == uid());
+        && resource.data.accessUids is list
+        && uid() in resource.data.accessUids;
 
       // On create the writer must stamp accessUids including at least
       // themselves, the owner, the assigned manager, and all crew workers.
@@ -157,17 +148,19 @@ service cloud.firestore {
         && request.resource.data.accessUids is list
         && uid() in request.resource.data.accessUids;
 
+      // Any non-owner update must preserve the existing reader set
+      // (no reader can be silently dropped by a lower-privilege writer).
+      // NOTE: isOwner()/isManager()/isWorker() call get() here, but get() is
+      // ALLOWED inside write rules — only read/list rules forbid it.
       allow update: if isOwner()
-        || (isManager()
-            && perm("canEditOwnJobs")
-            && resource.data.assignedManager == uid()
-            && request.resource.data.createdBy == resource.data.createdBy)
-        || (isWorker()
-            && perm("canEditOwnJobs")
-            && (resource.data.createdBy == uid() || isAssignedWorker())
+        || (accessUidsPreservedOrOwner()
+            && ((isManager()
+                  && perm("canEditOwnJobs")
+                  && resource.data.assignedManager == uid())
+                || (isWorker()
+                  && perm("canEditOwnJobs")
+                  && (resource.data.createdBy == uid() || isAssignedWorker())))
             && request.resource.data.createdBy == resource.data.createdBy);
-        // Any non-owner update must preserve the existing reader set.
-        && accessUidsPreservedOrOwner();
 
       allow delete: if isOwner();
     }
