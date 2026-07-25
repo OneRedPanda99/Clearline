@@ -905,9 +905,19 @@ const CL_FIREBASE = (function() {
         syncFromCloud();
     }, 60 * 1000);
 
-    // Get the raw Firebase user object (needed for uid in Firestore queries)
+    // Get the raw Firebase user object (needed for uid in Firestore queries).
+    // Fall back to the live auth.currentUser if our cached copy was reset
+    // (e.g. by a redundant auth-state event or a second init) — Firebase's
+    // auth.currentUser is always authoritative and reflects the real session.
     function getCurrentUser() {
-        return currentUser;
+        if (currentUser) return currentUser;
+        try {
+            if (auth && auth.currentUser) {
+                currentUser = auth.currentUser;
+                return currentUser;
+            }
+        } catch (_) { /* auth not ready */ }
+        return null;
     }
 
     // Get Firestore instance (initialized via init())
@@ -994,7 +1004,7 @@ const CL_FIREBASE = (function() {
         toAuthEmail,
         USERNAME_EMAIL_SUFFIX,
         can,
-        get isSignedIn() { return !!currentUser; },
+        get isSignedIn() { return !!getCurrentUser(); },
         get user() { return getUserInfo(); },
         get role() { return userProfile ? userProfile.role : null; },
         get permissions() { return userProfile ? Object.assign({}, userProfile.permissions) : {}; }

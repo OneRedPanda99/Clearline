@@ -1155,19 +1155,28 @@
                 assignedWorkers: picked,
                 assignedTo: null
             });
-            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
-                const ok = await CL_FIREBASE.syncToCloud();
-                console.log('[saveJobCrew] syncToCloud returned=' + ok);
-                const names = picked.map(uid => {
-                    const w = allWorkers.find(x => x.uid === uid);
-                    return w ? (w.displayName || w.username) : 'worker';
-                }).join(', ');
-                CL_FIREBASE.logActivity('job.crew_changed', {
-                    entityType: 'job', entityId: jobId, entityLabel: job.customerName,
-                    message: picked.length ? ('crew: ' + names) : 'crew cleared'
-                });
+            const fb = window.CL_FIREBASE;
+            const fbUser = fb && typeof fb.getCurrentUser === 'function' ? fb.getCurrentUser() : null;
+            console.log('[saveJobCrew] fbUser=' + (fbUser ? fbUser.uid : 'null') + ' isSignedIn=' + (fb ? fb.isSignedIn : 'n/a'));
+            if (fb) {
+                try {
+                    const ok = await fb.syncToCloud();
+                    console.log('[saveJobCrew] syncToCloud returned=' + ok);
+                    const names = picked.map(uid => {
+                        const w = allWorkers.find(x => x.uid === uid);
+                        return w ? (w.displayName || w.username) : 'worker';
+                    }).join(', ');
+                    if (typeof fb.logActivity === 'function') {
+                        fb.logActivity('job.crew_changed', {
+                            entityType: 'job', entityId: jobId, entityLabel: job.customerName,
+                            message: picked.length ? ('crew: ' + names) : 'crew cleared'
+                        });
+                    }
+                } catch (e) {
+                    console.error('[saveJobCrew] sync error', e);
+                }
             } else {
-                console.log('[saveJobCrew] NOT signed in — push skipped');
+                console.log('[saveJobCrew] CL_FIREBASE missing — push skipped');
             }
             loadData();
             renderJobs();
