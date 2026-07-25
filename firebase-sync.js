@@ -610,15 +610,14 @@ const CL_FIREBASE = (function() {
             if (!it || !it.id) return;
             if (!mine(it)) return; // skip docs we can't write
             let entity = it;
-            if (cloudAssign && cloudAssign.has(it.id)) {
+            // Non-owners (manager/worker) defer conflicting assignment fields
+            // to the cloud by recency, so a concurrent edit from another
+            // session isn't clobbered. The OWNER is authoritative for every
+            // job (canPushAll) — deferring to the cloud here would let a
+            // stale cloud copy's empty assignedWorkers silently drop a
+            // worker the owner just assigned, breaking crew visibility.
+            if (cloudAssign && cloudAssign.has(it.id) && !canPushAll) {
                 const cloud = cloudAssign.get(it.id);
-                // Merge assignment fields by recency: the most recently
-                // updated value wins. This lets the editor's own just-made
-                // change survive the push (local lastUpdated > cloud), while
-                // still protecting against clobbering a NEWER remote edit
-                // from another session. Without recency, taking the cloud's
-                // value blindly would revert the caller's own edit; taking
-                // local blindly would clobber a concurrent remote change.
                 const localTs = Date.parse(it.lastUpdated) || 0;
                 const cloudTs = Date.parse(cloud.lastUpdated) || 0;
                 const newer = (f) => (localTs >= cloudTs ? it[f] : cloud[f]);

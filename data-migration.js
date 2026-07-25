@@ -530,7 +530,7 @@ var CL_DATA = {
         const deletedExpenseMap = new Map(mergedDeletedExpenses.map(d => [d.id, d.deletedAt || 0]));
         const deletedPayrollMap = new Map(mergedDeletedPayroll.map(d => [d.id, d.deletedAt || 0]));
 
-        const mergeRecords = (localList, remoteList, deletedMap) => {
+        const mergeRecords = (localList, remoteList, deletedMap, collName) => {
             const map = new Map();
             localList.forEach(item => map.set(item.id, item));
             remoteList.forEach(item => {
@@ -545,6 +545,32 @@ var CL_DATA = {
                     map.set(item.id, item);
                 }
             });
+
+            // Jobs: self-heal assignedWorkers/assignedTo from accessUids.
+            // The backfill (and older code) wrote readers straight into
+            // accessUids without populating assignedWorkers, and accessUids
+            // is rebuilt from assignedWorkers on every push. Without this, a
+            // backfilled crew member would be silently dropped the next time
+            // the job is pushed. We only ADD uids that are in accessUids but
+            // missing from the assignment fields — never remove a real
+            // assignment. (Owner/creator are already in accessUids and the
+            // push stamp adds manager/workers, so this just covers the
+            // backfilled crew uids.)
+            if (collName === 'jobs') {
+                map.forEach((rec, id) => {
+                    if (!rec || !Array.isArray(rec.accessUids)) return;
+                    const workers = new Set(Array.isArray(rec.assignedWorkers) ? rec.assignedWorkers : []);
+                    const ownerUid = (window.CL_SECRETS && window.CL_SECRETS.ownerUid) || '';
+                    rec.accessUids.forEach(uid => {
+                        if (!uid || uid === ownerUid) return;
+                        if (uid === rec.createdBy) return;
+                        if (uid === rec.assignedManager) return;
+                        if (uid === rec.assignedTo) return;
+                        workers.add(uid);
+                    });
+                    rec.assignedWorkers = Array.from(workers);
+                });
+            }
 
             // Remove any locally deleted records
             deletedMap.forEach((deletedAt, id) => {
@@ -562,10 +588,10 @@ var CL_DATA = {
         const remoteExpenses = Array.isArray(data.expenses) ? data.expenses : [];
         const remotePayroll = Array.isArray(data.payroll) ? data.payroll : [];
 
-        const mergedCustomers = mergeRecords(localCustomers, remoteCustomers, deletedCustomerMap);
-        const mergedJobs = mergeRecords(localJobs, remoteJobs, deletedJobMap);
-        const mergedExpenses = mergeRecords(localExpenses, remoteExpenses, deletedExpenseMap);
-        const mergedPayroll = mergeRecords(localPayroll, remotePayroll, deletedPayrollMap);
+        const mergedCustomers = mergeRecords(localCustomers, remoteCustomers, deletedCustomerMap, 'customers');
+        const mergedJobs = mergeRecords(localJobs, remoteJobs, deletedJobMap, 'jobs');
+        const mergedExpenses = mergeRecords(localExpenses, remoteExpenses, deletedExpenseMap, 'expenses');
+        const mergedPayroll = mergeRecords(localPayroll, remotePayroll, deletedPayrollMap, 'payroll');
 
         // Avoid unnecessary localStorage writes + UI rerenders when the cloud
         // payload is identical to what we already have locally. Frequent pulls
