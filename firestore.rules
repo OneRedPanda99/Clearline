@@ -151,10 +151,13 @@ service cloud.firestore {
             || resource.data.assignedManager == uid());
 
       // list: PROVABLE from the client's where('accessUids','array-contains',
-      // uid) query. NO get(). This is the rule that was broken (it had an
-      // isOwner()/get() branch) and denied every worker/manager query.
+      // uid) query. NO get(). The `is list` type-check is intentionally
+      // ABSENT here: the static query validator cannot prove the field is a
+      // list from the array-contains clause, so including it rejects every
+      // filtered query as "unprovable" (permission-denied) even with correct
+      // data. array-contains already guarantees the field is a list at query
+      // time. Type-safety is enforced in create/update/get instead.
       allow list: if signedIn()
-        && resource.data.accessUids is list
         && uid() in resource.data.accessUids;
 
       // create: writer must stamp accessUids including themselves + owner.
