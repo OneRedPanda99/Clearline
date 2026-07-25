@@ -23,6 +23,49 @@
         /* Expenses — built on the app's M3 tokens (app.css). No raw hexes:
            colors, spacing, radii, motion all inherit the design system so this
            page is indistinguishable from the hand-built ones. */
+        .dup-card {
+            border: 1px solid rgba(251, 191, 36, 0.35);
+            background: rgba(251, 191, 36, 0.06);
+            border-radius: 14px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        .dup-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .dup-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .dup-side {
+            border: 1px solid var(--app-border, rgba(255,255,255,0.1));
+            border-radius: 12px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            min-width: 0;
+        }
+        .dup-side--this {
+            border-color: rgba(56, 189, 248, 0.45);
+        }
+        .dup-label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin: 0 0 8px;
+        }
+        .dup-keep {
+            width: 100%;
+            margin-top: 10px;
+        }
+
         .ex-row {
             display: flex; align-items: center; gap: var(--md-space-3);
             min-height: 60px;
@@ -151,6 +194,7 @@
         <div class="content-wrapper">
             <!-- Config / status banners -->
             <div id="configBanner" class="glass-card rounded-xl p-3 text-sm hidden" style="margin-bottom:12px;"></div>
+            <div id="correctionBar" class="glass-card rounded-xl p-3 text-sm hidden" style="margin-bottom:12px;"></div>
 
             <!-- Tabs -->
             <div class="page-tabs page-tabs--pills" style="margin-bottom:12px;">
@@ -277,6 +321,23 @@
     </div>
 
     <!-- Lightbox for receipt photo -->
+    <div id="confirmDelete" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="confirmDeleteTitle">
+        <div class="modal-content glass-card" role="document" style="width:100%;max-width:400px;margin:auto;">
+            <div class="modal-header" style="padding:16px;border-bottom:0.5px solid rgba(255,255,255,0.1);">
+                <h2 id="confirmDeleteTitle" style="font-size:17px;font-weight:700;margin:0;">
+                    <i class="fas fa-triangle-exclamation mr-2" style="color:#f87171;"></i>Confirm delete
+                </h2>
+            </div>
+            <div id="confirmDeleteBody" style="padding:16px;"></div>
+            <div style="padding:16px;border-top:0.5px solid rgba(255,255,255,0.1);display:flex;gap:10px;">
+                <button type="button" class="btn-secondary" style="flex:1;" onclick="cancelDelete()">Keep it</button>
+                <button type="button" class="btn-primary" style="flex:1;background:#dc2626;" onclick="confirmDelete()">
+                    <i class="fas fa-trash mr-1"></i>Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="imgLightbox" class="modal" hidden role="dialog" aria-modal="true" onclick="closeModal('imgLightbox')">
         <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:16px;">
             <img id="imgLightboxSrc" src="" alt="Receipt" style="max-width:100%;max-height:100%;border-radius:12px;">
@@ -364,6 +425,100 @@
             };
         }
 
+        // ─── Corrections layer ───────────────────────────────────────────────
+        // The CSV is produced by the receipt pipeline and re-fetched on every
+        // load, so anything you fix here has to be re-applied on top of it or
+        // the next refresh silently throws your edit away. Corrections are
+        // keyed by expense id and stored locally; they also ride along in the
+        // synced settings blob so a fix made on the phone shows up on the PC.
+        const CORRECTIONS_KEY = 'cl-expenses-corrections';
+
+        function loadCorrections() {
+            try { return JSON.parse(localStorage.getItem(CORRECTIONS_KEY) || '{}') || {}; }
+            catch (e) { return {}; }
+        }
+
+        function saveCorrections(map) {
+            localStorage.setItem(CORRECTIONS_KEY, JSON.stringify(map));
+            // Piggy-back on the settings doc so corrections survive a device
+            // change. syncToCloud writes cl-settings up to users/{uid}.
+            try {
+                const settings = safeGet('cl-settings', {}) || {};
+                settings.expenseCorrections = map;
+                safeSet('cl-settings', settings);
+                if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
+            } catch (e) { /* local copy still stands */ }
+        }
+
+        function mergeSyncedCorrections() {
+            try {
+                const synced = (safeGet('cl-settings', {}) || {}).expenseCorrections;
+                if (!synced || typeof synced !== 'object') return;
+                const local = loadCorrections();
+                let changed = false;
+                Object.keys(synced).forEach(id => {
+                    if (!local[id]) { local[id] = synced[id]; changed = true; }
+                });
+                if (changed) localStorage.setItem(CORRECTIONS_KEY, JSON.stringify(local));
+            } catch (e) { /* ignore */ }
+        }
+
+        /** Apply every correction on top of a freshly parsed CSV, and drop
+         *  anything marked deleted. Every load path runs through this. */
+        function applyCorrections(list) {
+            const corrections = loadCorrections();
+            const out = [];
+            list.forEach(row => {
+                const fix = corrections[row.id];
+                if (!fix) { out.push(row); return; }
+                if (fix.__delete) return;
+                const merged = Object.assign({}, row);
+                Object.keys(fix).forEach(k => {
+                    if (k.startsWith('__')) return;
+                    merged[k] = fix[k];
+                });
+                merged.__corrected = true;
+                if (/needs_review|review|flag|low.?conf|fail/i.test(merged.status || '') && fix.__resolved) {
+                    merged.status = 'ok';
+                }
+                out.push(merged);
+            });
+            return out;
+        }
+
+        function correctionCount() {
+            const c = loadCorrections();
+            return Object.keys(c).length;
+        }
+
+        /** The pipeline owns the CSV; the browser can't write to the repo.
+         *  Hand back a corrections CSV it can consume on its next run. */
+        function exportCorrectionsCsv() {
+            const corrections = loadCorrections();
+            const ids = Object.keys(corrections);
+            if (!ids.length) { showToast('No corrections to export', 'error'); return; }
+            const cols = ['id', 'action', 'vendor', 'total', 'category', 'purchase_date', 'note'];
+            const esc2 = (v) => {
+                const str = v == null ? '' : String(v);
+                return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+            };
+            const lines = [cols.join(',')];
+            ids.forEach(id => {
+                const fix = corrections[id];
+                lines.push(cols.map(c => {
+                    if (c === 'id') return esc2(id);
+                    if (c === 'action') return fix.__delete ? 'delete' : 'update';
+                    return esc2(fix[c]);
+                }).join(','));
+            });
+            const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'expense-corrections-' + (window.localYmd ? localYmd() : 'export') + '.csv';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            showToast(ids.length + ' correction' + (ids.length === 1 ? '' : 's') + ' exported');
+        }
+
         // CATEGORY taxonomy — start with a sensible default list. If the backend
         // reports a category not in this list, it's still rendered (untouched).
         const CATEGORIES = [
@@ -432,9 +587,10 @@
             showLoading(true);
             hideError(); hideEmpty();
             try {
+                mergeSyncedCorrections();
                 const text = await fetchCsvText();
                 const rows = csvToRows(text);
-                allExpenses = rows.map(normalize);
+                allExpenses = applyCorrections(rows.map(normalize));
                 renderAll();
                 updateQuickStats();
                 if (currentView !== 'all') setView('all');
@@ -455,7 +611,7 @@
             try {
                 if (!allExpenses.length) {
                     const text = await fetchCsvText();
-                    allExpenses = csvToRows(text).map(normalize);
+                    allExpenses = applyCorrections(csvToRows(text).map(normalize));
                 }
                 reviewExpenses = allExpenses.filter(e => /review|flag|low.?conf|fail|needs_review/i.test(e.status || ''));
                 const badge = document.getElementById('reviewBadge');
@@ -485,7 +641,7 @@
                 let list = allExpenses;
                 if (!list.length) {
                     const text = await fetchCsvText();
-                    list = csvToRows(text).map(normalize);
+                    list = applyCorrections(csvToRows(text).map(normalize));
                 }
                 renderSummary(list);
                 loadEl.classList.add('hidden');
@@ -496,24 +652,65 @@
             }
         }
 
+        // Deleting a receipt is significant and irreversible from this screen,
+        // so it always goes through an explicit confirm. Native confirm() is
+        // unreliable in an installed PWA, hence the in-app dialog.
+        let pendingDeleteId = null;
+
         function deleteExpense(id) {
-            const e = reviewExpenses.find(x => x.id === id);
-            const label = e ? (e.vendor || 'this expense') : 'this expense';
-            if (!confirm('Delete ' + label + '? This removes it from your expenses. (You can undo by re-running the pipeline until it is pushed.)')) return;
+            const e = allExpenses.find(x => x.id === id) || reviewExpenses.find(x => x.id === id);
+            if (!e) { showToast('Expense not found', 'error'); return; }
+            pendingDeleteId = id;
+            document.getElementById('confirmDeleteBody').innerHTML = `
+                <p style="font-size:15px;margin:0 0 10px;">Delete this receipt?</p>
+                <div class="glass-card rounded-xl p-3" style="margin-bottom:12px;">
+                    <p style="font-weight:700;margin:0;">${esc(e.vendor || 'Unknown vendor')}</p>
+                    <p class="cl-muted text-sm" style="margin:2px 0 0;">${esc(fmtDateShort(e.purchase_date))} · ${fmtMoney(e.total)}</p>
+                </div>
+                <p class="cl-muted text-sm" style="margin:0;">It disappears from every total here. The receipt image and the pipeline's own CSV are untouched until you export corrections.</p>`;
+            openModal('confirmDelete');
+        }
+
+        function cancelDelete() {
+            pendingDeleteId = null;
+            closeModal('confirmDelete');
+        }
+
+        function confirmDelete() {
+            const id = pendingDeleteId;
+            if (!id) return;
             try {
-                let corrections = {};
-                try { corrections = JSON.parse(localStorage.getItem('cl-expenses-corrections') || '{}'); } catch (e2) {}
+                const corrections = loadCorrections();
                 corrections[id] = Object.assign({}, corrections[id] || {}, { __delete: true });
-                localStorage.setItem('cl-expenses-corrections', JSON.stringify(corrections));
+                saveCorrections(corrections);
                 reviewExpenses = reviewExpenses.filter(x => x.id !== id);
                 allExpenses = allExpenses.filter(x => x.id !== id);
-                showToast('Marked for deletion — will sync on next pipeline run', 'success');
-                renderAll(); updateQuickStats();
-                if (currentView === 'review') loadReview();
+                pendingDeleteId = null;
+                closeModal('confirmDelete');
                 if (selectedId === id) closeModal('detailSheet');
+                showToast('Receipt deleted');
+                renderAll(); updateQuickStats(); renderCorrectionBar();
+                if (currentView === 'review') loadReview();
             } catch (e3) {
                 showToast('Delete failed. Try again.', 'error');
             }
+        }
+
+        /** Corrections are local until the pipeline picks them up, so say so
+         *  plainly and give a one-tap export instead of hiding the fact. */
+        function renderCorrectionBar() {
+            const bar = document.getElementById('correctionBar');
+            if (!bar) return;
+            const n = correctionCount();
+            if (!n) { bar.classList.add('hidden'); return; }
+            bar.classList.remove('hidden');
+            bar.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                    <span><i class="fas fa-pen-to-square mr-1"></i>${n} correction${n === 1 ? '' : 's'} saved on this account</span>
+                    <button type="button" class="btn-secondary btn-sm" style="width:auto;" onclick="exportCorrectionsCsv()">
+                        <i class="fas fa-file-csv mr-1"></i>Export for pipeline
+                    </button>
+                </div>`;
         }
 
         // Edits are written to a corrections file that the local pipeline applies
@@ -521,17 +718,21 @@
         // from this PC — the browser can't write to the repo directly).
         function saveExpense(id, payload) {
             try {
-                let corrections = {};
-                try { corrections = JSON.parse(localStorage.getItem('cl-expenses-corrections') || '{}'); } catch (e) {}
-                corrections[id] = Object.assign({}, corrections[id] || {}, payload);
-                localStorage.setItem('cl-expenses-corrections', JSON.stringify(corrections));
-                // Apply locally so the UI reflects the fix immediately.
-                const target = allExpenses.find(x => x.id === id);
-                if (target) { Object.assign(target, payload); if (/needs_review/i.test(target.status || '')) target.status = 'ok'; }
-                const rt = reviewExpenses.find(x => x.id === id);
-                if (rt) { Object.assign(rt, payload); if (/needs_review/i.test(rt.status || '')) rt.status = 'ok'; }
-                showToast('Saved locally — will sync on next pipeline run', 'success');
-                renderAll(); updateQuickStats();
+                const corrections = loadCorrections();
+                corrections[id] = Object.assign({}, corrections[id] || {}, payload, { __resolved: true });
+                saveCorrections(corrections);
+                // Apply in place so the list reflects the fix immediately; the
+                // same correction is re-applied over the CSV on every reload.
+                [allExpenses, reviewExpenses].forEach(arr => {
+                    const t = arr.find(x => x.id === id);
+                    if (!t) return;
+                    Object.assign(t, payload);
+                    t.__corrected = true;
+                    if (/needs_review|review|flag|low.?conf|fail/i.test(t.status || '')) t.status = 'ok';
+                });
+                reviewExpenses = reviewExpenses.filter(x => x.id !== id);
+                showToast('Correction saved — it sticks through refreshes');
+                renderAll(); updateQuickStats(); renderCorrectionBar();
                 if (currentView === 'review') loadReview();
                 if (selectedId) openDetail(selectedId);
             } catch (e) {
@@ -594,6 +795,7 @@
         }
 
         function renderAll() {
+            renderCorrectionBar();
             const list = getVisibleExpenses();
             const filterBar = document.getElementById('filterBar');
             const listEl = document.getElementById('expenseList');
@@ -667,26 +869,62 @@
                 </div>`;
         }
 
+        /** A duplicate flag is a comparison, not a warning. Show the receipt
+         *  it collides with, side by side, and let the Owner keep one and
+         *  delete the other without leaving the row. */
         function reviewRowHtml(e) {
             const vendor = e.vendor || 'Unknown vendor';
-            const isDup = (e.note || '').includes('Possible duplicate of');
-            const dupPill = isDup
-                ? `<span class="pill note"><i class="fas fa-clone mr-1"></i>Duplicate review</span>`
-                : '<span class="pill review">Review</span>';
+            const dupMatch = (e.note || '').match(/Possible duplicate of (exp_\d+)/i);
             const catPill = e.category ? `<span class="pill cat">${esc(catLabel(e.category))}</span>` : '';
-            const thumb = e.photo_url
-                ? `<img src="${esc(e.photo_url)}" alt="" loading="lazy" style="width:54px;height:54px;border-radius:12px;object-fit:cover;flex-shrink:0;cursor:zoom-in;" onclick="event.stopPropagation();openLightbox(${JSON.stringify(e.photo_url)})" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span class="ex-dot" style="display:none;"></span>`
+            const thumbFor = (rec, size) => rec && rec.photo_url
+                ? `<img src="${esc(rec.photo_url)}" alt="" loading="lazy" style="width:${size}px;height:${size}px;border-radius:12px;object-fit:cover;flex-shrink:0;cursor:zoom-in;" onclick="event.stopPropagation();openLightbox(${JSON.stringify(rec.photo_url)})">`
                 : '<span class="ex-dot ex-dot--review"></span>';
-            const matchedNote = (e.note || '').replace(/\[Possible duplicate of (exp_\d+)\]/i, '').trim();
+
+            if (dupMatch) {
+                const other = allExpenses.find(x => x.id === dupMatch[1]);
+                const sideBySide = (rec, label, isThis) => {
+                    if (!rec) {
+                        return `<div class="dup-side"><p class="dup-label">${label}</p>
+                                <p class="cl-muted text-sm">Already removed.</p></div>`;
+                    }
+                    return `
+                        <div class="dup-side${isThis ? ' dup-side--this' : ''}">
+                            <p class="dup-label">${label}</p>
+                            ${thumbFor(rec, 64)}
+                            <p style="font-weight:700;margin:6px 0 0;">${esc(rec.vendor || 'Unknown vendor')}</p>
+                            <p class="cl-muted text-sm" style="margin:2px 0 0;">${esc(fmtDateShort(rec.purchase_date))}</p>
+                            <p class="ex-amt" style="margin:4px 0 8px;">${fmtMoney(rec.total)}</p>
+                            <button class="btn-danger-sm" type="button" onclick="event.stopPropagation();deleteExpense(${JSON.stringify(rec.id)})">
+                                <i class="fas fa-trash mr-1"></i>Delete this one
+                            </button>
+                        </div>`;
+                };
+                const same = other && Number(other.total) === Number(e.total) && other.purchase_date === e.purchase_date;
+                return `
+                    <div class="dup-card">
+                        <div class="dup-head">
+                            <span class="pill note"><i class="fas fa-clone mr-1"></i>Possible duplicate</span>
+                            <span class="cl-muted text-sm">${same ? 'Same date and amount' : 'Close match'}</span>
+                        </div>
+                        <div class="dup-grid">
+                            ${sideBySide(e, 'Newer', true)}
+                            ${sideBySide(other, 'Earlier', false)}
+                        </div>
+                        <button type="button" class="btn-secondary btn-sm dup-keep" onclick="keepBoth(${JSON.stringify(e.id)})">
+                            <i class="fas fa-check mr-1"></i>Not a duplicate, keep both
+                        </button>
+                    </div>`;
+            }
+
             return `
                 <div class="ex-row" onclick="openDetail(${JSON.stringify(e.id)})">
-                    ${thumb}
+                    ${thumbFor(e, 54)}
                     <div style="min-width:0;flex:1;">
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                             <p class="ex-vendor">${esc(vendor)}</p>
-                            ${catPill}${dupPill}
+                            ${catPill}<span class="pill review">Needs review</span>
                         </div>
-                        <p class="ex-sub">${esc(fmtDateShort(e.purchase_date))}${matchedNote ? ' · ' + esc(matchedNote) : ''}</p>
+                        <p class="ex-sub">${esc(fmtDateShort(e.purchase_date))}${e.note ? ' · ' + esc(e.note) : ''}</p>
                     </div>
                     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
                         <div class="ex-amt">${fmtMoney(e.total)}</div>
@@ -695,6 +933,22 @@
                         </button>
                     </div>
                 </div>`;
+        }
+
+        /** Clears the duplicate flag without touching either receipt. */
+        function keepBoth(id) {
+            const corrections = loadCorrections();
+            const rec = allExpenses.find(x => x.id === id);
+            corrections[id] = Object.assign({}, corrections[id] || {}, {
+                __resolved: true,
+                note: ((rec && rec.note) || '').replace(/\[?Possible duplicate of exp_\d+\]?/i, '').trim()
+            });
+            saveCorrections(corrections);
+            if (rec) { rec.note = corrections[id].note; rec.status = 'ok'; }
+            reviewExpenses = reviewExpenses.filter(x => x.id !== id);
+            showToast('Kept both');
+            renderAll(); updateQuickStats(); renderCorrectionBar();
+            loadReview();
         }
 
         function updateQuickStats() {
