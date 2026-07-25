@@ -356,6 +356,7 @@
                 mode: 'create',
                 role: role
             });
+            updatePayRateLabel();
             openModal('userModal');
         }
 
@@ -368,6 +369,7 @@
                 mode: 'edit',
                 user: u
             });
+            updatePayRateLabel();
             openModal('userModal');
         }
 
@@ -476,15 +478,16 @@
                         <div class="grid grid-cols-2 gap-2">
                             <div>
                                 <label class="text-xs text-gray-400 block mb-1">Pay Type</label>
-                                <select id="uf-payType" class="w-full p-3 rounded-lg edit-field">
+                                <select id="uf-payType" class="w-full p-3 rounded-lg edit-field" onchange="updatePayRateLabel()">
                                     <option value="" ${!u.payType ? 'selected' : ''}>—</option>
                                     <option value="hourly" ${u.payType === 'hourly' ? 'selected' : ''}>Hourly</option>
+                                    <option value="commission" ${u.payType === 'commission' ? 'selected' : ''}>Commission (% of job)</option>
                                     <option value="salary" ${u.payType === 'salary' ? 'selected' : ''}>Salary</option>
                                     <option value="per-job" ${u.payType === 'per-job' ? 'selected' : ''}>Per Job</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="text-xs text-gray-400 block mb-1">Pay Rate ($)</label>
+                                <label class="text-xs text-gray-400 block mb-1" id="uf-payRateLabel">Pay Rate ($)</label>
                                 <input type="number" step="0.01" id="uf-payRate" value="${u.payRate || ''}" class="w-full p-3 rounded-lg edit-field">
                             </div>
                         </div>
@@ -537,6 +540,14 @@
                     <button type="button" onclick="this.closest('.cert-row').remove()" class="btn-secondary btn-sm"><i class="fas fa-times"></i></button>
                 </div>
             `;
+        }
+
+        /** Commission is entered as a percentage, everything else as dollars. */
+        function updatePayRateLabel() {
+            const type = document.getElementById('uf-payType');
+            const label = document.getElementById('uf-payRateLabel');
+            if (!type || !label) return;
+            label.textContent = type.value === 'commission' ? 'Commission (% of job)' : 'Pay Rate ($)';
         }
 
         function addCertRow() {

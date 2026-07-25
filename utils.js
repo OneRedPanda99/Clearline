@@ -463,6 +463,197 @@ window.getJobDisplayTotal = function(job) {
   return window._rawJobDisplayTotal(job);
 };
 
+/**
+ * Job economics. The single source of truth for how long a job takes and
+ * what it costs us to run, shared by the estimate page's internal margin
+ * panel and the job detail Est. Revenue panel so the two can't drift.
+ *
+ * Crew size only changes LABOR TIME. Fuel is unchanged by crew size: a
+ * second worker runs a second machine, so the job finishes faster but
+ * burns the same total gallons.
+ */
+window.CL_JOB_ECON = (function() {
+  const SURFACE_PROFILES = {
+    siding:     { label: 'Vinyl Siding (Flat Panels)', shCoverage: 4000, sqftPerHr: 1250 },
+    vinylFence: { label: 'Vinyl Fence',                shCoverage: 3000, sqftPerHr:  650 },
+    concrete:   { label: 'Concrete / Flatwork',        shCoverage: 4000, sqftPerHr:  600 },
+    roof:       { label: 'Roof',                       shCoverage: 1250, sqftPerHr:  600 },
+    fence:      { label: 'Wood Fence',                 shCoverage: 2500, sqftPerHr:  650 },
+    other:      { label: 'Other / Mixed',              shCoverage: 3000, sqftPerHr: 1000 }
+  };
+
+  const FUEL_RATE_GAL_PER_HR = 0.675; // 13HP Loncin, moderate load
+  const DEFAULT_LABOR_RATE   = 25;    // used when a worker has no pay rate on file
+  const DEFAULT_FURNITURE_FEE = 50;
+  const DEFAULT_DIRT_LEVEL   = 3.5;
+  const DEFAULT_GAS_COST     = 3.50;
+  const DEFAULT_CHEM_COST    = 4.00;
+
+  // Read live so a change on the Settings page takes effect without a reload.
+  function setting(key, fallback) {
+    try {
+      const s = JSON.parse(localStorage.getItem('cl-settings') || '{}');
+      const n = parseFloat(s[key]);
+      return isNaN(n) || n < 0 ? fallback : n;
+    } catch (_) { return fallback; }
+  }
+  function laborRate()    { return setting('laborRate', DEFAULT_LABOR_RATE); }
+  function furnitureFee() { return setting('furnitureFee', DEFAULT_FURNITURE_FEE); }
+
+  function getSurfaceProfile(key) {
+    return SURFACE_PROFILES[key] || SURFACE_PROFILES.other;
+  }
+
+  function getDirtMultiplier(dirtLevel, surfaceType) {
+    const d = parseFloat(dirtLevel);
+    const level = isNaN(d) ? DEFAULT_DIRT_LEVEL : d;
+    let m;
+    if      (level <= 1.0) m = 0.50;
+    else if (level <= 2.0) m = 0.70;
+    else if (level <= 3.0) m = 0.85;
+    else if (level <= 3.5) m = 1.00;
+    else if (level <= 4.0) m = 1.25;
+    else                   m = 1.60;
+    // Flatwork: cap speed-up on "easy" dirt (field ~8h/5000 sq ft at avg dirt)
+    if (surfaceType === 'concrete') m = Math.max(m, 0.85);
+    return m;
+  }
+
+  /** Hours for ONE worker to do this area. Crew size is applied separately. */
+  function soloHours(squareFootage, surfaceType, dirtLevel) {
+    const sqft = parseFloat(squareFootage) || 0;
+    if (sqft <= 0) return 0;
+    const profile = getSurfaceProfile(surfaceType);
+    const effectiveSqftPerHr = profile.sqftPerHr / getDirtMultiplier(dirtLevel, surfaceType);
+    return sqft / effectiveSqftPerHr;
+  }
+
+  /** Two people don't halve the clock. setup, hoses and moving cost time. */
+  function crewSpeedFactor(crewSize, surfaceType) {
+    if (crewSize >= 2) return surfaceType === 'concrete' ? 0.90 : 0.75;
+    return 1;
+  }
+
+  /**
+   * @param {object} opts
+   *   services    [{ squareFootage, pricePerSqFt, surfaceType, dirtLevel? }]
+   *   revenue     what the customer pays
+   *   crew        [{ name, payRate, payType }] assigned workers (may be empty)
+   *   gasCost     $/gal, chemicalCost $/gal
+   * @returns breakdown with hours, fuel, chemical, labor, profit and per-worker pay
+   */
+  function estimate(opts) {
+    const o = opts || {};
+    const services = Array.isArray(o.services) ? o.services : [];
+    const crew = Array.isArray(o.crew) ? o.crew : [];
+    // A commission salesman doesn't speed the job up. only bodies on site do.
+    const crewSize = Math.max(1, crew.filter(w => w.payType !== 'commission').length);
+    const gasCost = parseFloat(o.gasCost) || DEFAULT_GAS_COST;
+    const chemCost = parseFloat(o.chemicalCost) || DEFAULT_CHEM_COST;
+    const revenue = parseFloat(o.revenue) || 0;
+
+    let soloTotalHours = 0;
+    let chemicalGallons = 0;
+    const areaBySurface = {};
+    services.forEach(s => {
+      // A negative price per sq ft is an area deduction. no time or product for it.
+      if (parseFloat(s.pricePerSqFt) < 0) return;
+      const sqft = parseFloat(s.squareFootage) || 0;
+      soloTotalHours += soloHours(sqft, s.surfaceType, s.dirtLevel);
+      chemicalGallons += sqft / getSurfaceProfile(s.surfaceType).shCoverage;
+      const key = s.surfaceType || 'other';
+      areaBySurface[key] = (areaBySurface[key] || 0) + sqft;
+    });
+    // Crew speed-up depends on the surface, so go by whichever covers the most area.
+    const dominantSurface = Object.keys(areaBySurface)
+      .sort((a, b) => areaBySurface[b] - areaBySurface[a])[0] || 'other';
+
+    // Fuel tracks the solo-hours figure. more machines, less time, same gallons.
+    const fuelGallons = FUEL_RATE_GAL_PER_HR * soloTotalHours;
+    const fuelCost = fuelGallons * gasCost;
+    const chemicalCost = chemicalGallons * chemCost;
+
+    const speed = crewSpeedFactor(crewSize, dominantSurface);
+    const onSiteHours = soloTotalHours * speed;
+
+    const fallbackRate = laborRate();
+    const perWorker = crew.map(w => {
+      const rate = parseFloat(w.payRate);
+      const hasRate = !isNaN(rate) && rate > 0;
+      // Commission is a cut of the job, not of the clock. salesmen get paid
+      // the same whether the crew is fast or slow.
+      if (w.payType === 'commission') {
+        return {
+          name: w.name || 'Worker',
+          payType: 'commission',
+          rate: hasRate ? rate : null,
+          hours: 0,
+          pay: hasRate ? revenue * (rate / 100) : null,
+          basis: hasRate ? `${rate}% of ${revenue ? '$' + revenue.toFixed(2) : 'the job'}` : 'no % set',
+          estimated: hasRate
+        };
+      }
+      const hourly = (w.payType === 'hourly' || !w.payType) && hasRate;
+      return {
+        name: w.name || 'Worker',
+        payType: w.payType || 'hourly',
+        rate: hasRate ? rate : null,
+        hours: onSiteHours,
+        pay: hourly ? rate * onSiteHours : null,
+        basis: hourly ? `$${rate.toFixed(2)}/hr` : 'no hourly rate',
+        estimated: hourly
+      };
+    });
+
+    // Anyone on the clock without a usable rate still costs us time. fall
+    // back so the margin isn't flattering.
+    const onTheClock = perWorker.filter(w => w.payType !== 'commission');
+    const commissionCost = perWorker
+      .filter(w => w.payType === 'commission')
+      .reduce((sum, w) => sum + (w.pay || 0), 0);
+    const laborCost = onTheClock.length
+      ? onTheClock.reduce((sum, w) => sum + (w.pay != null ? w.pay : fallbackRate * onSiteHours), 0)
+      : fallbackRate * onSiteHours;
+
+    const totalCost = laborCost + commissionCost + fuelCost + chemicalCost;
+    const profit = revenue - totalCost;
+    return {
+      crewSize,
+      soloHours: soloTotalHours,
+      onSiteHours,
+      fuelGallons,
+      fuelCost,
+      chemicalGallons,
+      chemicalCost,
+      laborCost,
+      commissionCost,
+      totalCost,
+      revenue,
+      profit,
+      marginPct: revenue > 0 ? (profit / revenue) * 100 : 0,
+      perWorker,
+      crewAssigned: crew.length > 0,
+      onTheClockCount: onTheClock.length,
+      fallbackLaborRate: fallbackRate
+    };
+  }
+
+  return {
+    SURFACE_PROFILES,
+    FUEL_RATE_GAL_PER_HR,
+    DEFAULT_LABOR_RATE,
+    DEFAULT_FURNITURE_FEE,
+    DEFAULT_DIRT_LEVEL,
+    laborRate,
+    furnitureFee,
+    getSurfaceProfile,
+    getDirtMultiplier,
+    soloHours,
+    crewSpeedFactor,
+    estimate
+  };
+})();
+
 // Business config. Loaded from settings (set via Settings page)
 // Falls back to empty strings if no settings saved yet.
 window.CL_CONFIG = (function() {

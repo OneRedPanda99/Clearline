@@ -536,12 +536,16 @@ const CL_FIREBASE = (function() {
     // get() call. accessUids = owner + creator + assigned manager + every
     // crew worker + legacy single assignee. The owner uid comes from
     // CL_SECRETS.ownerUid (stamped at app config time).
-    function _stampForCloud(entity) {
+    function _stampForCloud(entity, collName) {
         if (!entity) return entity;
         const out = { ...entity };
         if (!out.createdBy && currentUser) out.createdBy = currentUser.uid;
         if (!out.lastUpdated) out.lastUpdated = new Date().toISOString();
-        if (out && (out.assignedWorkers !== undefined || out.assignedTo !== undefined
+        // Every job needs accessUids, including unassigned leads: the read
+        // query is `accessUids array-contains uid` for EVERY role, so a job
+        // without the field is invisible to everyone. the owner included.
+        if (out && (collName === 'jobs'
+                || out.assignedWorkers !== undefined || out.assignedTo !== undefined
                 || out.assignedManager !== undefined)) {
             const ownerUid = (window.CL_SECRETS && window.CL_SECRETS.ownerUid) || '';
             const set = new Set();
@@ -600,7 +604,7 @@ const CL_FIREBASE = (function() {
                     // accessUids recomputed by _stampForCloud from the above
                 });
             }
-            ops.push({ type: 'set', ref: coll.doc(it.id), data: _stampForCloud(entity) });
+            ops.push({ type: 'set', ref: coll.doc(it.id), data: _stampForCloud(entity, collName) });
         });
         (tombstones || []).forEach(t => {
             if (!t || !t.id) return;

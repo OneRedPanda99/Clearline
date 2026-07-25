@@ -77,6 +77,25 @@
                 </div>
             </div>
 
+            <!-- Job Costing -->
+            <p class="section-title mb-2 px-1">Job Costing</p>
+            <div class="glass-card rounded-2xl overflow-hidden mb-4">
+                <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
+                    <div>
+                        <p>Furniture Moving Fee</p>
+                        <p class="text-xs text-gray-400">Added when the customer won't move it</p>
+                    </div>
+                    <input type="number" id="furnitureFee" value="50" step="1" min="0" class="w-20 text-right text-sm">
+                </div>
+                <div class="setting-item p-4 flex justify-between items-center">
+                    <div>
+                        <p>Default Labor Rate ($/hr)</p>
+                        <p class="text-xs text-gray-400">Used when no crew is assigned yet</p>
+                    </div>
+                    <input type="number" id="laborRate" value="25" step="0.5" min="0" class="w-20 text-right text-sm">
+                </div>
+            </div>
+
             <!-- Preferences -->
             <p class="section-title mb-2 px-1">Preferences</p>
             <div class="glass-card rounded-2xl overflow-hidden mb-4">
@@ -237,6 +256,8 @@
             if (settings.priceHouse) document.getElementById('priceHouse').value = settings.priceHouse;
             if (settings.priceDeck) document.getElementById('priceDeck').value = settings.priceDeck;
             if (settings.priceMin) document.getElementById('priceMin').value = settings.priceMin;
+            if (settings.furnitureFee !== undefined && settings.furnitureFee !== '') document.getElementById('furnitureFee').value = settings.furnitureFee;
+            if (settings.laborRate !== undefined && settings.laborRate !== '') document.getElementById('laborRate').value = settings.laborRate;
             if (settings.defaultDuration) document.getElementById('defaultDuration').value = settings.defaultDuration;
             if (settings.calendarView) document.getElementById('calendarView').value = settings.calendarView;
             if (settings.reminders === false) document.getElementById('toggleReminders').classList.remove('on');
@@ -275,6 +296,8 @@
                 priceHouse: document.getElementById('priceHouse').value,
                 priceDeck: document.getElementById('priceDeck').value,
                 priceMin: document.getElementById('priceMin').value,
+                furnitureFee: document.getElementById('furnitureFee').value,
+                laborRate: document.getElementById('laborRate').value,
                 defaultDuration: document.getElementById('defaultDuration').value,
                 calendarView: document.getElementById('calendarView').value,
                 reminders: document.getElementById('toggleReminders').classList.contains('on'),

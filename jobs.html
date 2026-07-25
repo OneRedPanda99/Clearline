@@ -1078,6 +1078,96 @@
             }
             return { total, paid, balance, status };
         }
+        // ── Est. Revenue (owner-only job economics) ────────────────
+        /** Newest saved estimate/invoice form state, which carries the services. */
+        function jobEstimateFormState(job) {
+            const docs = (job && job.documents) || {};
+            const pool = [].concat(docs.estimates || [], docs.invoices || []);
+            let best = null;
+            let bestTs = -Infinity;
+            pool.forEach(d => {
+                if (!d || !d.formState) return;
+                const ts = Date.parse(d.updatedAt || d.createdAt || '') || 0;
+                if (ts >= bestTs) { best = d.formState; bestTs = ts; }
+            });
+            return best;
+        }
+
+        /** Crew for a job, with each worker's pay rate off their user profile. */
+        function jobCrew(job) {
+            const ids = Array.isArray(job.assignedWorkers) && job.assignedWorkers.length
+                ? job.assignedWorkers
+                : (job.assignedTo ? [job.assignedTo] : []);
+            return ids.map(uid => {
+                const w = allWorkers.find(x => x.uid === uid);
+                return {
+                    name: w ? (w.displayName || w.username || 'Worker') : 'Worker',
+                    payRate: w ? w.payRate : null,
+                    payType: w ? w.payType : null
+                };
+            });
+        }
+
+        function computeJobEconomics(job) {
+            const fs = jobEstimateFormState(job);
+            let services = (fs && Array.isArray(fs.services)) ? fs.services : [];
+            // No estimate yet: fall back to the job's own sq ft so the panel
+            // still gives a time and fuel figure.
+            if (!services.length && parseFloat(job.squareFootage) > 0) {
+                services = [{ squareFootage: job.squareFootage, pricePerSqFt: 0.30, surfaceType: 'concrete' }];
+            }
+            if (!services.length) return null;
+            return CL_JOB_ECON.estimate({
+                services,
+                revenue: _rawJobDisplayTotal(job),
+                crew: jobCrew(job),
+                gasCost: fs && fs.gasCost,
+                chemicalCost: fs && fs.chemicalCost
+            });
+        }
+
+        function renderJobEconomics(job) {
+            const e = computeJobEconomics(job);
+            if (!e) {
+                return `<div class="glass-card rounded-xl p-4 text-sm" style="color:var(--md-sys-color-on-surface-variant)">
+                    Add an estimate or a sq ft figure to see the cost breakdown.
+                </div>`;
+            }
+            const money = n => '$' + n.toFixed(2);
+            const hrs = n => n.toFixed(1) + ' hr' + (Math.abs(n - 1) < 0.05 ? '' : 's');
+            const profitColor = e.profit >= 0 ? 'text-green-400' : 'text-red-400';
+            const crewLine = e.onTheClockCount
+                ? `${e.crewSize} worker${e.crewSize > 1 ? 's' : ''} on site · ${hrs(e.onSiteHours)}`
+                : `No crew on site yet · ${hrs(e.onSiteHours)} solo`;
+            const workerRows = e.crewAssigned ? e.perWorker.map(w => `
+                <div class="flex justify-between text-sm py-1">
+                    <span class="truncate">${escapeHtml(w.name)}<span class="text-xs text-gray-400"> · ${escapeHtml(w.basis)}</span></span>
+                    <span class="font-semibold">${w.pay != null ? money(w.pay) : '—'}</span>
+                </div>`).join('') : '';
+            return `
+                <div class="glass-card rounded-xl p-4">
+                    <div class="grid grid-cols-2 gap-2 text-center mb-3">
+                        <div><p class="text-xs text-gray-400 mb-1">Revenue</p><p class="font-bold text-base">${money(e.revenue)}</p></div>
+                        <div><p class="text-xs text-gray-400 mb-1">Est. profit</p><p class="font-bold text-base ${profitColor}">${money(e.profit)}<span class="text-xs font-normal text-gray-400"> · ${e.marginPct.toFixed(0)}%</span></p></div>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-2"><i class="fas fa-clock mr-1"></i>${crewLine}</p>
+                    <div class="space-y-1 text-sm border-t border-white/10 pt-2">
+                        <div class="flex justify-between"><span class="text-gray-300">Labor</span><span>${money(e.laborCost)}</span></div>
+                        ${e.commissionCost > 0 ? `<div class="flex justify-between"><span class="text-gray-300">Commission</span><span>${money(e.commissionCost)}</span></div>` : ''}
+                        <div class="flex justify-between"><span class="text-gray-300">Gas <span class="text-xs text-gray-500">${e.fuelGallons.toFixed(1)} gal</span></span><span>${money(e.fuelCost)}</span></div>
+                        <div class="flex justify-between"><span class="text-gray-300">Chemical <span class="text-xs text-gray-500">${e.chemicalGallons.toFixed(1)} gal</span></span><span>${money(e.chemicalCost)}</span></div>
+                        <div class="flex justify-between font-semibold border-t border-white/10 pt-1"><span>Total cost</span><span>${money(e.totalCost)}</span></div>
+                    </div>
+                    ${e.crewAssigned ? `
+                        <div class="border-t border-white/10 mt-3 pt-2">
+                            <p class="text-xs text-gray-400 mb-1">Crew pay for this job</p>
+                            ${workerRows}
+                        </div>
+                    ` : `<p class="text-xs text-gray-500 mt-3">Labor is estimated at ${money(e.fallbackLaborRate)}/hr until a crew is assigned. Change that in Settings.</p>`}
+                    <p class="text-[11px] text-gray-500 mt-3">Gas is the same whether one or two machines run. a second worker cuts the clock, not the gallons.</p>
+                </div>`;
+        }
+
         function paymentPill(status) {
             const map = {
                 paid:    ['Paid',    'rgba(34,197,94,0.22)',  '#4ade80'],
@@ -1438,6 +1528,13 @@
                     </div>
                     ` : ''}
 
+                    ${isOwnerRole() ? `
+                    <button type="button" onclick="toggleJobDetailSection('econSection')" class="m3-outlined" style="width:100%">
+                        <i class="fas fa-chart-line mr-1"></i>Est. revenue &amp; costs
+                    </button>
+                    <div id="econSection" class="hidden">${renderJobEconomics(job)}</div>
+                    ` : ''}
+
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" onclick="toggleJobDetailSection('timerSection')" class="m3-tonal">
                             <i class="fas fa-stopwatch mr-1"></i>Timer <span id="timerBtnLabel">${timerText}</span>
@@ -1506,7 +1603,7 @@
             if (!el) return;
             const opening = el.classList.contains('hidden');
             // Accordion: close sibling expandable panels
-            ['timerSection', 'paymentSection', 'scheduleSection'].forEach((sid) => {
+            ['timerSection', 'paymentSection', 'scheduleSection', 'econSection'].forEach((sid) => {
                 const s = document.getElementById(sid);
                 if (s && sid !== id) s.classList.add('hidden');
             });

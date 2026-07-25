@@ -230,15 +230,6 @@
             color: #e5e7eb;
         }
         
-        .dirt-level-info {
-            font-size: 12px;
-            color: #666;
-            margin-top: 5px;
-            padding: 5px;
-            background: #f8f9fa;
-            border-left: 3px solid #28a745;
-        }
-        
         .results-section {
             border: 1px solid rgba(255,255,255,0.14);
             min-height: 500px;
@@ -291,13 +282,44 @@
         }
 
         /* extended-info toggle */
+        /* Picker for how much detail the printed estimate shows */
+        .detail-mode {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .detail-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 6px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.03);
+        }
+        .detail-option.selected {
+            border-color: #0ea5e9;
+            background: rgba(14,165,233,0.12);
+        }
+        .detail-option input[type=radio] {
+            width: 18px;
+            height: 18px;
+            margin-top: 2px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .detail-option-text { display: flex; flex-direction: column; }
+        .detail-option-text strong { font-size: 14px; color: #e5e7eb; }
+        .detail-option-text small { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+
         .extended-info-toggle {
             display: flex;
             align-items: center;
             gap: 10px;
-            background: #f0f8ff;
-            border: 1px solid #0ea5e9;
-            padding: 10px 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.18);
+            padding: 10px 12px;
             border-radius: 6px;
             margin-top: 10px;
             cursor: pointer;
@@ -311,7 +333,7 @@
             font-weight: bold;
             font-size: 14px;
             cursor: pointer;
-            color: #0369a1;
+            color: #e5e7eb;
         }
 
         .estimate-header {
@@ -322,9 +344,6 @@
         }
         
         .estimate-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
             margin-bottom: 20px;
         }
         
@@ -522,7 +541,6 @@
                 font-size: 8.5pt !important;
             }
             .estimate-details {
-                gap: 10px !important;
                 margin-bottom: 10px !important;
             }
             .estimate-details h3 {
@@ -651,13 +669,13 @@
                 
                 <div class="form-group">
                     <label for="chemicalName">Chemical Name:</label>
-                    <input type="text" id="chemicalName" value="Krud Kutter" required>
+                    <input type="text" id="chemicalName" value="Sodium Hypochlorite" required>
                 </div>
                 
                 <div class="two-column">
                     <div class="form-group">
                         <label for="chemicalCost">Chemical Price ($/gal):</label>
-                        <input type="number" id="chemicalCost" step="0.01" value="15.00" required>
+                        <input type="number" id="chemicalCost" step="0.01" value="4.00" required>
                     </div>
                 </div>
                 
@@ -682,7 +700,7 @@
 
                         <div class="form-group">
                             <label>Surface Type:</label>
-                            <select name="surfaceType" onchange="applySurfaceDefaults(this)">
+                            <select name="surfaceType">
                                 <option value="siding">Vinyl Siding (Flat Panels)</option>
                                 <option value="vinylFence">Vinyl Fence</option>
                                 <option value="concrete" selected>Concrete / Flatwork</option>
@@ -703,39 +721,6 @@
                             </div>
                         </div>
                         
-                        <div class="two-column">
-                            <div class="form-group">
-                                <label>Number of Workers:</label>
-                                <select name="numWorkers" required>
-                                    <option value="1">1 Worker</option>
-                                    <option value="2">2 Workers</option>
-                                </select>
-                            </div>
-                        <div class="form-group">
-                            <label>Dirt Level:</label>
-                            <div style="margin: 10px 0;">
-                                <input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="3.5" 
-                                       style="width: 100%;" oninput="updateDirtDisplay(this)">
-                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8; margin-top: 5px;">
-                                    <span>Light Work</span>
-                                    <span>Heavy Work</span>
-                                </div>
-                                <div style="text-align: center; margin-top: 5px;">
-                                    <span name="dirtDisplay" style="font-weight: bold; color: #e5e7eb;">Level 3.5</span>
-                                </div>
-                            </div>
-                        </div>
-                        </div>
-                        
-                        <div class="dirt-level-info">
-                            <strong>Dirt Level Guide:</strong><br>
-                            1: Maintenance, minimal buildup &nbsp;|&nbsp;
-                            2: Light dust/dirt &nbsp;|&nbsp;
-                            3: Normal residential &nbsp;|&nbsp;
-                            3.5: Heavy buildup (default) &nbsp;|&nbsp;
-                            4: Very dirty &nbsp;|&nbsp;
-                            5: Extreme
-                        </div>
                     </div>
                 </div>
                 
@@ -743,35 +728,90 @@
                 
                 <div class="section-header">Adjustments & Notes</div>
                 
+                <div class="form-group">
+                    <label for="discountPreset">Discount Reason:</label>
+                    <select id="discountPreset" onchange="applyDiscountPreset(this.value)">
+                        <option value="">-- No preset / choose one --</option>
+                        <option value="Military / Veteran Discount">Military / Veteran Discount (20%)</option>
+                        <option value="Senior Discount">Senior Discount (15%)</option>
+                        <option value="New Customer Discount">New Customer Discount (10%)</option>
+                        <option value="__custom">Other (type your own)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="discountReason">Discount Reason Text (shown on estimate):</label>
+                    <input type="text" id="discountReason" placeholder="e.g. Senior Discount" oninput="syncDiscountPreset()">
+                </div>
+
                 <div class="two-column">
                     <div class="form-group">
-                        <label for="discount">Overall Discount (%):</label>
-                        <input type="number" id="discount" step="1" placeholder="0" min="0" max="100" value="0">
+                        <label for="discountMode">Discount Type:</label>
+                        <select id="discountMode" onchange="onDiscountModeChange()">
+                            <option value="percent">Percent (%)</option>
+                            <option value="amount">Dollar amount ($)</option>
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label for="additionalCost">Additional Cost ($):</label>
-                        <input type="number" id="additionalCost" step="0.01" placeholder="0" min="0" value="0">
+                        <label for="discount" id="discountValueLabel">Discount (%):</label>
+                        <input type="number" id="discount" step="1" placeholder="0" min="0" max="100" value="0" oninput="updatePaymentTermsSummary()">
                     </div>
                 </div>
-                
-                <div class="form-group">
-                    <label for="discountReason">Discount Reason:</label>
-                    <input type="text" id="discountReason" placeholder="e.g. Loyal Customer Discount">
+
+                <div class="extended-info-toggle">
+                    <input type="checkbox" id="customerMovesFurniture" checked onchange="updateFurnitureHint(); updatePaymentTermsSummary();">
+                    <label for="customerMovesFurniture">Furniture will be moved by the customer</label>
                 </div>
-                
-                <div class="form-group">
-                    <label for="additionalReason">Additional Cost Reason:</label>
-                    <input type="text" id="additionalReason" placeholder="e.g. Travel fee, Special equipment">
+                <p id="furnitureHint" style="font-size:12px;color:#9ca3af;margin:6px 0 10px;"></p>
+
+                <div class="form-group" style="margin-bottom:6px;">
+                    <label>Additional Charges (Optional):</label>
+                    <div id="additionalChargeRows"></div>
+                    <button type="button" class="add-service-btn" onclick="addAdditionalChargeRow()" style="margin-bottom:0;">+ Add Charge</button>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="notes">Notes (Optional):</label>
                     <textarea id="notes" placeholder="Any additional notes or terms"></textarea>
                 </div>
-                
-                <div class="extended-info-toggle">
-                    <input type="checkbox" id="extendedInfo">
-                    <label for="extendedInfo">Show extended breakdown (rates, gas, chemical) on estimate</label>
+
+                <div class="section-header" style="margin-top: 20px;">What The Customer Sees</div>
+
+                <div class="detail-mode">
+                    <label class="detail-option selected">
+                        <input type="radio" name="detailMode" value="simple" checked onchange="onDetailModeChange()">
+                        <span class="detail-option-text">
+                            <strong>Simple</strong>
+                            <small>Lists the services, one price at the bottom.</small>
+                        </span>
+                    </label>
+                    <label class="detail-option">
+                        <input type="radio" name="detailMode" value="itemized" onchange="onDetailModeChange()">
+                        <span class="detail-option-text">
+                            <strong>Itemized</strong>
+                            <small>Same list, with the price for each service.</small>
+                        </span>
+                    </label>
+                    <label class="detail-option">
+                        <input type="radio" name="detailMode" value="internal" onchange="onDetailModeChange()">
+                        <span class="detail-option-text">
+                            <strong>Internal Copy</strong>
+                            <small>Adds size, rate, gas and chemical. Not for customers.</small>
+                        </span>
+                    </label>
+                </div>
+
+                <div class="extended-info-toggle" style="margin-top:12px;">
+                    <input type="checkbox" id="enablePaymentTerms" onchange="togglePaymentTerms()">
+                    <label for="enablePaymentTerms">Split the total into scheduled payments</label>
+                </div>
+                <div id="paymentTermsFields" style="display:none;margin-top:10px;">
+                    <div id="paymentRows"></div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button type="button" class="add-service-btn" onclick="addPaymentRow()" style="flex:1;margin-bottom:0;">+ Add Payment</button>
+                        <button type="button" class="add-service-btn" onclick="splitPaymentsEvenly()" style="flex:1;margin-bottom:0;">Split Evenly</button>
+                    </div>
+                    <p id="paymentTermsSummary" style="font-size:12px;color:#9ca3af;margin-top:8px;"></p>
                 </div>
 
                 <button type="button" class="calc-button" id="generateBtn" onclick="generateEstimate()" style="margin-top:10px;">
@@ -1110,7 +1150,7 @@
 
                 <div class="form-group">
                     <label>Surface Type:</label>
-                    <select name="surfaceType" onchange="applySurfaceDefaults(this)">
+                    <select name="surfaceType">
                         <option value="siding">Vinyl Siding (Flat Panels)</option>
                         <option value="vinylFence">Vinyl Fence</option>
                         <option value="concrete" selected>Concrete / Flatwork</option>
@@ -1131,39 +1171,6 @@
                     </div>
                 </div>
                 
-                <div class="two-column">
-                    <div class="form-group">
-                        <label>Number of Workers:</label>
-                        <select name="numWorkers" required>
-                            <option value="1">1 Worker</option>
-                            <option value="2">2 Workers</option>
-                        </select>
-                    </div>
-                        <div class="form-group">
-                            <label>Dirt Level:</label>
-                            <div style="margin:10px 0">
-                                <input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="3.5" 
-                                       style="width:100%" oninput="updateDirtDisplay(this)">
-                                <div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-top:5px">
-                                    <span>Light Work</span>
-                                    <span>Heavy Work</span>
-                                </div>
-                                <div style="text-align:center;margin-top:5px">
-                                    <span name="dirtDisplay" style="font-weight:bold;color:#e5e7eb">Level 3.5</span>
-                                </div>
-                            </div>
-                        </div>
-                </div>
-                
-                <div class="dirt-level-info">
-                    <strong>Dirt Level Guide:</strong><br>
-                    1: Maintenance, minimal buildup &nbsp;|&nbsp;
-                    2: Light dust/dirt &nbsp;|&nbsp;
-                    3: Normal residential &nbsp;|&nbsp;
-                    3.5: Heavy buildup (default) &nbsp;|&nbsp;
-                    4: Very dirty &nbsp;|&nbsp;
-                    5: Extreme
-                </div>
             `;
             
             container.appendChild(serviceDiv);
@@ -1195,31 +1202,10 @@
             });
         }
         
-        function applySurfaceDefaults(selectEl) {
-            const profile = getSurfaceProfile(selectEl.value);
-            const serviceItem = selectEl.closest('.service-item');
-            if (!serviceItem) return;
-            const priceInput = serviceItem.querySelector('[name="pricePerSqFt"]');
-            if (priceInput) priceInput.value = profile.defaultPrice.toFixed(2);
-        }
-
-        function updateDirtDisplay(slider) {
-            const value = parseFloat(slider.value);
-            const display = slider.parentNode.querySelector('[name="dirtDisplay"]');
-            display.textContent = `Level ${value.toFixed(1)}`;
-        }
-        
-        const SURFACE_PROFILES = {
-            siding:       { label: 'Vinyl Siding (Flat Panels)', shCoverage: 4000, sqftPerHr: 1250, defaultPrice: 0.20 },
-            vinylFence:   { label: 'Vinyl Fence',                shCoverage: 3000, sqftPerHr:  650, defaultPrice: 0.25 },
-            concrete:     { label: 'Concrete / Flatwork',        shCoverage: 4000, sqftPerHr:  600, defaultPrice: 0.30 },
-            roof:         { label: 'Roof',                       shCoverage: 1250, sqftPerHr:  600, defaultPrice: 0.45 },
-            fence:        { label: 'Wood Fence',                 shCoverage: 2500, sqftPerHr:  650, defaultPrice: 0.35 },
-            other:        { label: 'Other / Mixed',              shCoverage: 3000, sqftPerHr: 1000, defaultPrice: 0.30 }
-        };
-
+        // Surface profiles and the time/fuel math live in utils.js (CL_JOB_ECON)
+        // so this page and the job detail Est. Revenue panel stay in step.
         function getSurfaceProfile(key) {
-            return SURFACE_PROFILES[key] || SURFACE_PROFILES.other;
+            return CL_JOB_ECON.getSurfaceProfile(key);
         }
 
         function getNextEstimateNumber() {
@@ -1230,33 +1216,274 @@
             return 'EST-' + year + '-' + String(current).padStart(3, '0');
         }
 
-        const FUEL_RATE_GAL_PER_HR = 0.675; // 13HP Loncin, moderate load
-        const INTERNAL_LABOR_RATE  = 25;    // effective hourly cost. update here if it changes
+        const FUEL_RATE_GAL_PER_HR = CL_JOB_ECON.FUEL_RATE_GAL_PER_HR;
 
-        function getDirtMultiplier(dirtLevel, surfaceType) {
-            let m;
-            if      (dirtLevel <= 1.0) m = 0.50;
-            else if (dirtLevel <= 2.0) m = 0.70;
-            else if (dirtLevel <= 3.0) m = 0.85;
-            else if (dirtLevel <= 3.5) m = 1.00;
-            else if (dirtLevel <= 4.0) m = 1.25;
-            else                       m = 1.60;
-            // Flatwork: cap speed-up on "easy" dirt (field ~8h/5000 sq ft at avg dirt)
-            if (surfaceType === 'concrete') m = Math.max(m, 0.85);
-            return m;
-        }
+        // Dirt level and crew size are no longer asked for on the form. they only
+        // ever fed the internal time/fuel/labor estimate, so they run on these.
+        // The real crew comes from the job's assigned workers on the jobs page.
+        const DEFAULT_DIRT_LEVEL = CL_JOB_ECON.DEFAULT_DIRT_LEVEL;
+        const DEFAULT_WORKERS    = 1;
 
         function calculateTimeFromDirtLevel(squareFootage, dirtLevel, numWorkers, surfaceType) {
-            const profile = getSurfaceProfile(surfaceType);
-            const effectiveSqftPerHr = profile.sqftPerHr / getDirtMultiplier(dirtLevel, surfaceType);
-            let hours = squareFootage / effectiveSqftPerHr;
-            // Second machine helps; flatwork rarely cuts wall-clock in half
-            if (numWorkers === 2) {
-                hours *= surfaceType === 'concrete' ? 0.90 : 0.75;
-            }
-            return hours;
+            const hours = CL_JOB_ECON.soloHours(squareFootage, surfaceType, dirtLevel);
+            return hours * CL_JOB_ECON.crewSpeedFactor(numWorkers, surfaceType);
         }
         
+        // ── Discount presets ───────────────────────────────────────
+        // Standing discounts and the percentage each one is worth.
+        const DISCOUNT_PRESETS = {
+            'Military / Veteran Discount': 20,
+            'Senior Discount': 15,
+            'New Customer Discount': 10
+        };
+
+        // Picking a preset fills in the reason text AND its percentage.
+        // Both stay editable afterwards. the preset is just a shortcut.
+        function applyDiscountPreset(value) {
+            const reason = document.getElementById('discountReason');
+            if (!value) return;
+            if (value === '__custom') {
+                reason.value = '';
+                reason.focus();
+                return;
+            }
+            reason.value = value;
+            if (DISCOUNT_PRESETS[value] !== undefined) {
+                document.getElementById('discountMode').value = 'percent';
+                onDiscountModeChange();
+                document.getElementById('discount').value = DISCOUNT_PRESETS[value];
+            }
+            updatePaymentTermsSummary();
+        }
+
+        // Keep the dropdown in sync when the reason is typed or loaded.
+        function syncDiscountPreset() {
+            const preset = document.getElementById('discountPreset');
+            const reason = (document.getElementById('discountReason').value || '').trim();
+            if (!preset) return;
+            const match = Array.from(preset.options).find(o => o.value === reason);
+            if (match) preset.value = match.value;
+            else preset.value = reason ? '__custom' : '';
+        }
+
+        // Percent mode caps at 100. dollar mode is uncapped.
+        function onDiscountModeChange() {
+            const mode = document.getElementById('discountMode').value;
+            const input = document.getElementById('discount');
+            const label = document.getElementById('discountValueLabel');
+            if (mode === 'amount') {
+                input.removeAttribute('max');
+                input.step = '0.01';
+                label.textContent = 'Discount ($):';
+            } else {
+                input.max = '100';
+                input.step = '1';
+                label.textContent = 'Discount (%):';
+                if (parseFloat(input.value) > 100) input.value = '100';
+            }
+            updatePaymentTermsSummary();
+        }
+
+        // ── Furniture moving ───────────────────────────────────────
+        // Checked (the default) means the customer handles it and nothing shows
+        // on the estimate at all. Unchecked adds the charge to the total.
+        // Both the fee and the fallback labor rate come from the Settings page.
+        function furnitureMovingCharge() {
+            const box = document.getElementById('customerMovesFurniture');
+            if (!box || box.checked) return null;
+            return { reason: 'Furniture Moving', amount: CL_JOB_ECON.furnitureFee() };
+        }
+
+        function updateFurnitureHint() {
+            const hint = document.getElementById('furnitureHint');
+            if (!hint) return;
+            hint.textContent = document.getElementById('customerMovesFurniture').checked
+                ? 'No furniture line will appear on the estimate.'
+                : `Adds "Furniture Moving" $${CL_JOB_ECON.furnitureFee().toFixed(2)} to the total.`;
+        }
+
+        // ── Additional charges (repeatable) ────────────────────────
+        function addAdditionalChargeRow(reason, amount) {
+            const wrap = document.getElementById('additionalChargeRows');
+            const row = document.createElement('div');
+            row.className = 'additional-charge-row';
+            row.style.cssText = 'border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px;margin-bottom:8px;';
+            row.innerHTML = `
+                <div class="two-column">
+                    <div class="form-group">
+                        <label>Reason:</label>
+                        <input type="text" name="chargeReason" placeholder="e.g. Travel fee, Special equipment" value="${(reason || '').replace(/"/g, '&quot;')}">
+                    </div>
+                    <div class="form-group">
+                        <label>Amount ($):</label>
+                        <input type="number" name="chargeAmount" step="0.01" placeholder="0.00" value="${amount || ''}" oninput="updatePaymentTermsSummary()">
+                    </div>
+                </div>
+                <button type="button" class="remove-service" onclick="removeAdditionalChargeRow(this)">Remove</button>`;
+            wrap.appendChild(row);
+            updatePaymentTermsSummary();
+        }
+
+        function removeAdditionalChargeRow(btn) {
+            const row = btn.closest('.additional-charge-row');
+            if (row) row.remove();
+            updatePaymentTermsSummary();
+        }
+
+        function collectAdditionalCharges() {
+            const charges = [];
+            document.querySelectorAll('#additionalChargeRows .additional-charge-row').forEach(row => {
+                const amount = parseFloat(row.querySelector('[name="chargeAmount"]').value);
+                const reason = (row.querySelector('[name="chargeReason"]').value || '').trim();
+                if (!isNaN(amount) && amount !== 0) {
+                    charges.push({ reason: reason || 'Additional Cost', amount });
+                }
+            });
+            return charges;
+        }
+
+        // Accepts the new array form, or the legacy single additionalCost /
+        // additionalReason pair from documents saved before this change.
+        function applyAdditionalCharges(charges, legacyAmount, legacyReason) {
+            const wrap = document.getElementById('additionalChargeRows');
+            if (!wrap) return;
+            wrap.innerHTML = '';
+            if (Array.isArray(charges) && charges.length) {
+                charges.forEach(c => addAdditionalChargeRow(c.reason || '', c.amount != null ? String(c.amount) : ''));
+                return;
+            }
+            const amt = parseFloat(legacyAmount);
+            if (!isNaN(amt) && amt !== 0) addAdditionalChargeRow(legacyReason || '', String(amt));
+        }
+
+        // ── How much detail the printed estimate shows ─────────────
+        // simple   = service names + one total (default, what customers get)
+        // itemized = same list with a price per service
+        // internal = adds size, rate, gas and chemical for the office copy
+        function getDetailMode() {
+            const picked = document.querySelector('input[name="detailMode"]:checked');
+            return picked ? picked.value : 'simple';
+        }
+
+        function setDetailMode(mode) {
+            const valid = ['simple', 'itemized', 'internal'].includes(mode) ? mode : 'simple';
+            const radio = document.querySelector(`input[name="detailMode"][value="${valid}"]`);
+            if (radio) radio.checked = true;
+            onDetailModeChange();
+        }
+
+        function onDetailModeChange() {
+            document.querySelectorAll('.detail-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.querySelector('input[name="detailMode"]').checked);
+            });
+        }
+
+        // ── Optional payment terms (split payments) ────────────────
+        function togglePaymentTerms() {
+            const on = document.getElementById('enablePaymentTerms').checked;
+            document.getElementById('paymentTermsFields').style.display = on ? 'block' : 'none';
+            // Start people off with the common two-payment split.
+            if (on && document.querySelectorAll('#paymentRows .payment-row').length === 0) {
+                addPaymentRow('', 'On completion');
+                addPaymentRow('', '');
+            }
+            updatePaymentTermsSummary();
+        }
+
+        function addPaymentRow(amount, due) {
+            const wrap = document.getElementById('paymentRows');
+            const row = document.createElement('div');
+            row.className = 'payment-row';
+            row.style.cssText = 'border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px;margin-bottom:8px;';
+            row.innerHTML = `
+                <div class="two-column">
+                    <div class="form-group">
+                        <label data-payment-label>Payment Amount ($):</label>
+                        <input type="number" name="paymentAmount" step="0.01" min="0" placeholder="0.00" value="${amount || ''}" oninput="updatePaymentTermsSummary()">
+                    </div>
+                    <div class="form-group">
+                        <label>Due:</label>
+                        <input type="text" name="paymentDue" placeholder="e.g. On completion, or 08/15/2026" value="${(due || '').replace(/"/g, '&quot;')}">
+                    </div>
+                </div>
+                <button type="button" class="remove-service" onclick="removePaymentRow(this)">Remove</button>`;
+            wrap.appendChild(row);
+            renumberPaymentRows();
+            updatePaymentTermsSummary();
+        }
+
+        function removePaymentRow(btn) {
+            const row = btn.closest('.payment-row');
+            if (row) row.remove();
+            renumberPaymentRows();
+            updatePaymentTermsSummary();
+        }
+
+        function renumberPaymentRows() {
+            document.querySelectorAll('#paymentRows .payment-row').forEach((row, i) => {
+                const label = row.querySelector('[data-payment-label]');
+                if (label) label.textContent = `Payment ${i + 1} Amount ($):`;
+            });
+        }
+
+        // Fill the rows with an even split of the last generated total.
+        function splitPaymentsEvenly() {
+            const rows = document.querySelectorAll('#paymentRows .payment-row');
+            if (!rows.length) { alert('Add at least one payment first'); return; }
+            const total = lastEstimateData ? parseFloat(lastEstimateData.total) : NaN;
+            if (!total || isNaN(total)) { alert('Generate the estimate first so there is a total to split'); return; }
+            const share = Math.round((total / rows.length) * 100) / 100;
+            let remaining = Math.round(total * 100) / 100;
+            rows.forEach((row, i) => {
+                const value = (i === rows.length - 1) ? Math.round(remaining * 100) / 100 : share;
+                remaining = Math.round((remaining - value) * 100) / 100;
+                row.querySelector('[name="paymentAmount"]').value = value.toFixed(2);
+            });
+            updatePaymentTermsSummary();
+        }
+
+        function updatePaymentTermsSummary() {
+            const el = document.getElementById('paymentTermsSummary');
+            if (!el) return;
+            const payments = collectPaymentTerms().payments;
+            const scheduled = payments.reduce((sum, p) => sum + p.amount, 0);
+            const total = lastEstimateData ? parseFloat(lastEstimateData.total) || 0 : 0;
+            if (!total) {
+                el.textContent = scheduled > 0 ? `Scheduled: $${scheduled.toFixed(2)}` : '';
+                return;
+            }
+            const diff = Math.round((total - scheduled) * 100) / 100;
+            el.textContent = Math.abs(diff) < 0.01
+                ? `Scheduled: $${scheduled.toFixed(2)} of $${total.toFixed(2)} (matches total)`
+                : `Scheduled: $${scheduled.toFixed(2)} of $${total.toFixed(2)} (${diff > 0 ? '$' + diff.toFixed(2) + ' unscheduled' : '$' + Math.abs(diff).toFixed(2) + ' over total'})`;
+        }
+
+        function collectPaymentTerms() {
+            const toggle = document.getElementById('enablePaymentTerms');
+            const payments = [];
+            document.querySelectorAll('#paymentRows .payment-row').forEach(row => {
+                const amount = parseFloat(row.querySelector('[name="paymentAmount"]').value);
+                const due = (row.querySelector('[name="paymentDue"]').value || '').trim();
+                if ((!isNaN(amount) && amount > 0) || due) {
+                    payments.push({ amount: isNaN(amount) ? 0 : amount, due });
+                }
+            });
+            return { enabled: !!(toggle && toggle.checked), payments };
+        }
+
+        function applyPaymentTerms(state) {
+            const toggle = document.getElementById('enablePaymentTerms');
+            const wrap = document.getElementById('paymentRows');
+            if (!toggle || !wrap) return;
+            wrap.innerHTML = '';
+            const enabled = !!(state && state.enabled);
+            toggle.checked = enabled;
+            document.getElementById('paymentTermsFields').style.display = enabled ? 'block' : 'none';
+            const payments = (state && Array.isArray(state.payments)) ? state.payments : [];
+            payments.forEach(p => addPaymentRow(p.amount ? String(p.amount) : '', p.due || ''));
+            updatePaymentTermsSummary();
+        }
+
         function generateEstimate(opts) {
             const quiet = !!(opts && opts.quiet) || viewMode;
             // Get pricing and materials info
@@ -1271,10 +1498,15 @@
             const customerAddress = document.getElementById('customerAddress').value;
             const customerPhone = document.getElementById('customerPhone').value.trim();
             const customerEmail = document.getElementById('customerEmail').value.trim();
-            const discountPercent = parseFloat(document.getElementById('discount').value) || 0;
+            // Discount can be a percentage of the subtotal or a flat dollar amount.
+            const discountMode = document.getElementById('discountMode').value === 'amount' ? 'amount' : 'percent';
+            const discountValue = parseFloat(document.getElementById('discount').value) || 0;
+            const discountPercent = discountMode === 'percent' ? discountValue : 0;
+            const discountFlat = discountMode === 'amount' ? discountValue : 0;
             const discountReason = document.getElementById('discountReason').value || 'Discount';
-            const additionalCost = parseFloat(document.getElementById('additionalCost').value) || 0;
-            const additionalReason = document.getElementById('additionalReason').value || 'Additional Cost';
+            const furnitureCharge = furnitureMovingCharge();
+            const additionalCharges = collectAdditionalCharges().concat(furnitureCharge ? [furnitureCharge] : []);
+            const additionalCost = additionalCharges.reduce((sum, c) => sum + c.amount, 0);
             const notes = document.getElementById('notes').value;
             
             // Validate inputs
@@ -1298,8 +1530,8 @@
                 const description = item.querySelector('[name="description"]').value;
                 const squareFootage = parseFloat(item.querySelector('[name="squareFootage"]').value);
                 const pricePerSqFt = parseFloat(item.querySelector('[name="pricePerSqFt"]').value);
-                const numWorkers = parseInt(item.querySelector('[name="numWorkers"]').value) || 1;
-                const dirtLevel = parseFloat(item.querySelector('[name="dirtLevel"]').value) || 1;
+                const numWorkers = DEFAULT_WORKERS;
+                const dirtLevel = DEFAULT_DIRT_LEVEL;
                 const surfaceType = item.querySelector('[name="surfaceType"]').value || 'concrete';
                 
                 if (description && squareFootage && pricePerSqFt) {
@@ -1337,8 +1569,9 @@
             let totalChemical = 0;
             
             let customerRows = '';
+            let customerSimpleRows = '';
             let extendedRows = '';
-            
+
             services.forEach((service, index) => {
                 // A service with a negative price-per-sqft is a deduction/area-reduction.
                 // It adjusts the price only. no fuel or chemical is consumed for it.
@@ -1351,7 +1584,7 @@
                 const profile           = getSurfaceProfile(service.surfaceType);
                 const estimatedChemical = isDeduction ? 0 : service.squareFootage / profile.shCoverage;
                 const fuelRatePerHour   = FUEL_RATE_GAL_PER_HR;
-                const serviceFuelGallons = isDeduction ? 0 : fuelRatePerHour * service.numWorkers * estimatedHours;
+                const serviceFuelGallons = isDeduction ? 0 : fuelRatePerHour * CL_JOB_ECON.soloHours(service.squareFootage, service.surfaceType, service.dirtLevel);
 
                 // Calculate costs
                 const serviceFuelCost          = serviceFuelGallons * gasCost;
@@ -1370,28 +1603,23 @@
                     totalChemical      += estimatedChemical;
                 }
 
-                // --- CUSTOMER TABLE ROWS (clean view) ---
-                if (services.length > 1) {
-                    customerRows += `
-                        <tr class="service-group-header">
-                            <td colspan="4"><strong>${service.description}${isDeduction ? ' (Area Deduction)' : ''}</strong></td>
-                        </tr>`;
-                }
+                // --- CUSTOMER TABLE ROWS (clean view: description / amount) ---
                 if (isDeduction) {
                     customerRows += `
                         <tr>
                             <td>Deduction: ${service.description}</td>
-                            <td>${service.squareFootage.toLocaleString()} sq ft</td>
-                            <td></td>
                             <td>$${servicePressureWashingCost.toFixed(2)}</td>
                         </tr>`;
                 } else {
                     customerRows += `
                         <tr>
-                            <td>${services.length > 1 ? service.description : 'Pressure Washing'}</td>
-                            <td>${service.squareFootage.toLocaleString()} sq ft</td>
-                            <td>${estimatedHours.toFixed(1)} hrs</td>
+                            <td>${service.description}</td>
                             <td>$${servicePressureWashingCost.toFixed(2)}</td>
+                        </tr>`;
+                    // Un-itemized view: the customer sees what's included, one price at the bottom.
+                    customerSimpleRows += `
+                        <tr>
+                            <td colspan="2">${service.description}</td>
                         </tr>`;
                 }
 
@@ -1399,7 +1627,7 @@
                 if (services.length > 1) {
                     extendedRows += `
                         <tr class="service-group-header">
-                            <td colspan="4"><strong>${service.description}${isDeduction ? ' (Area Deduction)' : ' (Level ' + service.dirtLevel + ' Dirt)'}</strong></td>
+                            <td colspan="4"><strong>${service.description}${isDeduction ? ' (Area Deduction)' : ''}</strong></td>
                         </tr>`;
                 }
                 if (isDeduction) {
@@ -1419,7 +1647,7 @@
                             <td>$${servicePressureWashingCost.toFixed(2)}</td>
                         </tr>
                         <tr style="color:#666;font-size:12px;">
-                            <td style="padding-left:16px;font-style:italic;">Gas (${service.numWorkers} machine${service.numWorkers > 1 ? 's' : ''}, ${serviceFuelGallons.toFixed(1)} gal @ $${gasCost.toFixed(2)}/gal)</td>
+                            <td style="padding-left:16px;font-style:italic;">Gas (${serviceFuelGallons.toFixed(1)} gal @ $${gasCost.toFixed(2)}/gal)</td>
                             <td colspan="2" style="font-style:italic;">included</td>
                             <td style="font-style:italic;">$${serviceFuelCost.toFixed(2)}</td>
                         </tr>
@@ -1431,47 +1659,68 @@
                 }
             });
             
+            // Simple is the default: the customer sees the scope and one price.
+            const detailMode = getDetailMode();
+            const itemized = detailMode !== 'simple';
+            const showExtended = detailMode === 'internal';
+            if (!itemized) customerRows = customerSimpleRows;
+
             // Calculate final totals
             // Customer total: pressure washing only (gas & chem are internal costs)
+            // A flat discount can never take the total below zero.
             const customerSubtotal = totalPressureWashing + additionalCost;
-            const customerDiscountAmount = customerSubtotal * (discountPercent / 100);
+            const customerDiscountAmount = discountMode === 'amount'
+                ? Math.max(0, Math.min(discountFlat, customerSubtotal))
+                : customerSubtotal * (discountPercent / 100);
             const customerTotal = customerSubtotal - customerDiscountAmount;
+            const discountLabel = discountMode === 'amount' ? 'flat discount' : `${discountPercent}% off`;
+            const hasDiscount = customerDiscountAmount > 0;
 
             // Extended total: includes gas & chemical as line items
             const subtotal = totalPressureWashing + totalFuelCost + totalChemicalCost + additionalCost;
-            const discountAmount = subtotal * (discountPercent / 100);
+            const discountAmount = discountMode === 'amount'
+                ? Math.max(0, Math.min(discountFlat, subtotal))
+                : subtotal * (discountPercent / 100);
             const totalAfterDiscount = subtotal - discountAmount;
-            
-            // Add additional cost row if there's an additional cost
-            if (additionalCost > 0) {
-                const addRow = `
-                    <tr>
-                        <td>${additionalReason}</td>
-                        <td>1</td>
-                        <td>$${additionalCost.toFixed(2)}</td>
-                        <td>$${additionalCost.toFixed(2)}</td>
-                    </tr>`;
-                customerRows += addRow;
-                extendedRows += addRow;
-            }
 
-            // Customer footer rows
-            customerRows += `
-                <tr class="subtotal-row">
-                    <td colspan="3"><strong>Subtotal</strong></td>
-                    <td><strong>$${customerSubtotal.toFixed(2)}</strong></td>
-                </tr>`;
-            if (discountPercent > 0) {
+            // One row per additional charge
+            additionalCharges.forEach(charge => {
+                customerRows += itemized ? `
+                    <tr>
+                        <td>${charge.reason}</td>
+                        <td>$${charge.amount.toFixed(2)}</td>
+                    </tr>` : `
+                    <tr>
+                        <td colspan="2">${charge.reason}</td>
+                    </tr>`;
+                extendedRows += `
+                    <tr>
+                        <td>${charge.reason}</td>
+                        <td>1</td>
+                        <td>$${charge.amount.toFixed(2)}</td>
+                        <td>$${charge.amount.toFixed(2)}</td>
+                    </tr>`;
+            });
+
+            // Customer footer rows. an un-itemized estimate with no discount
+            // only needs the one total, so the subtotal line is dropped.
+            if (itemized || hasDiscount) {
+                customerRows += `
+                    <tr class="subtotal-row">
+                        <td><strong>Subtotal</strong></td>
+                        <td><strong>$${customerSubtotal.toFixed(2)}</strong></td>
+                    </tr>`;
+            }
+            if (hasDiscount) {
                 customerRows += `
                     <tr>
-                        <td>Discount: ${discountReason}</td>
-                        <td colspan="2">${discountPercent}% off</td>
+                        <td>Discount: ${discountReason} (${discountLabel})</td>
                         <td>-$${customerDiscountAmount.toFixed(2)}</td>
                     </tr>`;
             }
             customerRows += `
                 <tr class="total-row">
-                    <td colspan="3"><strong>ESTIMATED TOTAL</strong></td>
+                    <td><strong>ESTIMATED TOTAL</strong></td>
                     <td><strong>$${customerTotal.toFixed(2)}</strong></td>
                 </tr>`;
 
@@ -1481,12 +1730,12 @@
                     <td colspan="3"><strong>Subtotal</strong></td>
                     <td><strong>$${customerSubtotal.toFixed(2)}</strong></td>
                 </tr>`;
-            if (discountPercent > 0) {
+            if (hasDiscount) {
                 extendedRows += `
                     <tr>
                         <td>Discount: ${discountReason}</td>
                         <td>1</td>
-                        <td>${discountPercent}% off</td>
+                        <td>${discountLabel}</td>
                         <td>-$${customerDiscountAmount.toFixed(2)}</td>
                     </tr>`;
             }
@@ -1503,27 +1752,12 @@
                 : getNextEstimateNumber();
             const today = new Date().toLocaleDateString();
             
-            // Count unique number of workers needed (ignore deductions)
-            const realServices = services.filter(s => s.pricePerSqFt >= 0);
-            const uniqueWorkers = realServices.length > 0 ? Math.max(...realServices.map(s => s.numWorkers)) : 1;
+            // Optional split-payment schedule (hidden unless enabled for this job)
+            const paymentTermsState = collectPaymentTerms();
+            const paymentPlan = paymentTermsState.enabled
+                ? paymentTermsState.payments.filter(p => p.amount > 0 || p.due)
+                : [];
 
-            // Generate service details text (deductions shown separately, not in bullet list)
-            let serviceDetailsText = '';
-            if (services.length > 1) {
-                serviceDetailsText = `Multiple Services (${realServices.length}):<br>`;
-                realServices.forEach(service => {
-                    serviceDetailsText += `• ${service.description}: ${service.squareFootage.toLocaleString()} sq ft (Level ${service.dirtLevel})<br>`;
-                });
-                const deductions = services.filter(s => s.pricePerSqFt < 0);
-                if (deductions.length > 0) {
-                    serviceDetailsText += `<em style="font-size:11px;color:#666;">Deductions: ${deductions.map(d => d.description).join(', ')}</em><br>`;
-                }
-            } else {
-                const service = services[0];
-                serviceDetailsText = `Pressure Washing<br>Area: ${totalSquareFootage.toLocaleString()} sq ft<br>Dirt Level: ${service.dirtLevel}<br>`;
-            }
-            
-            const showExtended = document.getElementById('extendedInfo').checked;
             const activeRows  = showExtended ? extendedRows : customerRows;
             const displayTotal = showExtended ? totalAfterDiscount : customerTotal;
 
@@ -1553,13 +1787,6 @@
                         ${customerPhone ? `<p>Phone: ${customerPhone}</p>` : ''}
                         ${customerEmail ? `<p>Email: ${customerEmail}</p>` : ''}
                     </div>
-                    <div style="background:#0f172a;color:white;padding:14px 16px;border-radius:6px;">
-                        <h3 style="color:#94a3b8;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;border-bottom:1px solid #1e293b;padding-bottom:6px;">Service Details</h3>
-                        <p style="color:white;margin-bottom:6px;">${serviceDetailsText}</p>
-                        <p style="color:#e2e8f0;font-size:13px;margin-bottom:4px;">Total Area: <strong style="color:white;">${totalSquareFootage.toLocaleString()} sq ft</strong></p>
-                        <p style="color:#e2e8f0;font-size:13px;margin-bottom:4px;">Est. Time: <strong style="color:white;">${totalEstimatedTime.toFixed(1)} hrs</strong> &nbsp;|&nbsp; Workers: <strong style="color:white;">${uniqueWorkers}</strong></p>
-                        ${additionalCost > 0 ? `<p style="color:#fbbf24;font-size:13px;">+ ${additionalReason}</p>` : ''}
-                    </div>
                 </div>
                 
                 <p style="font-size:12px;color:#444;background:#f8f9fa;border-left:3px solid #0ea5e9;padding:8px 12px;margin-bottom:10px;">
@@ -1570,8 +1797,7 @@
                     <thead>
                         <tr>
                             <th>Description</th>
-                            <th>Size</th>
-                            ${showExtended ? '<th>Rate</th>' : '<th>Est. Time</th>'}
+                            ${showExtended ? '<th>Size</th><th>Rate</th>' : ''}
                             <th>Amount</th>
                         </tr>
                     </thead>
@@ -1579,17 +1805,37 @@
                         ${activeRows}
                     </tbody>
                 </table>
-                
+
+                ${paymentPlan.length ? `
+                <div class="notes-section payment-terms-section">
+                    <h3>Payment Terms:</h3>
+                    <table class="estimate-table" style="margin-top:8px;">
+                        <thead>
+                            <tr>
+                                <th>Payment</th>
+                                <th>Due</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${paymentPlan.map((p, i) => `
+                            <tr>
+                                <td>Payment ${i + 1}</td>
+                                <td>${p.due || '—'}</td>
+                                <td>${p.amount > 0 ? '$' + p.amount.toFixed(2) : '—'}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ` : ''}
+
                 ${notes ? `
                 <div class="notes-section">
                     <h3>Notes:</h3>
                     <p>${notes.replace(/\n/g, '<br>')}</p>
                 </div>
                 ` : ''}
-                
-                <p style="margin-top: 14px; font-style: italic; color: #666; font-size: 11px;">
-                    * This is an estimate. Actual costs may vary based on job conditions and dirt levels.
-                </p>
+
                 <div class="print-footer" style="margin-top: 18px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 11px; color: #555; display: flex; justify-content: space-between;">
                     <span>SC Pressure Point, Columbia, SC</span>
                     <span>Thank you for your business!</span>
@@ -1619,8 +1865,11 @@
                 totalSquareFootage,
                 totalEstimatedTime,
                 total: displayTotal,
+                paymentPlan,
                 notes
             };
+            // Totals just changed, so refresh the "scheduled vs total" helper.
+            updatePaymentTermsSummary();
 
             // Don't mutate the job when opening a read-only PDF/view.
             if (jobId && !quiet && !viewMode) {
@@ -1630,7 +1879,7 @@
             document.getElementById('estimateContent').innerHTML = estimateHTML;
 
             // Internal margin summary (not printed)
-            const internalLaborRate = INTERNAL_LABOR_RATE;
+            const internalLaborRate = CL_JOB_ECON.laborRate();
             const laborCost = totalEstimatedTime * internalLaborRate;
             const totalInternalCost = laborCost + totalFuelCost + totalChemicalCost;
             // Revenue = customer-facing total (gas & chem are our internal costs)
@@ -1648,7 +1897,7 @@
             services.filter(s => s.pricePerSqFt >= 0).forEach(s => {
                 const prof = getSurfaceProfile(s.surfaceType);
                 const hrs  = calculateTimeFromDirtLevel(s.squareFootage, s.dirtLevel, s.numWorkers, s.surfaceType);
-                const fuelG = FUEL_RATE_GAL_PER_HR * s.numWorkers * hrs;
+                const fuelG = FUEL_RATE_GAL_PER_HR * CL_JOB_ECON.soloHours(s.squareFootage, s.surfaceType, s.dirtLevel);
                 const chemG = s.squareFootage / prof.shCoverage;
                 serviceRateRows += `
                     <tr style="font-size:11px;color:#555;">
@@ -1870,13 +2119,21 @@
             d.services.forEach(s => {
                 text += `• ${s.description}: ${s.squareFootage.toLocaleString()} sq ft\n`;
             });
-            text += `\nTotal Area: ${d.totalSquareFootage.toLocaleString()} sq ft\n`;
-            text += `Est. Time: ${d.totalEstimatedTime.toFixed(1)} hours\n\n`;
-            
+            text += `\nTotal Area: ${d.totalSquareFootage.toLocaleString()} sq ft\n\n`;
+
             text += `━━━━━━━━━━━━━━━━━━━━━━\n`;
             text += `ESTIMATED TOTAL: $${d.total.toFixed(2)}\n`;
             text += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-            
+
+            if (d.paymentPlan && d.paymentPlan.length) {
+                text += `PAYMENT TERMS:\n`;
+                d.paymentPlan.forEach((p, i) => {
+                    const amt = p.amount > 0 ? `$${p.amount.toFixed(2)}` : 'TBD';
+                    text += `• Payment ${i + 1}: ${amt}${p.due ? ` due ${p.due}` : ''}\n`;
+                });
+                text += `\n`;
+            }
+
             if (d.notes) text += `Notes: ${d.notes}\n\n`;
             
             text += `Questions? Call or text:\n`;
@@ -1889,6 +2146,7 @@
         
         // Initialize
         updateRemoveButtons();
+        updateFurnitureHint();
 
         // Check for prefill data from customer tracker. Skipped when we're
         // re-opening an existing saved doc. that path loads its own state.
@@ -1956,9 +2214,12 @@
                 services: [],
                 adjustments: {
                     discount: document.getElementById('discount').value,
+                    discountMode: document.getElementById('discountMode').value,
                     discountReason: document.getElementById('discountReason').value,
-                    additionalCost: document.getElementById('additionalCost').value,
-                    additionalReason: document.getElementById('additionalReason').value,
+                    additionalCharges: collectAdditionalCharges(),
+                    customerMovesFurniture: document.getElementById('customerMovesFurniture').checked,
+                    paymentTerms: collectPaymentTerms(),
+                    detailMode: getDetailMode(),
                     notes: document.getElementById('notes').value
                 }
             };
@@ -1970,8 +2231,6 @@
                     description: item.querySelector('[name="description"]').value,
                     squareFootage: item.querySelector('[name="squareFootage"]').value,
                     pricePerSqFt: item.querySelector('[name="pricePerSqFt"]').value,
-                    numWorkers: item.querySelector('[name="numWorkers"]').value,
-                    dirtLevel: item.querySelector('[name="dirtLevel"]').value,
                     surfaceType: item.querySelector('[name="surfaceType"]') ? item.querySelector('[name="surfaceType"]').value : 'concrete'
                 };
                 estimateData.services.push(service);
@@ -2014,16 +2273,26 @@
                     // Load pricing
                     if (estimateData.pricing) {
                         document.getElementById('gasCost').value = estimateData.pricing.gasCost || '3.50';
-                        document.getElementById('chemicalName').value = estimateData.pricing.chemicalName || 'Krud Kutter';
-                        document.getElementById('chemicalCost').value = estimateData.pricing.chemicalCost || '15.00';
+                        document.getElementById('chemicalName').value = estimateData.pricing.chemicalName || 'Sodium Hypochlorite';
+                        document.getElementById('chemicalCost').value = estimateData.pricing.chemicalCost || '4.00';
                     }
-                    
+
                     // Load adjustments
                     if (estimateData.adjustments) {
+                        document.getElementById('discountMode').value = estimateData.adjustments.discountMode === 'amount' ? 'amount' : 'percent';
+                        onDiscountModeChange();
                         document.getElementById('discount').value = estimateData.adjustments.discount || '0';
                         document.getElementById('discountReason').value = estimateData.adjustments.discountReason || '';
-                        document.getElementById('additionalCost').value = estimateData.adjustments.additionalCost || '0';
-                        document.getElementById('additionalReason').value = estimateData.adjustments.additionalReason || '';
+                        syncDiscountPreset();
+                        applyPaymentTerms(estimateData.adjustments.paymentTerms);
+                        applyAdditionalCharges(
+                            estimateData.adjustments.additionalCharges,
+                            estimateData.adjustments.additionalCost,
+                            estimateData.adjustments.additionalReason
+                        );
+                        document.getElementById('customerMovesFurniture').checked = estimateData.adjustments.customerMovesFurniture !== false;
+                        updateFurnitureHint();
+                        setDetailMode(estimateData.adjustments.detailMode || (estimateData.adjustments.itemized ? 'itemized' : 'simple'));
                         document.getElementById('notes').value = estimateData.adjustments.notes || '';
                     }
                     
@@ -2056,7 +2325,7 @@
 
                             <div class="form-group">
                                 <label>Surface Type:</label>
-                                <select name="surfaceType" onchange="applySurfaceDefaults(this)">
+                                <select name="surfaceType">
                                     <option value="siding"      ${serviceData.surfaceType==='siding'     ?'selected':''}>Vinyl Siding (Flat Panels)</option>
                                     <option value="vinylFence"  ${serviceData.surfaceType==='vinylFence' ?'selected':''}>Vinyl Fence</option>
                                     <option value="concrete"    ${(!serviceData.surfaceType||serviceData.surfaceType==='concrete')?'selected':''}>Concrete / Flatwork</option>
@@ -2077,39 +2346,6 @@
                                 </div>
                             </div>
                             
-                            <div class="two-column">
-                                <div class="form-group">
-                                    <label>Number of Workers:</label>
-                                    <select name="numWorkers" required>
-                                        <option value="1" ${serviceData.numWorkers === '1' ? 'selected' : ''}>1 Worker</option>
-                                        <option value="2" ${serviceData.numWorkers === '2' ? 'selected' : ''}>2 Workers</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Dirt Level:</label>
-                                    <div style="margin: 10px 0;">
-                                        <input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="${serviceData.dirtLevel || '3.5'}" 
-                                               style="width: 100%;" oninput="updateDirtDisplay(this)">
-                                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8; margin-top: 5px;">
-                                            <span>Light Work</span>
-                                            <span>Heavy Work</span>
-                                        </div>
-                                        <div style="text-align: center; margin-top: 5px;">
-                                            <span name="dirtDisplay" style="font-weight: bold; color: #e5e7eb;">Level ${serviceData.dirtLevel || '3.5'}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="dirt-level-info">
-                                <strong>Dirt Level Guide:</strong><br>
-                                1: Maintenance, minimal buildup &nbsp;|&nbsp;
-                                2: Light dust/dirt &nbsp;|&nbsp;
-                                3: Normal residential &nbsp;|&nbsp;
-                                3.5: Heavy buildup (default) &nbsp;|&nbsp;
-                                4: Very dirty &nbsp;|&nbsp;
-                                5: Extreme
-                            </div>
                         `;
                         
                         container.appendChild(serviceDiv);
@@ -2655,8 +2891,6 @@
                     description: item.querySelector('[name="description"]').value,
                     squareFootage: item.querySelector('[name="squareFootage"]').value,
                     pricePerSqFt: item.querySelector('[name="pricePerSqFt"]').value,
-                    numWorkers: item.querySelector('[name="numWorkers"]').value,
-                    dirtLevel: item.querySelector('[name="dirtLevel"]').value,
                     surfaceType: item.querySelector('[name="surfaceType"]') ? item.querySelector('[name="surfaceType"]').value : 'concrete'
                 });
             });
@@ -2670,9 +2904,12 @@
                 customerEmail: document.getElementById('customerEmail').value,
                 services: services,
                 discount: document.getElementById('discount').value,
+                discountMode: document.getElementById('discountMode').value,
                 discountReason: document.getElementById('discountReason').value,
-                additionalCost: document.getElementById('additionalCost').value,
-                additionalReason: document.getElementById('additionalReason').value,
+                additionalCharges: collectAdditionalCharges(),
+                customerMovesFurniture: document.getElementById('customerMovesFurniture').checked,
+                paymentTerms: collectPaymentTerms(),
+                detailMode: getDetailMode(),
                 notes: document.getElementById('notes').value,
                 gasCost: document.getElementById('gasCost').value,
                 chemicalName: document.getElementById('chemicalName').value,
@@ -2697,10 +2934,16 @@
             if (data.gasCost) document.getElementById('gasCost').value = data.gasCost;
             if (data.chemicalName) document.getElementById('chemicalName').value = data.chemicalName;
             if (data.chemicalCost) document.getElementById('chemicalCost').value = data.chemicalCost;
+            document.getElementById('discountMode').value = data.discountMode === 'amount' ? 'amount' : 'percent';
+            onDiscountModeChange();
             if (data.discount) document.getElementById('discount').value = data.discount;
             if (data.discountReason) document.getElementById('discountReason').value = data.discountReason;
-            if (data.additionalCost) document.getElementById('additionalCost').value = data.additionalCost;
-            if (data.additionalReason) document.getElementById('additionalReason').value = data.additionalReason;
+            syncDiscountPreset();
+            applyPaymentTerms(data.paymentTerms);
+            applyAdditionalCharges(data.additionalCharges, data.additionalCost, data.additionalReason);
+            document.getElementById('customerMovesFurniture').checked = data.customerMovesFurniture !== false;
+            updateFurnitureHint();
+            setDetailMode(data.detailMode || (data.itemized ? 'itemized' : 'simple'));
             if (data.notes) document.getElementById('notes').value = data.notes;
             if (data.estimateName) document.getElementById('estimateName').value = data.estimateName;
             if (data.status) document.getElementById('docStatus').value = data.status;
@@ -2725,11 +2968,8 @@
                     div.innerHTML = `
                         <div class="service-header"><h4>Service ${serviceCounter}</h4><button type="button" class="remove-service" onclick="removeService(${serviceCounter})">Remove</button></div>
                         <div class="form-group"><label>Property/Area Description:</label><input type="text" name="description" value="${sd.description||''}" required></div>
-                        <div class="form-group"><label>Surface Type:</label><select name="surfaceType" onchange="applySurfaceDefaults(this)"><option value="siding" ${sd.surfaceType==='siding'?'selected':''}>Vinyl Siding (Flat Panels)</option><option value="vinylFence" ${sd.surfaceType==='vinylFence'?'selected':''}>Vinyl Fence</option><option value="concrete" ${(!sd.surfaceType||sd.surfaceType==='concrete')?'selected':''}>Concrete / Flatwork</option><option value="roof" ${sd.surfaceType==='roof'?'selected':''}>Roof</option><option value="fence" ${sd.surfaceType==='fence'?'selected':''}>Wood Fence</option><option value="other" ${sd.surfaceType==='other'?'selected':''}>Other / Mixed</option></select></div>
+                        <div class="form-group"><label>Surface Type:</label><select name="surfaceType"><option value="siding" ${sd.surfaceType==='siding'?'selected':''}>Vinyl Siding (Flat Panels)</option><option value="vinylFence" ${sd.surfaceType==='vinylFence'?'selected':''}>Vinyl Fence</option><option value="concrete" ${(!sd.surfaceType||sd.surfaceType==='concrete')?'selected':''}>Concrete / Flatwork</option><option value="roof" ${sd.surfaceType==='roof'?'selected':''}>Roof</option><option value="fence" ${sd.surfaceType==='fence'?'selected':''}>Wood Fence</option><option value="other" ${sd.surfaceType==='other'?'selected':''}>Other / Mixed</option></select></div>
                         <div class="two-column"><div class="form-group"><label>Square Footage:</label><input type="number" name="squareFootage" value="${sd.squareFootage||''}" required></div><div class="form-group"><label>Price per Sq Ft ($):</label><input type="number" name="pricePerSqFt" step="0.01" value="${sd.pricePerSqFt||'0.30'}" required></div></div>
-                        <div class="two-column"><div class="form-group"><label>Number of Workers:</label><select name="numWorkers" required><option value="1" ${sd.numWorkers==='1'?'selected':''}>1 Worker</option><option value="2" ${sd.numWorkers==='2'?'selected':''}>2 Workers</option></select></div>
-                        <div class="form-group"><label>Dirt Level:</label><div style="margin:10px 0"><input type="range" name="dirtLevel" min="1" max="5" step="0.1" value="${sd.dirtLevel||'3.5'}" style="width:100%" oninput="updateDirtDisplay(this)"><div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-top:5px"><span>Light Work</span><span>Heavy Work</span></div><div style="text-align:center;margin-top:5px"><span name="dirtDisplay" style="font-weight:bold;color:#e5e7eb">Level ${sd.dirtLevel||'3.5'}</span></div></div></div></div>
-                        <div class="dirt-level-info"><strong>Dirt Level Guide:</strong><br>1: Maintenance, minimal buildup &nbsp;|&nbsp; 2: Light dust/dirt &nbsp;|&nbsp; 3: Normal residential &nbsp;|&nbsp; 3.5: Heavy buildup (default) &nbsp;|&nbsp; 4: Very dirty &nbsp;|&nbsp; 5: Extreme</div>
                     `;
                     container.appendChild(div);
                 });

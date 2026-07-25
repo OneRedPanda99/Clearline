@@ -135,15 +135,17 @@ service cloud.firestore {
             || resource.data.assignedManager == uid());
 
       // list: provable from the client's where('accessUids','array-contains',uid)
-      // query alone — NO get()/exists() call, so it is allowed for queries.
-      // Owner may list everything (they own the data); managers/workers are
-      // scoped to accessUids. NOTE: isOwner() calls get() here, but get() is
-      // ALLOWED in a read rule when the SAME rule has no get() on the
-      // non-owner branch AND the owner's query is unfiltered — the owner path
-      // `isOwner()` alone is accepted because Firestore evaluates it as: the
-      // owner is granted without depending on the per-doc accessUids field.
-      allow list: if signedIn() && (isOwner()
-        || (resource.data.accessUids is list && uid() in resource.data.accessUids));
+      // query for managers/workers/owner. The isOwner() branch is OR-ed with
+      // the accessUids branch: it is independent, so a worker's filtered
+      // query satisfies the accessUids branch on its own and is NOT affected
+      // by isOwner() calling get(). It only guarantees the OWNER can read all
+      // jobs even if a (legacy) job is missing accessUids or uses an
+      // unfiltered listener. Firestore proves each branch per-document; a
+      // get() in a list rule is allowed and does not reject filtered queries
+      // that match the other branch.
+      allow list: if signedIn()
+        && ((resource.data.accessUids is list && uid() in resource.data.accessUids)
+            || isOwner());
 
       // On create the writer must stamp accessUids including at least
       // themselves, the owner, the assigned manager, and all crew workers.
