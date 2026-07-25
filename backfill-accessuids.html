@@ -39,6 +39,8 @@
             onclick="makeMeManager()">Make me manager of all workers</button>
     <button id="assignx" class="hidden bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded"
             onclick="assignCrewToJob()">Add me + Xavier as crew to a job</button>
+    <button id="testme" class="hidden bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded"
+            onclick="testMyAccess()">Test MY job access (runs worker query)</button>
 
     <pre id="log" class="bg-black/40 rounded p-3 text-xs whitespace-pre-wrap h-64 overflow-auto"></pre>
   </div>
@@ -80,6 +82,7 @@
         document.getElementById('diag').classList.remove('hidden');
         document.getElementById('mgr').classList.remove('hidden');
         document.getElementById('assignx').classList.remove('hidden');
+        document.getElementById('testme').classList.remove('hidden');
         log('Signed in as ' + user.email + ' (uid ' + user.uid + ')');
       }
     });
@@ -155,6 +158,22 @@
         log('Updated ' + doc.id + ' crew=[' + workers.join(', ') + ']');
       } catch (e) {
         log('FAILED ' + doc.id + ': ' + e.message);
+      }
+    }
+
+    async function testMyAccess() {
+      const me = auth.currentUser;
+      if (!me) { log('Not signed in.'); return; }
+      const uid = me.uid;
+      log('Testing as ' + me.email + ' (uid ' + uid + ')');
+      log('Running: jobs where accessUids array-contains ' + uid);
+      try {
+        const snap = await db.collection('jobs').where('accessUids', 'array-contains', uid).get();
+        log('RESULT: ' + snap.size + ' job(s) returned.');
+        snap.forEach(d => log('  -> ' + d.id + ' (' + (d.data().customerName || d.data().customer || '?') + ')'));
+        if (snap.size === 0) log('Empty. Either rules deny it, or no job has your uid in accessUids.');
+      } catch (e) {
+        log('QUERY DENIED: ' + (e.code || e.message));
       }
     }
 
