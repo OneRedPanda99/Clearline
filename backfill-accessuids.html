@@ -41,6 +41,8 @@
             onclick="assignCrewToJob()">Add me + Xavier as crew to a job</button>
     <button id="testme" class="hidden bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded"
             onclick="testMyAccess()">Test MY job access (runs worker query)</button>
+    <button id="inspect" class="hidden bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded"
+            onclick="inspectHeather()">Inspect Heather Cook job accessUids</button>
 
     <pre id="log" class="bg-black/40 rounded p-3 text-xs whitespace-pre-wrap h-64 overflow-auto"></pre>
   </div>
@@ -83,6 +85,7 @@
         document.getElementById('mgr').classList.remove('hidden');
         document.getElementById('assignx').classList.remove('hidden');
         document.getElementById('testme').classList.remove('hidden');
+        document.getElementById('inspect').classList.remove('hidden');
         log('Signed in as ' + user.email + ' (uid ' + user.uid + ')');
       }
     });
@@ -158,6 +161,27 @@
         log('Updated ' + doc.id + ' crew=[' + workers.join(', ') + ']');
       } catch (e) {
         log('FAILED ' + doc.id + ': ' + e.message);
+      }
+    }
+
+    async function inspectHeather() {
+      const me = auth.currentUser;
+      if (!me) { log('Not signed in.'); return; }
+      const JOB = 'job_1784503388856_lu27djq';
+      try {
+        const d = await db.collection('jobs').doc(JOB).get();
+        if (!d.exists) { log('Job ' + JOB + ' does not exist.'); return; }
+        const data = d.data();
+        log('--- ' + JOB + ' (live) ---');
+        log('assignedWorkers = ' + JSON.stringify(data.assignedWorkers || []));
+        log('assignedManager = ' + (data.assignedManager || ''));
+        log('createdBy       = ' + (data.createdBy || ''));
+        log('accessUids      = ' + JSON.stringify(data.accessUids || []));
+        const x = '2QGDGaBmr9f6ITcVjs5q2Shopnf2';
+        const inAW = Array.isArray(data.accessUids) && data.accessUids.includes(x);
+        log('Xavier (' + x + ') in accessUids? ' + (inAW ? 'YES' : 'NO  <-- THIS IS WHY HE IS DENIED'));
+      } catch (e) {
+        log('READ DENIED: ' + (e.code || e.message));
       }
     }
 
