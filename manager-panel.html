@@ -178,6 +178,9 @@
             ['canEditOwnJobs', 'Edit own jobs'],
             ['canUseEstimateForm', 'Use Estimate form'],
             ['canSendEstimates', 'Send estimates'],
+            ['canScheduleJobs', 'Schedule jobs (set date/time)'],
+            ['canMessageCustomers', 'Message customers'],
+            ['canLogExpenses', 'Log expenses (receipts)'],
             ['canViewCalendar', 'View Calendar'],
             ['canViewMap', 'View Map']
         ];
@@ -609,7 +612,7 @@
                 label: 'Worker',
                 role: 'worker',
                 hint: 'Works the jobs they are assigned to. No pricing, no money.',
-                perms: ['canViewCalendar', 'canViewMap', 'canEditOwnJobs']
+                perms: ['canViewCalendar', 'canViewMap', 'canEditOwnJobs', 'canMessageCustomers']
             },
             salesman: {
                 label: 'Salesman',
@@ -620,8 +623,8 @@
             intern: {
                 label: 'Intern',
                 role: 'intern',
-                hint: 'Helps out on a short leash. Add permissions as they earn them.',
-                perms: ['canViewCalendar']
+                hint: 'Schedules jobs, messages clients, logs receipts. No pricing, no P&L.',
+                perms: ['canViewCalendar', 'canScheduleJobs', 'canMessageCustomers', 'canLogExpenses']
             }
         };
 

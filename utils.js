@@ -273,7 +273,7 @@ window.showToast = function(message, type = 'success') {
 window.CL_TABS = [
   { file: 'index.html',            label: 'Today',     icon: 'fa-house' },
   { file: 'jobs.html',             label: 'Jobs',      icon: 'fa-briefcase' },
-  { file: 'calendar.html',         label: 'Schedule',  icon: 'fa-calendar-alt' },
+  { file: 'calendar.html',         label: 'Schedule',  icon: 'fa-calendar-alt', perm: 'canViewCalendar' },
   { file: 'customer-tracker.html', label: 'Customers', icon: 'fa-users' },
   { file: 'money.html',            label: 'Money',     icon: 'fa-sack-dollar', ownerOnly: true }
 ];
@@ -285,12 +285,30 @@ window.clRole = function() {
   } catch (_) { return null; }
 };
 
-window.renderTabBar = function(role) {
+/**
+ * Does this user hold a permission flag? Owner and manager always do.
+ * Reads the live profile unless one is passed in (the profile event beats
+ * anything cached).
+ */
+window.clCan = function(flag, profile) {
+  const p = profile || ((window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null);
+  const role = (p && p.role) || window.clRole();
+  if (role === 'owner' || role === 'manager') return true;
+  return !!(p && p.permissions && p.permissions[flag] === true);
+};
+
+window.renderTabBar = function(role, profile) {
   const nav = document.querySelector('.tab-bar');
   if (!nav) return;
   const filename = (window.location.pathname.split('/').pop() || 'index.html');
-  const isOwner = (role || window.clRole()) === 'owner';
-  const tabs = window.CL_TABS.filter(t => !t.ownerOnly || isOwner);
+  const effectiveRole = role || window.clRole();
+  const isOwner = effectiveRole === 'owner';
+  const tabs = window.CL_TABS.filter(t => {
+    if (t.ownerOnly && !isOwner) return false;
+    // Never hide the tab you're standing on, or the bar loses its anchor.
+    if (t.perm && t.file !== filename && !window.clCan(t.perm, profile)) return false;
+    return true;
+  });
   nav.innerHTML = '<div class="tab-bar-inner">' + tabs.map(t => {
     const active = t.file === filename || (filename === '' && t.file === 'index.html');
     return `<a href="${t.file}" class="tab-item${active ? ' active nav-active' : ''}"${active ? ' aria-current="page"' : ''}>`
@@ -323,7 +341,7 @@ window.setActiveNav = function() {
 // Trust the event's own profile over the cached role.
 window.addEventListener('cl-profile-updated', (e) => {
   const profile = e && e.detail && e.detail.profile;
-  window.renderTabBar(profile && profile.role);
+  window.renderTabBar(profile && profile.role, profile);
 });
 
 /**

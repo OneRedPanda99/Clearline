@@ -128,3 +128,18 @@ allow get: if signedIn()
 ```
 
 Once the backfill in item 1 has run, the `assignedWorkers` / `assignedTo` fallbacks are dead weight. Fine to drop them if you'd rather have one code path — just don't drop them before the backfill.
+
+
+---
+
+## 5. Intern capabilities (follow-up to item 3)
+
+The intern's actual job is now defined: **schedule jobs, message clients, and basic bookkeeping.** Client-side permission flags are in place (`canScheduleJobs`, `canMessageCustomers`, `canLogExpenses`) and the UI honors them, but two of the three hit a rules wall.
+
+**a. Scheduling other people's jobs.** The `/jobs/{id}` update rule lets crew edit only jobs where `resource.data.createdBy == uid()` or they're on `assignedWorkers`. An intern scheduling the crew's work is neither. We need an intern (or anyone with a `canScheduleJobs` flag) to be able to write `jobDate` / `jobTime` / `status` on jobs in their `accessUids`, without gaining the ability to rewrite pricing, crew, or `accessUids`. A field-scoped update rule is what we're after.
+
+**b. Basic bookkeeping.** `expenses` is `allow read, write: if isOwner()`, so an intern cannot log a receipt. We'd like an intern to be able to **create** expense documents (and read back the ones they created) while `payroll` and the P&L stay owner-only. Suggest gating on the user's `canLogExpenses` flag, with `createdBy == uid()` required on create and no update/delete for non-owners.
+
+**c. Messaging** needs nothing from you — it's client-side plus the existing job read scope.
+
+Until (a) and (b) land, an intern's UI shows the buttons and Firestore rejects the write. Tell us if you'd rather we hide those controls until the rules are deployed.

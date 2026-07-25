@@ -69,6 +69,21 @@
     </style>
 </head>
 <body>
+    <script>
+        // Messaging customers is a permission. The Text button is hidden for
+        // anyone without it, so a typed URL must not be the way around.
+        (function() {
+            function check(profile) {
+                const role = (profile && profile.role)
+                    || (window.CL_FIREBASE && CL_FIREBASE.role)
+                    || localStorage.getItem('cl-last-role');
+                if (!role) return;
+                if (!window.clCan || !clCan('canMessageCustomers', profile)) location.replace('index.html');
+            }
+            window.addEventListener('cl-profile-updated', (e) => check(e.detail && e.detail.profile));
+        })();
+    </script>
+
     <header class="app-header">
         <div class="app-header-inner" style="max-width:500px;margin:0 auto;">
             <div class="chat-toolbar" style="width:100%;border:none;margin:0;padding:4px 0 8px;">

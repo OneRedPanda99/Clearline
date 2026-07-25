@@ -1499,7 +1499,11 @@
             const todayYmd = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
             const scheduleDateDefault = job.jobDate || todayYmd;
             const scheduleTimeDefault = job.jobTime || '09:00';
-            const canSchedule = job.status !== 'completed' && job.status !== 'lost';
+            // Scheduling and messaging are permissions now: an intern schedules
+            // and messages, an assigned worker does neither by default.
+            const canSchedule = job.status !== 'completed' && job.status !== 'lost'
+                && clCan('canScheduleJobs');
+            const canMessage = clCan('canMessageCustomers');
             const scheduleBtnLabel = job.jobDate ? 'Reschedule' : 'Schedule Job';
 
             const docsHtml = hasDocs ? `
@@ -1581,7 +1585,7 @@
                         ${job.customerPhone
                             ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="m3-tonal-success"><i class="fas fa-phone"></i>Call</a>`
                             : `<span class="m3-outlined" style="opacity:0.45"><i class="fas fa-phone"></i>Call</span>`}
-                        ${job.customerPhone
+                        ${job.customerPhone && canMessage
                             ? `<a href="job-chat.html?jobId=${encodeURIComponent(job.id)}" class="m3-tonal"><i class="fas fa-comment-dots"></i>Text</a>`
                             : `<span class="m3-outlined" style="opacity:0.45"><i class="fas fa-comment-dots"></i>Text</span>`}
                     </div>
