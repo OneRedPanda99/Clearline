@@ -731,17 +731,17 @@
             refreshOpenCrewCard();
         }
 
-        /** If the job modal is open when the user list finally arrives,
-         *  repaint the crew card so it isn't stuck on "No workers yet". */
+        /** When the profile + user list finish loading, re-render the open
+         *  job modal so the crew card picks up the correct role-gated
+         *  variant (editable for owner/manager) and the populated worker
+         *  list. Re-rendering the whole modal is more reliable than
+         *  swapping just the card, which could leave a stale read-only
+         *  variant if the data arrived after the modal first painted. */
         function refreshOpenCrewCard() {
             if (!openCrewJobId) return;
-            const chips = document.getElementById('crewChips');
-            const card = chips ? chips.closest('.glass-card') : null;
-            const job = jobs.find(j => j.id === openCrewJobId);
-            if (!card || !job) return;
-            const wasOpen = !document.getElementById('crewPicker')?.classList.contains('hidden');
-            card.outerHTML = renderCrewCard(job);
-            if (wasOpen) toggleCrewPicker();
+            const modalOpen = document.getElementById('jobModal')
+                && !document.getElementById('jobModal').classList.contains('hidden');
+            if (modalOpen) openJobModal(openCrewJobId);
         }
 
         // Load Google Calendar API

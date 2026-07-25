@@ -815,8 +815,8 @@
         function start(profile) {
             if (!ensureAllowed(profile)) return;
             const tasks = [
-                loadUsers().catch(err => { console.error(err); showToast('Could not load users: ' + (err.code || err.message), 'error'); }),
-                loadAssignableJobs().catch(err => { console.error(err); })
+                loadUsers().then(() => { if (!document.getElementById('assignScreen').hidden) renderAssignScreen(); }).catch(err => { console.error(err); showToast('Could not load users: ' + (err.code || err.message), 'error'); }),
+                loadAssignableJobs().then(() => { if (!document.getElementById('assignScreen').hidden) renderAssignScreen(); }).catch(err => { console.error(err); })
             ];
             if (profile.role === 'owner') {
                 tasks.push(loadActivityLog().catch(err => console.error(err)));
