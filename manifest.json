@@ -1,7 +1,7 @@
 {
   "name": "Clearline",
   "short_name": "Clearline",
-  "description": "Pressure washing CRM — customers, jobs, estimates, invoices",
+  "description": "Pressure washing CRM \u2014 customers, jobs, estimates, invoices",
   "start_url": "/Clearline/index.html",
   "scope": "/Clearline/",
   "display": "standalone",
@@ -22,30 +22,53 @@
       "short_name": "Estimate",
       "description": "Create a new estimate",
       "url": "/Clearline/estimate.html",
-      "icons": [{ "src": "images/Logo.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "images/Logo.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "Calendar",
       "short_name": "Calendar",
       "description": "View job calendar",
       "url": "/Clearline/calendar.html",
-      "icons": [{ "src": "images/Logo.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "images/Logo.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "Customers",
       "short_name": "Customers",
       "description": "Manage customers",
       "url": "/Clearline/customer-tracker.html",
-      "icons": [{ "src": "images/Logo.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "images/Logo.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
-      "name": "Tracked Expenses",
-      "short_name": "Expenses",
-      "description": "Receipts, review queue, spending",
-      "url": "/Clearline/expenses.html",
-      "icons": [{ "src": "images/Logo.png", "sizes": "96x96" }]
+      "name": "Money",
+      "short_name": "Money",
+      "description": "Expenses, payroll, revenue",
+      "url": "/Clearline/money.html",
+      "icons": [
+        {
+          "src": "images/Logo.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ],
-  "categories": ["business", "productivity"],
+  "categories": [
+    "business",
+    "productivity"
+  ],
   "lang": "en-US"
 }
