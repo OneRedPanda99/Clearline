@@ -1078,6 +1078,88 @@
             }
             return { total, paid, balance, status };
         }
+        // ── Crew assignment (from the job itself, not the Team panel) ──
+        function canAssignCrew() {
+            try {
+                const r = (typeof CL_FIREBASE !== 'undefined' && CL_FIREBASE.role) || null;
+                return r === 'owner' || r === 'manager';
+            } catch (_) { return false; }
+        }
+
+        function renderCrewCard(job) {
+            const ids = Array.isArray(job.assignedWorkers) && job.assignedWorkers.length
+                ? job.assignedWorkers
+                : (job.assignedTo ? [job.assignedTo] : []);
+            const nameOf = (uid) => {
+                const w = allWorkers.find(x => x.uid === uid);
+                return w ? (w.displayName || w.username || 'Worker') : 'Worker';
+            };
+            const chips = ids.length
+                ? ids.map(uid => `<span class="crew-chip">${escapeHtml(nameOf(uid))}</span>`).join('')
+                : '<span class="text-sm" style="color:var(--md-sys-color-on-surface-variant)">Nobody assigned yet</span>';
+            if (!canAssignCrew()) {
+                return `<div class="glass-card rounded-xl p-3">
+                    <p class="section-title" style="margin:0 0 8px;padding:0;">Crew</p>
+                    <div class="crew-chips">${chips}</div>
+                </div>`;
+            }
+            const picker = allWorkers.length ? allWorkers.map(w => `
+                <label class="crew-pick">
+                    <input type="checkbox" data-crew-uid="${w.uid}" ${ids.includes(w.uid) ? 'checked' : ''}>
+                    <span>${escapeHtml(w.displayName || w.username || 'Worker')}</span>
+                </label>`).join('') : '<p class="text-xs text-gray-500 px-1">No workers yet. Add them in Team.</p>';
+            return `
+                <div class="glass-card rounded-xl p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="section-title" style="margin:0;padding:0;">Crew</p>
+                        <button type="button" class="btn-text" style="width:auto;padding:2px 6px;" onclick="toggleCrewPicker()">
+                            <i class="fas fa-user-plus mr-1"></i><span id="crewToggleLabel">${ids.length ? 'Change' : 'Assign'}</span>
+                        </button>
+                    </div>
+                    <div class="crew-chips" id="crewChips">${chips}</div>
+                    <div id="crewPicker" class="hidden mt-3 pt-3" style="border-top:1px solid rgba(255,255,255,0.1);">
+                        <div class="crew-pick-list">${picker}</div>
+                        <div class="grid grid-cols-2 gap-2 mt-3">
+                            <button type="button" class="btn-secondary" onclick="toggleCrewPicker()">Cancel</button>
+                            <button type="button" class="btn-primary" onclick="saveJobCrew('${job.id}')"><i class="fas fa-check mr-1"></i>Save crew</button>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        window.toggleCrewPicker = function() {
+            const p = document.getElementById('crewPicker');
+            if (p) p.classList.toggle('hidden');
+        };
+
+        /** Writes the crew straight from the job view. accessUids is
+         *  recomputed on sync so the new crew can actually read the job. */
+        window.saveJobCrew = function(jobId) {
+            const picked = [...document.querySelectorAll('#crewPicker [data-crew-uid]:checked')]
+                .map(cb => cb.getAttribute('data-crew-uid'));
+            const job = jobs.find(j => j.id === jobId);
+            if (!job) return;
+            CL_DATA.updateJob(jobId, {
+                assignedWorkers: picked,
+                assignedTo: null
+            });
+            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                CL_FIREBASE.syncToCloud();
+                const names = picked.map(uid => {
+                    const w = allWorkers.find(x => x.uid === uid);
+                    return w ? (w.displayName || w.username) : 'worker';
+                }).join(', ');
+                CL_FIREBASE.logActivity('job.crew_changed', {
+                    entityType: 'job', entityId: jobId, entityLabel: job.customerName,
+                    message: picked.length ? ('crew: ' + names) : 'crew cleared'
+                });
+            }
+            loadData();
+            renderJobs();
+            showToast(picked.length ? 'Crew updated' : 'Crew cleared');
+            openJobModal(jobId);
+        };
+
         // ── Est. Revenue (owner-only job economics) ────────────────
         /** Newest saved estimate/invoice form state, which carries the services. */
         function jobEstimateFormState(job) {
@@ -1527,6 +1609,8 @@
                         </div>
                     </div>
                     ` : ''}
+
+                    ${renderCrewCard(job)}
 
                     ${isOwnerRole() ? `
                     <button type="button" onclick="toggleJobDetailSection('econSection')" class="m3-outlined" style="width:100%">
