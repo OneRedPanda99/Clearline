@@ -41,8 +41,12 @@
             onclick="assignCrewToJob()">Add me + Xavier as crew to a job</button>
     <button id="testme" class="hidden bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded"
             onclick="testMyAccess()">Test MY job access (runs worker query)</button>
-    <button id="inspect" class="hidden bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded"
-            onclick="inspectHeather()">Inspect Heather Cook job accessUids</button>
+    <div id="inspectRow" class="hidden flex items-center gap-2 flex-wrap">
+      <input id="inspectJobId" placeholder="job id" value="job_1779736056978_hx2eix7"
+             class="px-2 py-1 rounded text-black text-sm" style="width:260px;">
+      <button id="inspect" class="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded"
+              onclick="inspectJob(document.getElementById('inspectJobId').value)">Inspect job accessUids</button>
+    </div>
 
     <pre id="log" class="bg-black/40 rounded p-3 text-xs whitespace-pre-wrap h-64 overflow-auto"></pre>
   </div>
@@ -86,6 +90,7 @@
         document.getElementById('assignx').classList.remove('hidden');
         document.getElementById('testme').classList.remove('hidden');
         document.getElementById('inspect').classList.remove('hidden');
+        document.getElementById('inspectRow').classList.remove('hidden');
         log('Signed in as ' + user.email + ' (uid ' + user.uid + ')');
       }
     });
@@ -164,15 +169,16 @@
       }
     }
 
-    async function inspectHeather() {
+    async function inspectJob(jobId) {
+      jobId = (jobId || '').trim();
+      if (!jobId) { log('Enter a job id first.'); return; }
       const me = auth.currentUser;
       if (!me) { log('Not signed in.'); return; }
-      const JOB = 'job_1784503388856_lu27djq';
       try {
-        const d = await db.collection('jobs').doc(JOB).get();
-        if (!d.exists) { log('Job ' + JOB + ' does not exist.'); return; }
+        const d = await db.collection('jobs').doc(jobId).get();
+        if (!d.exists) { log('Job ' + jobId + ' does not exist.'); return; }
         const data = d.data();
-        log('--- ' + JOB + ' (live) ---');
+        log('--- ' + jobId + ' (live) ---');
         log('assignedWorkers = ' + JSON.stringify(data.assignedWorkers || []));
         log('assignedManager = ' + (data.assignedManager || ''));
         log('createdBy       = ' + (data.createdBy || ''));
@@ -184,6 +190,9 @@
         log('READ DENIED: ' + (e.code || e.message));
       }
     }
+
+    // Kiefer's job id (from earlier diagnostics).
+    const KIEFER_JOB = 'job_1779736056978_hx2eix7';
 
     async function testMyAccess() {
       const me = auth.currentUser;
