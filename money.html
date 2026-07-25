@@ -122,6 +122,21 @@
     </style>
 </head>
 <body>
+    <script>
+        // Money is Owner-only. The tab is hidden for everyone else, but a
+        // typed URL must not work either — bounce before anything renders.
+        (function() {
+            function check(profile) {
+                const role = (profile && profile.role)
+                    || (window.CL_FIREBASE && CL_FIREBASE.role)
+                    || localStorage.getItem('cl-last-role');
+                if (role && role !== 'owner') location.replace('index.html');
+            }
+            window.addEventListener('cl-profile-updated', (e) => check(e.detail && e.detail.profile));
+            document.addEventListener('DOMContentLoaded', () => check(null));
+        })();
+    </script>
+
     <header class="app-header">
         <div class="app-header-inner app-header-inner--split">
             <div class="app-header-wing">

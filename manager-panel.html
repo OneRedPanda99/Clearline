@@ -88,17 +88,17 @@
                 </p>
             </section>
 
-            <!-- Dedicated Assign Jobs flow: tap the button -> a focused
-                 screen lists jobs; tap a job -> assign workers. -->
+            <!-- Who is on what. Crew is chosen on the job itself, so this
+                 screen reads the assignments and hands off to the job. -->
             <section id="assignEntry" class="mb-5 mt-6">
                 <div class="flex justify-between items-end mb-2">
                     <h2 class="section-title">Jobs</h2>
                 </div>
                 <button type="button" onclick="openAssignScreen()"
                         class="btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;">
-                    <i class="fas fa-people-arrows"></i> Assign Jobs
+                    <i class="fas fa-people-arrows"></i> Who's on what
                 </button>
-                <p class="text-xs text-gray-500 mt-2">Open a job to assign it to a worker or manager.</p>
+                <p class="text-xs text-gray-500 mt-2">See every open job and its crew. Changing a crew opens that job.</p>
             </section>
 
             <!-- Assign screen overlay -->
@@ -107,7 +107,7 @@
                 <div class="glass-card" role="document"
                      style="width:100%;max-width:640px;margin:auto;height:100dvh;max-height:100dvh;border-radius:0;display:flex;flex-direction:column;overflow:hidden;">
                     <div class="modal-header sticky top-0" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.08);">
-                        <h2 style="font-size:17px;font-weight:800;margin:0;">Assign Jobs</h2>
+                        <h2 style="font-size:17px;font-weight:800;margin:0;">Who's on what</h2>
                         <button class="modal-close-btn" onclick="closeAssignScreen()" aria-label="Close">&times;</button>
                     </div>
                     <div style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.06);">
@@ -348,6 +348,7 @@
                 role: role
             });
             updatePayRateLabel();
+            applyTitleDefaults(false);
             openModal('userModal');
         }
 
@@ -361,6 +362,7 @@
                 user: u
             });
             updatePayRateLabel();
+            applyTitleDefaults(false);
             openModal('userModal');
         }
 
@@ -368,7 +370,7 @@
             const isCreate = mode === 'create';
             const u = user || { role, permissions: {}, active: true };
             const readOnlyFlags = myProfile.role !== 'owner';
-            const canAssignManager = myProfile.role === 'owner' && u.role === 'worker';
+            const canAssignManager = myProfile.role === 'owner' && u.role !== 'manager';
             const isOwnerViewer = myProfile.role === 'owner';
 
             const mgrOpts = managers.map(m =>
@@ -418,16 +420,15 @@
                         <p class="text-[11px] text-gray-500 mt-1">Share with the user out-of-band. They can't reset it themselves.</p>
                     </div>
                 ` : ''}
-                ${u.role === 'worker' ? `
+                ${u.role !== 'manager' ? `
                     <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="text-xs text-gray-400 block mb-1">Worker Type</label>
-                            <select id="uf-workerType" class="w-full p-3 rounded-lg edit-field" ${readOnlyFlags ? 'disabled' : ''} ${isCreate ? 'onchange="applyWorkerTypePermDefaults()"' : ''}>
-                                <option value="assigned" ${u.workerType === 'assigned' ? 'selected' : ''}>Assigned</option>
-                                <option value="estimator" ${u.workerType === 'estimator' ? 'selected' : ''}>Estimator</option>
-                                <option value="salesman" ${u.workerType === 'salesman' ? 'selected' : ''}>Salesman</option>
+                            <label class="text-xs text-gray-400 block mb-1">Job Title</label>
+                            <select id="uf-workerType" class="w-full p-3 rounded-lg edit-field" ${readOnlyFlags ? 'disabled' : ''} onchange="applyTitleDefaults(${isCreate})">
+                                ${Object.entries(JOB_TITLES).map(([key, t]) =>
+                                    `<option value="${key}" ${titleOf(u) === key ? 'selected' : ''}>${t.label}</option>`).join('')}
                             </select>
-                            ${u.workerType === 'salesman' || isCreate ? '<p class="text-[11px] text-gray-500 mt-1">Salesman: creates customers &amp; leads only — no job/pricing access needed. Grant "Create customers" + "Create jobs" below.</p>' : ''}
+                            <p class="text-[11px] text-gray-500 mt-1" id="uf-titleHint"></p>
                         </div>
                         <div>
                             <label class="text-xs text-gray-400 block mb-1">Assigned Manager</label>
@@ -597,12 +598,53 @@
         // two permission boxes instead of making the Owner hunt for them.
         // Only fires on create — never silently changes an existing worker's
         // permissions just because their type field is touched.
-        function applyWorkerTypePermDefaults() {
-            const wt = document.getElementById('uf-workerType');
-            if (!wt || wt.value !== 'salesman') return;
-            ['canCreateCustomers', 'canCreateJobs'].forEach(key => {
-                const cb = document.querySelector(`[data-perm="${key}"]`);
-                if (cb) cb.checked = true;
+        // Job titles the business actually uses. `role` is the data-access
+        // tier the Firestore rules read; `workerType` is the title within it.
+        // Salesman rides on the worker role because a salesman needs the same
+        // job/customer reads. Intern is its own role so rules can treat it
+        // separately. Every preset is a starting point — the Owner can tick
+        // any box afterwards and the title never overrides that.
+        const JOB_TITLES = {
+            worker: {
+                label: 'Worker',
+                role: 'worker',
+                hint: 'Works the jobs they are assigned to. No pricing, no money.',
+                perms: ['canViewCalendar', 'canViewMap', 'canEditOwnJobs']
+            },
+            salesman: {
+                label: 'Salesman',
+                role: 'worker',
+                hint: 'Sells work: customers and leads. Paid a commission on the job.',
+                perms: ['canCreateCustomers', 'canEditOwnCustomers', 'canCreateJobs', 'canAttachJobToCustomer', 'canViewCalendar']
+            },
+            intern: {
+                label: 'Intern',
+                role: 'intern',
+                hint: 'Helps out on a short leash. Add permissions as they earn them.',
+                perms: ['canViewCalendar']
+            }
+        };
+
+        /** Existing users predate titles: fall back to their old workerType. */
+        function titleOf(u) {
+            if (!u) return 'worker';
+            if (u.role === 'intern') return 'intern';
+            if (u.workerType && JOB_TITLES[u.workerType]) return u.workerType;
+            if (u.workerType === 'estimator') return 'worker';
+            return 'worker';
+        }
+
+        /** Show the title's hint always; only pre-tick permissions on create,
+         *  so re-titling an existing person never silently re-opens access. */
+        function applyTitleDefaults(isCreate) {
+            const sel = document.getElementById('uf-workerType');
+            if (!sel) return;
+            const title = JOB_TITLES[sel.value];
+            const hint = document.getElementById('uf-titleHint');
+            if (hint) hint.textContent = title ? title.hint : '';
+            if (!isCreate || !title) return;
+            document.querySelectorAll('[data-perm]').forEach(cb => {
+                cb.checked = title.perms.includes(cb.getAttribute('data-perm'));
             });
         }
 
@@ -630,9 +672,13 @@
                 certifications: collectCertifications(),
                 assignedEquipment: collectAssignedEquipment()
             };
-            if (role === 'worker') {
-                const wt = document.getElementById('uf-workerType');
-                if (wt) commonFields.workerType = wt.value;
+            // The title picker owns both the title and the access tier.
+            const titleSel = document.getElementById('uf-workerType');
+            let effectiveRole = role;
+            if (titleSel && role !== 'manager') {
+                const title = JOB_TITLES[titleSel.value] || JOB_TITLES.worker;
+                commonFields.workerType = titleSel.value;
+                effectiveRole = title.role;
             }
 
             // Privileged fields: role/permissions/assignedManager can only be
@@ -641,8 +687,8 @@
             document.querySelectorAll('[data-perm]').forEach(inp => {
                 perms[inp.getAttribute('data-perm')] = !!inp.checked;
             });
-            const ownerOnlyFields = { role, username, permissions: perms };
-            if (role === 'worker') {
+            const ownerOnlyFields = { role: effectiveRole, username, permissions: perms };
+            if (effectiveRole === 'worker' || effectiveRole === 'intern') {
                 const am = document.getElementById('uf-assignedManager');
                 if (am) ownerOnlyFields.assignedManager = am.value || null;
             }
@@ -839,20 +885,8 @@
         function openAssignScreen() { document.getElementById('assignScreen').hidden = false; renderAssignScreen(); }
         function closeAssignScreen() { document.getElementById('assignScreen').hidden = true; }
 
-        // which job's picker is open
-        let assignOpenJob = null;
-
-        function assignTargets() {
-            const myUid = CL_FIREBASE.getCurrentUser().uid;
-            const targetWorkers = myProfile.role === 'owner'
-                ? workers.filter(w => w.active !== false)
-                : workers.filter(w => w.active !== false && w.assignedManager === myUid);
-            const targetManagers = myProfile.role === 'owner'
-                ? managers.filter(m => m.active !== false)
-                : [];
-            return { targetWorkers, targetManagers };
-        }
-
+        // Read-only overview. Crew is chosen on the job itself, so this
+        // screen answers "who is on what" and hands off to the job for edits.
         function renderAssignScreen() {
             const search = (document.getElementById('assignSearch').value || '').toLowerCase().trim();
             const filtered = assignableJobs.filter(j => {
@@ -863,113 +897,41 @@
             });
             const list = document.getElementById('assignScreenList');
             if (!filtered.length) {
-                list.innerHTML = '<p class="text-gray-500 text-sm text-center py-6">No jobs available to assign.</p>';
+                list.innerHTML = '<p class="text-gray-500 text-sm text-center py-6">No open jobs.</p>';
                 return;
             }
-            const { targetWorkers, targetManagers } = assignTargets();
-            const mgrOpts = ['<option value="">Unassigned</option>']
-                .concat(targetManagers.map(m =>
-                    `<option value="${m.uid}">${escapeHtml(m.displayName || m.username || m.uid)}</option>`)).join('');
+            const nameOf = (uid) => {
+                const u = workers.find(w => w.uid === uid) || managers.find(m => m.uid === uid);
+                return u ? (u.displayName || u.username || uid) : uid;
+            };
 
             list.innerHTML = filtered.map(j => {
-                const open = assignOpenJob === j.id;
                 const assignedWorkerIds = Array.isArray(j.assignedWorkers) && j.assignedWorkers.length
                     ? j.assignedWorkers : (j.assignedTo ? [j.assignedTo] : []);
                 const dateLabel = j.jobDate
                     ? new Date(j.jobDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                     : 'No date';
-                const assignedNames = assignedWorkerIds
-                    .map(id => (workers.find(w => w.uid === id) || {}).displayName || (workers.find(w => w.uid === id) || {}).username || id)
-                    .filter(Boolean);
-                const crewLine = assignedNames.length
-                    ? `<span class="text-[11px] text-emerald-300">→ ${escapeHtml(assignedNames.join(', '))}</span>`
+                const crew = assignedWorkerIds.length
+                    ? assignedWorkerIds.map(id => `<span class="crew-chip">${escapeHtml(nameOf(id))}</span>`).join('')
                     : '<span class="text-[11px] text-gray-500">Unassigned</span>';
-
-                const picker = open ? `
-                    <div class="mt-3 pt-3" style="border-top:1px solid rgba(255,255,255,0.08);">
-                        ${targetManagers.length ? `
-                            <label class="text-[11px] text-gray-400 block mb-1">Manager</label>
-                            <select class="assign-manager-select w-full bg-slate-700/60 text-white text-sm rounded-lg px-2 py-1.5 mb-3" data-job-id="${j.id}">
-                                ${mgrOpts.replace(`value="${j.assignedManager || ''}"`, `value="${j.assignedManager || ''}" selected`)}
-                            </select>
-                        ` : ''}
-                        <label class="text-[11px] text-gray-400 block mb-1">Workers (crew)</label>
-                        ${targetWorkers.length ? `
-                            <div class="assign-worker-checks" data-job-id="${j.id}" style="max-height:160px;overflow-y:auto;background:rgba(15,23,42,0.5);border-radius:8px;padding:6px 10px;">
-                                ${targetWorkers.map(w => `
-                                    <label style="display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:13px;">
-                                        <input type="checkbox" data-assign-worker="${w.uid}" ${assignedWorkerIds.includes(w.uid) ? 'checked' : ''} style="width:16px;height:16px;accent-color:#0ea5e9;">
-                                        <span>${escapeHtml(w.displayName || w.username || w.uid)}</span>
-                                    </label>
-                                `).join('')}
-                            </div>
-                        ` : '<p class="text-gray-500 text-xs">No workers available.</p>'}
-                        <button class="btn-primary btn-sm mt-3" style="width:auto;" onclick="saveAssignJob('${j.id}', this)">Save assignment</button>
-                    </div>
-                ` : '';
-
+                const mgr = j.assignedManager
+                    ? `<p class="text-[11px] text-gray-400" style="margin:6px 0 0;">Manager: ${escapeHtml(nameOf(j.assignedManager))}</p>`
+                    : '';
                 return `
                     <div class="glass-card rounded-xl p-3 mb-2">
-                        <button type="button" onclick="toggleAssignJob('${j.id}')" class="w-full text-left" style="background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
                                 <p class="font-semibold truncate" style="margin:0;">${escapeHtml(j.customerName || 'Job')}</p>
                                 <p class="text-[11px] text-gray-500">${dateLabel} • ${escapeHtml(j.serviceType || 'Service')}${j.address ? ' • ' + escapeHtml(j.address) : ''}</p>
-                                <p style="margin:2px 0 0;">${crewLine}</p>
                             </div>
-                            <i class="fas ${open ? 'fa-chevron-up' : 'fa-chevron-down'} text-gray-400" style="flex-shrink:0;"></i>
-                        </button>
-                        ${picker}
+                            <a href="jobs.html?highlight=${encodeURIComponent(j.id)}&crew=1" class="btn-secondary btn-sm" style="width:auto;flex-shrink:0;white-space:nowrap;">
+                                <i class="fas fa-user-plus mr-1"></i>Change crew
+                            </a>
+                        </div>
+                        <div class="crew-chips" style="margin-top:8px;">${crew}</div>
+                        ${mgr}
                     </div>`;
             }).join('');
-        }
-
-        function toggleAssignJob(id) {
-            assignOpenJob = (assignOpenJob === id) ? null : id;
-            renderAssignScreen();
-        }
-
-        async function saveAssignJob(jobId, btn) {
-            const db = CL_FIREBASE.getFirestore();
-            const workerBox = document.querySelector(`.assign-worker-checks[data-job-id="${jobId}"]`);
-            if (!workerBox) return;
-            const assignedWorkers = [...workerBox.querySelectorAll('[data-assign-worker]:checked')]
-                .map(cb => cb.getAttribute('data-assign-worker'));
-            const mgrSelect = document.querySelector(`select.assign-manager-select[data-job-id="${jobId}"]`);
-            const assignedManager = mgrSelect
-                ? (mgrSelect.value || null)
-                : (myProfile.role === 'manager' ? CL_FIREBASE.getCurrentUser().uid : null);
-
-            const orig = btn.textContent;
-            btn.disabled = true; btn.textContent = 'Saving…';
-            try {
-                const existing = assignableJobs.find(x => x.id === jobId) || {};
-                await db.collection('jobs').doc(jobId).set({
-                    assignedWorkers,
-                    assignedManager,
-                    assignedTo: null,
-                    lastUpdated: new Date().toISOString(),
-                    // Recompute the reader set so the Firestore read rule
-                    // (uid() in accessUids) stays provable. Merge the
-                    // existing assigned fields so we don't drop readers who
-                    // were already granted access.
-                    accessUids: window.buildAccessUids(
-                        { assignedWorkers, assignedManager, assignedTo: null, createdBy: existing.createdBy },
-                        existing
-                    )
-                }, { merge: true });
-                const j = assignableJobs.find(x => x.id === jobId);
-                if (j) { j.assignedWorkers = assignedWorkers; j.assignedManager = assignedManager; j.assignedTo = null; }
-                CL_FIREBASE.logActivity('job.updated', {
-                    entityType: 'job', entityId: jobId, entityLabel: j && j.customerName,
-                    message: `crew set to ${assignedWorkers.length} worker(s)`
-                });
-                btn.textContent = 'Saved ✓';
-                setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1200);
-            } catch (err) {
-                console.error(err);
-                btn.textContent = orig; btn.disabled = false;
-                showToast('Assign failed: ' + (err.code || err.message), 'error');
-            }
         }
 
         // If firebase-sync already loaded profile before this script ran,

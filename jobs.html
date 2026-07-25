@@ -707,17 +707,41 @@
             window.location.href = `estimate.html?jobId=${encodeURIComponent(id)}`;
         }
 
+        // The Firebase SDK is loaded asynchronously by firebase-sync, so at
+        // DOMContentLoaded `firebase` is usually still undefined. Bailing out
+        // there left the crew list permanently empty — wait for init instead,
+        // and re-run when the profile lands.
         async function loadUsers() {
-            if (typeof firebase === 'undefined' || !CL_FIREBASE.isConfigured()) return;
+            if (!CL_FIREBASE.isConfigured()) return;
+            try {
+                if (CL_FIREBASE.init) await CL_FIREBASE.init();
+            } catch (_) { /* fall through; the guard below still protects us */ }
+            if (typeof firebase === 'undefined') return;
             const db = firebase.firestore();
             const snap = await db.collection('users').get();
             allManagers = [];
             allWorkers = [];
             snap.forEach(doc => {
                 const u = { uid: doc.id, ...doc.data() };
+                if (u.active === false) return;
                 if (u.role === 'manager') allManagers.push(u);
-                else if (u.role === 'worker') allWorkers.push(u);
+                // Interns are crew too: they get assigned to jobs like workers.
+                else if (u.role === 'worker' || u.role === 'intern') allWorkers.push(u);
             });
+            refreshOpenCrewCard();
+        }
+
+        /** If the job modal is open when the user list finally arrives,
+         *  repaint the crew card so it isn't stuck on "No workers yet". */
+        function refreshOpenCrewCard() {
+            if (!openCrewJobId) return;
+            const chips = document.getElementById('crewChips');
+            const card = chips ? chips.closest('.glass-card') : null;
+            const job = jobs.find(j => j.id === openCrewJobId);
+            if (!card || !job) return;
+            const wasOpen = !document.getElementById('crewPicker')?.classList.contains('hidden');
+            card.outerHTML = renderCrewCard(job);
+            if (wasOpen) toggleCrewPicker();
         }
 
         // Load Google Calendar API
@@ -805,6 +829,9 @@
             updateStats();
             renderJobs();
         });
+        // The profile event means Firebase is up: this is the fetch that
+        // actually populates the crew list on a cold load.
+        window.addEventListener('cl-profile-updated', () => { loadUsers().catch(() => {}); });
         window.addEventListener('online', updateSyncPill);
         window.addEventListener('offline', updateSyncPill);
 
@@ -853,6 +880,10 @@
                             }
                         }
                         openJobModal(highlight);
+                        if (params.get('crew') === '1') {
+                            toggleCrewPicker();
+                            document.getElementById('crewChips')?.scrollIntoView({ block: 'center' });
+                        }
                     }
                     // Ensure the correct tab is active so the card is visible
                     // after closing the modal.
@@ -1055,6 +1086,10 @@
             return { total, paid, balance, status };
         }
         // ── Crew assignment (from the job itself, not the Team panel) ──
+        // Which job's detail view is currently open, so a late-arriving user
+        // list can repaint the crew card in place.
+        let openCrewJobId = null;
+
         function canAssignCrew() {
             try {
                 const r = (typeof CL_FIREBASE !== 'undefined' && CL_FIREBASE.role) || null;
@@ -1401,6 +1436,7 @@
         function openJobModal(id) {
             const job = jobs.find(j => j.id === id);
             if (!job) return;
+            openCrewJobId = id;
             if (migrateDocumentIds(job)) loadData();
             document.body.classList.add('modal-open');
             document.getElementById('jobModal-title').textContent = 'Job Details';
@@ -1653,6 +1689,7 @@
         }
 
         function closeJobModal() {
+            openCrewJobId = null;
             document.body.classList.remove('modal-open');
             closeModal('jobModal');
             stopJobTimerTicker();
