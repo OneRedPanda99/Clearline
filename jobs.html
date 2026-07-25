@@ -1145,17 +1145,19 @@
 
         /** Writes the crew straight from the job view. accessUids is
          *  recomputed on sync so the new crew can actually read the job. */
-        window.saveJobCrew = function(jobId) {
+        window.saveJobCrew = async function(jobId) {
             const picked = [...document.querySelectorAll('#crewPicker [data-crew-uid]:checked')]
                 .map(cb => cb.getAttribute('data-crew-uid'));
             const job = jobs.find(j => j.id === jobId);
             if (!job) return;
+            console.log('[saveJobCrew] jobId=' + jobId + ' picked=' + JSON.stringify(picked));
             CL_DATA.updateJob(jobId, {
                 assignedWorkers: picked,
                 assignedTo: null
             });
             if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
-                CL_FIREBASE.syncToCloud();
+                const ok = await CL_FIREBASE.syncToCloud();
+                console.log('[saveJobCrew] syncToCloud returned=' + ok);
                 const names = picked.map(uid => {
                     const w = allWorkers.find(x => x.uid === uid);
                     return w ? (w.displayName || w.username) : 'worker';
@@ -1164,6 +1166,8 @@
                     entityType: 'job', entityId: jobId, entityLabel: job.customerName,
                     message: picked.length ? ('crew: ' + names) : 'crew cleared'
                 });
+            } else {
+                console.log('[saveJobCrew] NOT signed in — push skipped');
             }
             loadData();
             renderJobs();
