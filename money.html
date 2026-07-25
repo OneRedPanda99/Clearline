@@ -560,18 +560,19 @@
             }));
         }
 
-        // A manual entry is a "dupe" of a receipt when they share the same
-        // amount AND similar date (same calendar day) OR same vendor. This
-        // catches the common case: a receipt was typ ed in before the
-        // photo pipeline existed, then the pipeline added the same receipt.
-        function isDupeOfReceipt(manual, auto) {
-            if (Math.abs(manual.amount - auto.amount) > 0.01) return false;
-            const sameDay = manual.date && manual.date.slice(0, 10) === (auto.date || '').slice(0, 10);
-            const sameVendor = manual.vendor && auto.vendor &&
-                manual.vendor.toLowerCase().replace(/[^a-z0-9]/g, '') ===
-                auto.vendor.toLowerCase().replace(/[^a-z0-9]/g, '');
+        // Two entries are the "same purchase" when they share the same amount
+        // AND same calendar day OR same normalized vendor. Used for all
+        // dupe pairs (manual↔manual, manual↔receipt, receipt↔receipt).
+        function isSamePurchase(a, b) {
+            if (!a || !b) return false;
+            if (Math.abs(parseAmt(a.amount) - parseAmt(b.amount)) > 0.01) return false;
+            const sameDay = (a.date || '').slice(0, 10) && (a.date || '').slice(0, 10) === (b.date || '').slice(0, 10);
+            const norm = (v) => (v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const sameVendor = norm(a.vendor) && norm(a.vendor) === norm(b.vendor);
             return sameDay || sameVendor;
         }
+        // Legacy alias kept for any stray caller.
+        function isDupeOfReceipt(manual, auto) { return isSamePurchase(manual, auto); }
         function markDupes(items) {
             const auto = items.filter(x => x.source === 'auto');
             const okList = dupeOkList();
@@ -693,15 +694,29 @@
         }
         function setExpFilter(f) { expFilter = f; render(); }
         function toggleHideDupes() { expHideDupes = !expHideDupes; render(); }
-        /** Pairs of (manual entry, receipt) that look like the same purchase. */
+        /** All pairs of entries that look like the same purchase — across
+         *  manual↔manual, manual↔receipt, and receipt↔receipt. Each pair is
+         *  returned once (i<j). Pairs the owner already chose "keep both"
+         *  on are skipped. */
         function dupePairs() {
-            const auto = csvCache || [];
+            const all = [...manualExpenses(), ...(csvCache || [])];
+            const ok = dupeOkList();
             const pairs = [];
-            manualExpenses().forEach(m => {
-                if (dupeOkList().includes(m.id)) return;
-                const match = auto.find(a => isDupeOfReceipt(m, a));
-                if (match) pairs.push({ manual: m, receipt: match });
-            });
+            for (let i = 0; i < all.length; i++) {
+                if (ok.includes(all[i].id)) continue;
+                for (let j = i + 1; j < all.length; j++) {
+                    if (ok.includes(all[j].id)) continue;
+                    if (isSamePurchase(all[i], all[j])) {
+                        // Preserve the old label shape (receipt vs typed)
+                        // where possible so the review UI stays familiar.
+                        const a = all[i], b = all[j];
+                        const aIsAuto = a.source === 'auto', bIsAuto = b.source === 'auto';
+                        let receipt = aIsAuto ? a : (bIsAuto ? b : a);
+                        let manual = aIsAuto ? b : a;
+                        pairs.push({ manual: manual, receipt: receipt });
+                    }
+                }
+            }
             return pairs;
         }
 
@@ -744,33 +759,45 @@
             openModal('moneyModal');
         }
 
-        /** Resolve one pair. 'receipt' drops the typed copy, 'manual' hides
-         *  the receipt copy, 'both' just stops flagging the pair. */
+        /** Remove one entry from the totals durably. A receipt (auto) is
+         *  hidden via an override (it lives in the repo CSV we can't write);
+         *  a manual entry is deleted with a tombstone so a later cloud pull
+         *  does NOT re-add it. */
+        function removeEntry(entry) {
+            if (!entry) return;
+            if (entry.source === 'auto') {
+                saveOverride(entry.id, { _hidden: true });
+            } else {
+                CL_DATA.deleteExpense(entry.id);
+            }
+        }
+
+        /** Resolve one pair. 'receipt' keeps the receipt-flagged side and
+         *  removes the other; 'manual' does the reverse; 'both' stops
+         *  flagging the pair. For manual↔manual or receipt↔receipt both
+         *  sides are the same source, so the labels act on left/right. */
         async function resolveDupe(index, keep) {
             const pairs = dupePairs();
             const pair = pairs[index];
             if (!pair) return;
-            if (keep === 'receipt') {
-                const ok = await clConfirm({
-                    title: 'Delete the typed entry?',
-                    body: `<p class="text-sm" style="color:#94a3b8;">Keeping the receipt-backed copy of <strong>${esc(pair.manual.vendor || 'this expense')}</strong> at ${fmtMoney(pair.manual.amount)}.</p>`,
-                    action: 'Delete typed'
-                });
-                if (!ok) { openDupeReview(); return; }
-                CL_DATA.saveExpenses(CL_DATA.getExpenses().filter(e => e.id !== pair.manual.id));
-                showToast('Kept the receipt', 'success');
-            } else if (keep === 'manual') {
-                const ok = await clConfirm({
-                    title: 'Delete the receipt copy?',
-                    body: `<p class="text-sm" style="color:#94a3b8;">Keeping your typed entry for <strong>${esc(pair.manual.vendor || 'this expense')}</strong>. The receipt photo stays on file.</p>`,
-                    action: 'Delete receipt'
-                });
-                if (!ok) { openDupeReview(); return; }
-                saveOverride(pair.receipt.id, { _hidden: true });
-                showToast('Kept the typed entry', 'success');
-            } else {
+            const keepReceipt = keep === 'receipt';
+            const keepManual = keep === 'manual';
+            const removeSide = keepReceipt ? pair.manual : (keepManual ? pair.receipt : null);
+            if (keep === 'both') {
                 dupeKeepBoth(pair.manual.id);
+                if (pair.receipt.id !== pair.manual.id) dupeKeepBoth(pair.receipt.id);
                 showToast('Kept both', 'success');
+            } else {
+                const removeLabel = (removeSide && (removeSide.vendor || removeSide.note || 'this expense')) || 'this expense';
+                const action = removeSide && removeSide.source === 'auto' ? 'Hide receipt' : 'Delete';
+                const ok = await clConfirm({
+                    title: 'Remove the other copy?',
+                    body: `<p class="text-sm" style="color:#94a3b8;">Keeping <strong>${esc(keepReceipt ? (pair.receipt.vendor || 'receipt') : (pair.manual.vendor || 'entry'))}</strong>, removing <strong>${esc(removeLabel)}</strong> at ${fmtMoney(removeSide ? removeSide.amount : 0)}.</p>`,
+                    action
+                });
+                if (!ok) { openDupeReview(); return; }
+                removeEntry(removeSide);
+                showToast('Duplicate removed', 'success');
             }
             csvCache = null;
             render();
