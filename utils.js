@@ -259,7 +259,51 @@ window.showToast = function(message, type = 'success') {
  * Active nav tab highlighter. Call on every page.
  * Looks for <a> tags in .tab-bar and marks the one matching current URL.
  */
+/**
+ * The whole app's navigation, defined once.
+ *
+ * Every page carries an empty <nav class="tab-bar"></nav> and calls
+ * setActiveNav(); the bar is rendered here so a tab can never exist on one
+ * page and not another. Tabs a role can't use are not rendered at all —
+ * a tab that does nothing is worse than a missing one.
+ *
+ * Pages that are not tabs (estimate, invoice, waiver, map, team, settings)
+ * are reached from the thing they belong to, not from a menu of everything.
+ */
+window.CL_TABS = [
+  { file: 'index.html',            label: 'Today',     icon: 'fa-house' },
+  { file: 'jobs.html',             label: 'Jobs',      icon: 'fa-briefcase' },
+  { file: 'calendar.html',         label: 'Schedule',  icon: 'fa-calendar-alt' },
+  { file: 'customer-tracker.html', label: 'Customers', icon: 'fa-users' },
+  { file: 'money.html',            label: 'Money',     icon: 'fa-sack-dollar', ownerOnly: true }
+];
+
+window.clRole = function() {
+  try {
+    if (window.CL_FIREBASE && CL_FIREBASE.role) return CL_FIREBASE.role;
+    return localStorage.getItem('cl-last-role') || null;
+  } catch (_) { return null; }
+};
+
+window.renderTabBar = function(role) {
+  const nav = document.querySelector('.tab-bar');
+  if (!nav) return;
+  const filename = (window.location.pathname.split('/').pop() || 'index.html');
+  const isOwner = (role || window.clRole()) === 'owner';
+  const tabs = window.CL_TABS.filter(t => !t.ownerOnly || isOwner);
+  nav.innerHTML = '<div class="tab-bar-inner">' + tabs.map(t => {
+    const active = t.file === filename || (filename === '' && t.file === 'index.html');
+    return `<a href="${t.file}" class="tab-item${active ? ' active nav-active' : ''}"${active ? ' aria-current="page"' : ''}>`
+      + `<i class="fas ${t.icon}"></i><span>${t.label}</span></a>`;
+  }).join('') + '</div>';
+};
+
 window.setActiveNav = function() {
+  const nav = document.querySelector('.tab-bar');
+  if (nav && !nav.querySelector('a')) {
+    window.renderTabBar();
+    return;
+  }
   const path = window.location.pathname;
   const filename = path.split('/').pop() || 'index.html';
   document.querySelectorAll('.tab-bar a, .bottom-nav a').forEach(link => {
@@ -274,6 +318,13 @@ window.setActiveNav = function() {
     }
   });
 };
+
+// The profile arrives after first paint, so re-render once we know the role.
+// Trust the event's own profile over the cached role.
+window.addEventListener('cl-profile-updated', (e) => {
+  const profile = e && e.detail && e.detail.profile;
+  window.renderTabBar(profile && profile.role);
+});
 
 /**
  * Universal modal opener with focus trap + ESC close.

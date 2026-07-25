@@ -1,20 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script>
-        // The installed PWA always opens here (manifest.json start_url), so
-        // a returning worker/manager would otherwise see a flash of this
-        // Owner dashboard before the async Firebase profile check bounces
-        // them to their real home page. Redirect instantly off the
-        // last-known role (cached at sign-in) instead of waiting on it.
-        (function() {
-            try {
-                var role = localStorage.getItem('cl-last-role');
-                if (role === 'worker') location.replace('worker-home.html');
-                else if (role === 'manager') location.replace('manager-home.html');
-            } catch (e) {}
-        })();
-    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -27,63 +13,61 @@
     <link rel="manifest" href="manifest.json">
     <title>Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js"></script>
+    <script src="utils.js?v=3"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="data-migration.js"></script>
     <script src="firebase-sync.js?v=5"></script>
-    <link rel="stylesheet" href="app.css?v=5">
+    <link rel="stylesheet" href="app.css?v=7">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- Header -->
     <header class="app-header app-header--home">
         <div class="app-header-inner app-header-inner--home">
-            <button type="button" class="header-icon-btn" id="homeMenuBtn" aria-label="Open menu">
-                <i class="fas fa-bars"></i>
-            </button>
             <div class="home-greeting" id="homeGreeting">Good afternoon</div>
             <div class="home-header-right">
-                <button type="button" class="header-icon-btn" id="homeNotifyBtn" aria-label="Notifications">
-                    <i class="fas fa-bell"></i>
-                    <span class="notify-dot" id="homeNotifyDot" hidden></span>
+                <button type="button" class="account-btn" id="accountBtn" aria-label="Account and settings">
+                    <span id="accountInitial">C</span>
                 </button>
-                <a href="settings.html" class="header-icon-btn" aria-label="Settings"><i class="fas fa-cog"></i></a>
             </div>
         </div>
     </header>
 
-    <div id="homeDrawer" class="home-drawer" hidden>
-        <div class="home-drawer-backdrop" id="homeDrawerBackdrop"></div>
-        <aside class="home-drawer-panel" aria-label="Menu">
-            <p style="font-size:18px;font-weight:700;margin-bottom:16px;color:#f8fafc;"><span id="drawerBusinessName">Clearline</span></p>
-            <p class="home-drawer-title">Forms</p>
-            <a href="estimate.html" class="home-drawer-link"><i class="fas fa-file-invoice-dollar"></i> Estimate</a>
-            <a href="invoice.html" class="home-drawer-link"><i class="fas fa-receipt"></i> Invoice</a>
-            <a href="waiver.html" class="home-drawer-link"><i class="fas fa-file-signature"></i> Waiver</a>
-            <p class="home-drawer-title">Tools</p>
-            <button type="button" class="home-drawer-link" style="width:100%;border:none;background:transparent;font:inherit;" onclick="openPricing(); closeHomeDrawer();">
-                <i class="fas fa-calculator"></i> Price calculator
-            </button>
-            <button type="button" class="home-drawer-link" style="width:100%;border:none;background:transparent;font:inherit;" onclick="openChecklist(); closeHomeDrawer();">
-                <i class="fas fa-clipboard-check"></i> Pre-job checklist
-            </button>
-            <a href="expenses.html" class="home-drawer-link" onclick="closeHomeDrawer();">
-                <i class="fas fa-receipt"></i> Tracked expenses
-            </a>
-            <p class="home-drawer-title">Team</p>
-            <a id="drawerManagerPanel" href="manager-panel.html" class="home-drawer-link hidden"><i class="fas fa-user-shield"></i> Manager panel</a>
+    <div id="accountSheet" class="sheet" hidden>
+        <div class="sheet-backdrop" id="accountBackdrop"></div>
+        <aside class="sheet-panel" aria-label="Account">
+            <p class="sheet-name" id="sheetName">Clearline</p>
+            <p class="sheet-sub" id="sheetRole">Signed in</p>
+
+            <a href="settings.html" class="sheet-link"><i class="fas fa-gear"></i> Settings</a>
+            <a id="sheetTeam" href="manager-panel.html" class="sheet-link hidden"><i class="fas fa-user-shield"></i> Team</a>
+
+            <p class="sheet-title">Tools</p>
+            <button type="button" class="sheet-link" onclick="closeAccount(); openPricing();"><i class="fas fa-calculator"></i> Price calculator</button>
+            <button type="button" class="sheet-link" onclick="closeAccount(); openChecklist();"><i class="fas fa-clipboard-check"></i> Pre-job checklist</button>
+
+            <button type="button" class="sheet-link sheet-link--danger" onclick="signOutNow()"><i class="fas fa-right-from-bracket"></i> Sign out</button>
         </aside>
     </div>
 
-    <!-- Content -->
+    <div id="newSheet" class="sheet" hidden>
+        <div class="sheet-backdrop" id="newBackdrop"></div>
+        <aside class="sheet-panel sheet-panel--bottom" aria-label="Create">
+            <p class="sheet-title">Create</p>
+            <a id="newLead" href="jobs.html?addLead=1" class="sheet-link"><i class="fas fa-user-plus"></i> Lead <small>Estimate visit</small></a>
+            <a id="newEstimate" href="estimate.html" class="sheet-link"><i class="fas fa-file-circle-plus"></i> Estimate <small>Price a job</small></a>
+            <a id="newCustomer" href="customer-tracker.html?action=add" class="sheet-link"><i class="fas fa-address-book"></i> Customer <small>Add to the book</small></a>
+            <button type="button" class="sheet-link" onclick="closeNew()"><i class="fas fa-xmark"></i> Cancel</button>
+        </aside>
+    </div>
+
     <main class="app-content">
         <div class="content-wrapper">
             <p id="businessTitle" class="sr-only">Business Tools</p>
 
-            <!-- Hero: next job / next visit -->
             <div id="nextJobSection" class="hidden">
                 <div class="next-job-card" id="nextJobCard"></div>
             </div>
+
             <div id="activeTimerSection" class="hidden" style="margin-bottom:12px;">
                 <div class="glass-card" style="padding:12px 14px;border:1px solid rgba(56,189,248,0.35);">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
@@ -97,38 +81,27 @@
                 </div>
             </div>
 
-            <!-- Quick actions -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px;">
-                <a href="estimate.html" class="quick-action-plain">
-                    <i class="fas fa-file-circle-plus" style="font-size: 22px; margin-bottom: 8px;"></i>
-                    New estimate
-                    <small>Create a new estimate</small>
-                </a>
-                <a href="calendar.html" class="quick-action-plain">
-                    <i class="fas fa-calendar-plus" style="font-size: 22px; margin-bottom: 8px;"></i>
-                    Schedule job
-                    <small>Add to calendar</small>
-                </a>
-                <a href="jobs.html?addLead=1" class="quick-action-plain">
-                    <i class="fas fa-user-plus" style="font-size: 22px; margin-bottom: 8px;"></i>
-                    Add lead
-                    <small>Estimate visit</small>
-                </a>
+            <button type="button" id="newBtn" class="btn-primary btn-new" style="margin-bottom:18px;">
+                <i class="fas fa-plus mr-1"></i>New
+            </button>
+
+            <div id="statsRow" class="stats-grid hidden" style="margin-bottom:18px;">
+                <div class="stat-card"><p class="value" style="color:#60a5fa;" id="s-leads">0</p><p class="label">Leads</p></div>
+                <div class="stat-card"><p class="value" style="color: var(--md-sys-color-secondary);" id="s-scheduled">0</p><p class="label">Scheduled</p></div>
+                <div class="stat-card"><p class="value" style="color:#34d399;" id="s-done">0</p><p class="label">Done</p></div>
             </div>
 
-            <!-- Today's schedule -->
             <div class="section-row">
-                <p class="section-title">Today's schedule</p>
+                <p class="section-title">Today</p>
                 <a href="calendar.html" class="section-link">View all</a>
             </div>
             <div id="todaySection" class="hidden" style="margin-bottom: 14px;">
                 <div id="todayJobs"></div>
             </div>
             <div id="todayEmpty" style="display:none;padding:20px;text-align:center;color:#64748b;font-size:13px;margin-bottom:14px;" class="glass-card">
-                Nothing on the calendar today. Add a <a href="jobs.html?addLead=1" style="color:#60a5fa;">lead visit</a> or <a href="calendar.html" style="color:#60a5fa;">scheduled job</a>.
+                Nothing on the calendar today.
             </div>
 
-            <!-- Coming up -->
             <div class="section-row">
                 <p class="section-title">Coming up</p>
                 <a href="calendar.html" class="section-link">View all</a>
@@ -136,41 +109,13 @@
             <div id="upcomingHomeSection" class="hidden" style="margin-bottom: 16px;">
                 <div id="upcomingHomeList" class="glass-card" style="overflow: hidden; padding: 4px 12px;"></div>
             </div>
-
-            <a id="managerPanelTile" href="manager-panel.html" class="quick-btn hidden" style="margin-bottom:20px;">
-                <i class="fas fa-user-shield" style="color: #fbbf24;"></i>
-                <span>Manager Panel</span>
-            </a>
+            <div id="upcomingEmpty" style="display:none;padding:20px;text-align:center;color:#64748b;font-size:13px;margin-bottom:16px;" class="glass-card">
+                Nothing scheduled yet.
+            </div>
         </div>
     </main>
 
-    <!-- Bottom Tab Bar -->
-    <nav class="tab-bar">
-        <div class="tab-bar-inner">
-            <a href="index.html" class="tab-item active">
-                <i class="fas fa-home"></i>
-                <span>Home</span>
-            </a>
-            <a href="jobs.html" class="tab-item">
-                <i class="fas fa-briefcase"></i>
-                <span>Jobs</span>
-            </a>
-            <a href="calendar.html" class="tab-item">
-                <i class="fas fa-calendar-alt"></i>
-                <span>Calendar</span>
-            </a>
-            <a href="customer-tracker.html" class="tab-item">
-                <i class="fas fa-users"></i>
-                <span>Customers</span>
-            </a>
-            <a href="more.html" class="tab-item">
-                <i class="fas fa-ellipsis-h"></i>
-                <span>More</span>
-            </a>
-        </div>
-    </nav>
-
-    <!-- Price Calculator Modal -->
+    <nav class="tab-bar"></nav>
     <div id="pricingModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pricingModal-title" hidden>
         <div class="modal-content glass-card" role="document" style="width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header" style="padding: 16px; border-bottom: 0.5px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
@@ -211,7 +156,6 @@
         </div>
     </div>
 
-    <!-- Checklist Modal -->
     <div id="checklistModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="checklistModal-title" hidden>
         <div class="modal-content glass-card" role="document" style="width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header" style="padding: 16px; border-bottom: 0.5px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
@@ -349,7 +293,9 @@
             section.classList.remove('hidden');
         }
 
-        // Load and display data
+        // One dashboard for every role. CL_DATA is already scoped by the
+        // Firestore accessUids query, so a worker's "today" is their crew's
+        // jobs and the owner's is everything, with no separate page.
         function loadDashboard() {
             const jobs = CL_DATA.getJobs();
 
@@ -427,7 +373,9 @@
             const upcomingPick = upcomingMerged.slice(0, 8);
             const upcomingSection = document.getElementById('upcomingHomeSection');
             const upcomingEl = document.getElementById('upcomingHomeList');
+            const upcomingEmpty = document.getElementById('upcomingEmpty');
             if (upcomingPick.length > 0) {
+                if (upcomingEmpty) upcomingEmpty.style.display = 'none';
                 upcomingSection.classList.remove('hidden');
                 upcomingEl.innerHTML = upcomingPick.map(j => {
                     const name = esc(j.customerName || 'Lead');
@@ -437,7 +385,6 @@
                     const maps = j.address
                         ? `https://maps.google.com/?q=${encodeURIComponent(j.address)}`
                         : '';
-                    const navHref = maps || jobHref;
                     const navClass = maps ? 'coming-nav coming-nav--maps' : 'coming-nav';
                     const navIcon = maps ? 'fa-location-arrow' : 'fa-arrow-right';
                     const navLabel = maps ? 'Navigate' : 'Open job';
@@ -457,49 +404,49 @@
             } else {
                 upcomingSection.classList.add('hidden');
                 upcomingEl.innerHTML = '';
+                if (upcomingEmpty) upcomingEmpty.style.display = 'block';
             }
+
+            const stats = document.getElementById('statsRow');
+            if (stats && !stats.classList.contains('hidden')) {
+                document.getElementById('s-leads').textContent = jobs.filter(j => j.status === 'new').length;
+                document.getElementById('s-scheduled').textContent = jobs.filter(j => j.status === 'scheduled').length;
+                document.getElementById('s-done').textContent = jobs.filter(j => j.status === 'completed').length;
+            }
+
             renderActiveTimerCard();
         }
 
-        function openHomeDrawer() {
-            const d = document.getElementById('homeDrawer');
-            if (d) d.removeAttribute('hidden');
-        }
-        function closeHomeDrawer() {
-            const d = document.getElementById('homeDrawer');
-            if (d) d.setAttribute('hidden', '');
+        function openAccount()  { document.getElementById('accountSheet').removeAttribute('hidden'); }
+        function closeAccount() { document.getElementById('accountSheet').setAttribute('hidden', ''); }
+        function openNew()      { document.getElementById('newSheet').removeAttribute('hidden'); }
+        function closeNew()     { document.getElementById('newSheet').setAttribute('hidden', ''); }
+
+        function signOutNow() {
+            if (window.CL_FIREBASE && CL_FIREBASE.signOut) {
+                CL_FIREBASE.signOut().then(() => location.replace('signin.html?signedout=1'));
+            } else {
+                location.replace('signin.html');
+            }
         }
 
         function applyContactSettings() {
             const settings = safeGet('cl-settings', {});
             const businessName = settings.businessName || 'Business Tools';
-            const phone = settings.businessPhone || '';
-            const email = settings.businessEmail || '';
-            const phoneDigits = phone.replace(/\D/g, '');
-
             const titleEl = document.getElementById('businessTitle');
             if (titleEl) titleEl.textContent = businessName;
-            const drawerName = document.getElementById('drawerBusinessName');
-            if (drawerName) drawerName.textContent = businessName;
             document.title = businessName;
-
-            const callLink = document.getElementById('contactCall');
-            const emailLink = document.getElementById('contactEmail');
-
-            if (callLink) callLink.href = phoneDigits ? `tel:${phoneDigits}` : 'tel:';
-            if (emailLink) emailLink.href = email ? `mailto:${email}` : 'mailto:';
         }
 
-        // Price Calculator
         function openPricing() {
             openModal('pricingModal');
             calculate();
         }
-        
+
         function closePricing() {
             closeModal('pricingModal');
         }
-        
+
         function calculate() {
             const sqft = parseFloat(document.getElementById('calcSqft').value) || 0;
             const min = parseFloat(document.getElementById('calcMin').value) || 0;
@@ -507,10 +454,8 @@
             const errorEl = document.getElementById('calcError');
             const resultEl = document.getElementById('calcResult');
 
-            // Clear previous errors
             if (errorEl) errorEl.textContent = '';
 
-            // Validation
             const errors = [];
             if (sqft <= 0)  errors.push('Square footage must be greater than 0.');
             if (min <= 0)   errors.push('Min rate must be greater than 0.');
@@ -525,14 +470,13 @@
 
             let minPrice = Math.round(sqft * min);
             let maxPrice = Math.round(sqft * max);
-            
+
             if (minPrice > 0 && minPrice < 75) minPrice = 75;
             if (maxPrice > 0 && maxPrice < 100) maxPrice = 100;
-            
+
             if (resultEl) resultEl.textContent = `$${minPrice.toLocaleString()} to $${maxPrice.toLocaleString()}`;
         }
 
-        // Checklist
         const checklistData = [
             { id: 'fuel', label: 'Gas tank full', icon: 'fa-gas-pump' },
             { id: 'water', label: 'Water tank filled', icon: 'fa-tint' },
@@ -555,86 +499,105 @@
             `).join('');
             openModal('checklistModal');
         }
-        
+
         function closeChecklist() {
             closeModal('checklistModal');
         }
-        
+
         function toggleCheck(id, checked) {
             const saved = safeGet('cl-checklist', {});
             saved[id] = checked;
             safeSet('cl-checklist', saved);
             openChecklist();
         }
-        
+
         function resetChecklist() {
             safeRemove('cl-checklist');
             openChecklist();
         }
 
-        // Reveal the Manager Panel tile and any other Owner-only UI once
-        // the Firebase profile has loaded. Non-Owner roles get redirected
-        // by signin.html, but defence-in-depth keeps the tile hidden in
-        // case they deep-link here.
-        function updateHomeGreeting() {
+        function updateHomeGreeting(profile) {
             const hour = new Date().getHours();
             let g = 'Good evening';
             if (hour < 12) g = 'Good morning';
             else if (hour < 17) g = 'Good afternoon';
-            const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
+            const p = profile || ((window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null);
             const first = (p && p.displayName) ? p.displayName.trim().split(/\s+/)[0] : '';
             const el = document.getElementById('homeGreeting');
             if (el) el.textContent = first ? `${g}, ${first}` : g;
+            const initial = document.getElementById('accountInitial');
+            if (initial) initial.textContent = (first || 'C').charAt(0).toUpperCase();
         }
 
+        // Role decides which pieces of Today exist. Nothing redirects anywhere:
+        // owner, manager, worker and intern all live on this page.
         function applyRoleUI(profile) {
-            if (!profile) return;
-            const tile = document.getElementById('managerPanelTile');
-            if (tile && profile.role === 'owner') tile.classList.remove('hidden');
-            const drawer = document.getElementById('drawerManagerPanel');
-            if (drawer && profile.role === 'owner') drawer.classList.remove('hidden');
-            if (profile.role === 'manager') location.replace('manager-home.html');
-            else if (profile.role === 'worker') location.replace('worker-home.html');
+            const role = (profile && profile.role) || window.clRole();
+            const perms = (profile && profile.permissions) || {};
+            const isOwner = role === 'owner';
+            const isManager = role === 'manager';
+
+            // Runs twice: once with the cached role at first paint, again when
+            // the real profile lands. It must therefore set every piece in both
+            // directions — a one-way hide would strand the owner with a menu
+            // that was emptied by a stale cached role.
+            const show = (id, allowed) => {
+                const el = document.getElementById(id);
+                if (el) el.classList.toggle('hidden', !allowed);
+            };
+
+            show('statsRow', isOwner || isManager);
+            show('sheetTeam', isOwner || isManager);
+
+            const nameEl = document.getElementById('sheetName');
+            const roleEl = document.getElementById('sheetRole');
+            if (nameEl) nameEl.textContent = (profile && profile.displayName) || 'Clearline';
+            if (roleEl) roleEl.textContent = role ? (role.charAt(0).toUpperCase() + role.slice(1)) : 'Signed in';
+
+            const can = (flag) => isOwner || isManager || perms[flag] === true;
+            show('newLead', can('canCreateJobs'));
+            show('newEstimate', isOwner || isManager || perms.isEstimator === true || perms.canUseEstimateForm === true);
+            show('newCustomer', can('canCreateCustomers'));
+
+            const anyCreate = [...document.querySelectorAll('#newSheet a')].some(a => !a.classList.contains('hidden'));
+            show('newBtn', anyCreate);
         }
+
         window.addEventListener('cl-profile-updated', (e) => {
-            applyRoleUI(e.detail && e.detail.profile);
-            updateHomeGreeting();
+            const profile = e.detail && e.detail.profile;
+            applyRoleUI(profile);
+            updateHomeGreeting(profile);
         });
 
-        // Init
         document.addEventListener('DOMContentLoaded', () => {
             applyContactSettings();
             updateHomeGreeting();
             loadDashboard();
             setActiveNav();
 
-            document.getElementById('homeMenuBtn')?.addEventListener('click', openHomeDrawer);
-            document.getElementById('homeDrawerBackdrop')?.addEventListener('click', closeHomeDrawer);
-            document.getElementById('homeNotifyBtn')?.addEventListener('click', () => showToast('You\'re all caught up.', 'info'));
-            window.__homeTimerTick = setInterval(() => {
-                renderActiveTimerCard();
-            }, 1000);
+            document.getElementById('accountBtn')?.addEventListener('click', openAccount);
+            document.getElementById('accountBackdrop')?.addEventListener('click', closeAccount);
+            document.getElementById('newBtn')?.addEventListener('click', openNew);
+            document.getElementById('newBackdrop')?.addEventListener('click', closeNew);
 
-            // If Firebase is configured but user isn't signed in after 5 seconds, redirect to sign-in
+            window.__homeTimerTick = setInterval(renderActiveTimerCard, 1000);
+
             if (CL_FIREBASE && CL_FIREBASE.isConfigured()) {
                 setTimeout(() => {
-                    if (!CL_FIREBASE.isSignedIn) {
-                        window.location.href = 'signin.html';
-                    }
+                    if (!CL_FIREBASE.isSignedIn) window.location.href = 'signin.html';
                 }, 5000);
             }
             const p = (window.CL_FIREBASE && CL_FIREBASE.getProfile) ? CL_FIREBASE.getProfile() : null;
-            if (p) applyRoleUI(p);
+            applyRoleUI(p);
         });
+
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
                 applyContactSettings();
                 loadDashboard();
-            } else if (window.__homeTimerTick) {
-                // keep interval alive; no-op branch avoids duplicate starts
             }
         });
-        // Refresh when cloud data arrives so the Estimated Total stays fresh.
+
         window.addEventListener('cl-sync-updated', () => { loadDashboard(); });
     </script>
 </body>

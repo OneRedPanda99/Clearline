@@ -125,7 +125,7 @@
     <header class="app-header">
         <div class="app-header-inner app-header-inner--split">
             <div class="app-header-wing">
-                <a href="more.html" class="header-tool-btn" aria-label="Back"><i class="fas fa-chevron-left"></i></a>
+                <a href="expenses.html" class="header-tool-btn" aria-label="Receipts"><i class="fas fa-receipt"></i></a>
             </div>
             <div class="app-header-center"><h1>Money</h1></div>
             <div class="app-header-wing app-header-wing--end">
@@ -1109,5 +1109,7 @@
         // re-render when a new receipt CSV is published
         window.addEventListener('cl-expenses-updated', () => { csvCache = null; csvError = false; render(); });
     </script>
+
+    <nav class="tab-bar"></nav>
 </body>
 </html>

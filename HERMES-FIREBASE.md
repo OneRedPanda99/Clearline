@@ -67,13 +67,23 @@ function accessUidsPreservedOrOwner() {
 - the new `accessUids` must equal the set implied by the new `assignedWorkers` plus those protected uids;
 - a manager still may only touch jobs where `resource.data.assignedManager == uid()`.
 
-Open question for you: the owner uid isn't currently available to the rules (it lives client-side in `CL_SECRETS.ownerUid`, and `config.js` is gitignored). Either hardcode it in the rules or expose it somewhere the rules can read cheaply — your call on which is cleaner.
+**Decided: hardcode the owner uid in the rules.** A Firebase uid is not a credential — it already ships to the browser in `config.js` as `CL_SECRETS.ownerUid`. Hardcoding keeps the hot path free of document reads (the whole reason item 1 exists) and guarantees the owner can never be locked out of their own data by a bad `accessUids` write:
+
+```
+function ownerUid() { return "<paste CL_SECRETS.ownerUid here>"; }
+```
+
+Leave a comment on that line saying it must be re-published if the owner account ever changes. Use it as the protected-reader anchor above; keep the existing role checks for everything else rather than making this uid the only authorization mechanism.
 
 ---
 
 ## 3. New `intern` role
 
-We want to add an `intern` role alongside owner / manager / worker. Rules currently hard-limit provisioning to two values:
+We want an `intern` role alongside owner / manager / worker. **It needs less than it first looks like** — an intern is a worker for data-access purposes, and what they're actually allowed to do is already driven by the per-user `permissions` flags the owner toggles in the Team panel (`canCreateJobs`, `canCreateCustomers`, `canEditOwnJobs`, `canEditOwnCustomers`, `canViewCalendar`, `canViewMap`, `isEstimator`, `isSalesman`). We do not want a second hardcoded capability matrix in the rules that can drift from those flags.
+
+Two changes needed:
+
+**a. Accept the role.** Provisioning is hard-limited to two values today:
 
 ```
 function ownerProvisioningUser() {
@@ -84,7 +94,23 @@ function ownerProvisioningUser() {
 }
 ```
 
-**What we need:** `"intern"` accepted as a role. Treat interns as read-mostly: same job scoping as a worker via `accessUids`, but they should not be able to create or delete jobs or customers, and must never read `expenses` or `payroll`. Exact permission set isn't decided yet — flag what you need from us.
+Add `"intern"`.
+
+**b. Don't strand them.** `isWorker()` is an exact match:
+
+```
+function isWorker() { return signedIn() && role() == "worker"; }
+```
+
+With role `intern`, `isWorker()` and `isManager()` are both false, so the `/jobs/{id}` update rule rejects an intern on every branch — they'd be able to read a job and change nothing. Make intern satisfy the worker branch, e.g. `role() == "worker" || role() == "intern"`, or add an explicit parallel branch if you'd rather keep them separately auditable.
+
+Everything else already falls out and needs no new rules:
+
+- job reads scoped by `accessUids`, same as a worker;
+- creates gated by `perm("canCreateJobs")` / `perm("canCreateCustomers")` — leave those flags off and an intern can't create;
+- deletes on jobs and customers are already `isOwner()` only;
+- `expenses` and `payroll` are already `allow read, write: if isOwner()`, so an intern can never read money;
+- job dollar amounts are additionally zeroed client-side for every non-owner role by `getJobDisplayTotal()`.
 
 ---
 

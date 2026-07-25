@@ -223,7 +223,7 @@ const CL_FIREBASE = (function() {
             return;
         }
 
-        // Cache the role so index.html/manager-home.html/worker-home.html
+        // Cache the role so index.html can render the right tabs
         // can redirect instantly on next load instead of flashing the wrong
         // page while this async profile check is in flight (the installed
         // PWA always opens on index.html regardless of role).
