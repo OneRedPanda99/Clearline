@@ -1011,6 +1011,11 @@ const CL_FIREBASE = (function() {
     };
 })();
 
+// Expose to window so pages (jobs.html, manager-panel.html, etc.) and
+// data-migration.js can call CL_FIREBASE.syncToCloud() from save handlers.
+// (A top-level const does NOT auto-attach to window.)
+window.CL_FIREBASE = CL_FIREBASE;
+
 // Auto-initialize if configured
 document.addEventListener('DOMContentLoaded', () => {
     if (CL_FIREBASE.isConfigured()) {

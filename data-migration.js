@@ -125,17 +125,19 @@ var CL_DATA = {
         if (this._syncTimer) clearTimeout(this._syncTimer);
         this._syncTimer = setTimeout(() => {
             this._syncTimer = null;
-            if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
-                CL_FIREBASE.syncToCloud();
+            const fb = window.CL_FIREBASE;
+            if (fb && fb.isSignedIn) {
+                fb.syncToCloud();
                 return;
             }
             // Auth not ready yet. Poll for up to 10 seconds then sync
             let attempts = 0;
             const poll = setInterval(() => {
                 attempts++;
-                if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
+                const fb2 = window.CL_FIREBASE;
+                if (fb2 && fb2.isSignedIn) {
                     clearInterval(poll);
-                    CL_FIREBASE.syncToCloud();
+                    fb2.syncToCloud();
                 } else if (attempts >= 20) {
                     clearInterval(poll);
                 }
