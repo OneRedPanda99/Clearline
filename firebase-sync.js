@@ -570,7 +570,22 @@ const CL_FIREBASE = (function() {
         const coll = db.collection(collName);
         const myUid = currentUser ? currentUser.uid : null;
         const canPushAll = userProfile && userProfile.role === 'owner';
-        const mine = (v) => canPushAll || !v || !v.createdBy || v.createdBy === myUid;
+        // For non-owners, only push docs this account may write under the
+        // Firestore rules. For jobs that means "I created it OR I'm its
+        // assigned manager OR I'm in its crew" — matching the jobs `update`
+        // rule (anyone with canEditOwnJobs on a job they're on). For other
+        // collections it stays "I created it". Without this, a manager
+        // editing an owner-created job is skipped and the change never
+        // reaches the cloud even though the rule allows it.
+        const mine = (v) => {
+            if (canPushAll || !v || !v.createdBy) return true;
+            if (v.createdBy === myUid) return true;
+            if (collName === 'jobs') {
+                if (v.assignedManager === myUid) return true;
+                if (Array.isArray(v.assignedWorkers) && v.assignedWorkers.includes(myUid)) return true;
+            }
+            return false;
+        };
 
         // For jobs, the assignment fields (assignedWorkers / assignedManager /
         // assignedTo / accessUids) are the source of truth in the CLOUD, not
@@ -597,10 +612,20 @@ const CL_FIREBASE = (function() {
             let entity = it;
             if (cloudAssign && cloudAssign.has(it.id)) {
                 const cloud = cloudAssign.get(it.id);
+                // Merge assignment fields by recency: the most recently
+                // updated value wins. This lets the editor's own just-made
+                // change survive the push (local lastUpdated > cloud), while
+                // still protecting against clobbering a NEWER remote edit
+                // from another session. Without recency, taking the cloud's
+                // value blindly would revert the caller's own edit; taking
+                // local blindly would clobber a concurrent remote change.
+                const localTs = Date.parse(it.lastUpdated) || 0;
+                const cloudTs = Date.parse(cloud.lastUpdated) || 0;
+                const newer = (f) => (localTs >= cloudTs ? it[f] : cloud[f]);
                 entity = Object.assign({}, it, {
-                    assignedWorkers: cloud.assignedWorkers,
-                    assignedManager: cloud.assignedManager,
-                    assignedTo: cloud.assignedTo
+                    assignedWorkers: newer('assignedWorkers'),
+                    assignedManager: newer('assignedManager'),
+                    assignedTo: newer('assignedTo')
                     // accessUids recomputed by _stampForCloud from the above
                 });
             }
