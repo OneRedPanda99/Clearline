@@ -180,7 +180,7 @@
     async function runDiagnose() {
       const me = auth.currentUser;
       if (!me) { log('Not signed in.'); return; }
-      const snap = await db.collection('jobs').get();
+      const snap = await db.collection('jobs').where('accessUids', 'array-contains', me.uid).get();
       log('--- ' + snap.size + ' jobs: raw assignment fields + accessUids ---');
       for (const doc of snap.docs) {
         const d = doc.data();
@@ -197,7 +197,7 @@
       const ownerUid = (window.CL_SECRETS && window.CL_SECRETS.ownerUid) || me.uid;
       log('Owner uid used: ' + ownerUid);
 
-      const snap = await db.collection('jobs').get();
+      const snap = await db.collection('jobs').where('accessUids', 'array-contains', me.uid).get();
       log('Found ' + snap.size + ' jobs.');
       let updated = 0, skipped = 0, failed = 0;
       for (const doc of snap.docs) {
