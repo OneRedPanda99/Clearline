@@ -374,6 +374,27 @@
                 }
             }
         }
+        // Worker "Unconfirm" — clears this worker's confirmation (e.g. they
+        // can no longer make the job). Same write path as confirm, so the
+        // jobs update rule (assigned crew may write) already allows it.
+        function unconfirmAssignment(jobId) {
+            const job = jobs.find(j => j.id === jobId);
+            if (!job) return;
+            const fb = (typeof CL_FIREBASE !== 'undefined' && CL_FIREBASE) || window.CL_FIREBASE || null;
+            const me = fb && typeof fb.getCurrentUser === 'function' ? fb.getCurrentUser() : null;
+            const myUid = me ? me.uid : null;
+            if (!myUid) { showToast('Sign in to unconfirm', 'error'); return; }
+            const confirmations = (job.crewConfirmations && typeof job.crewConfirmations === 'object') ? { ...job.crewConfirmations } : {};
+            delete confirmations[myUid];
+            CL_DATA.updateJob(jobId, { crewConfirmations: confirmations });
+            renderJobs();
+            if (fb && fb.isSignedIn) {
+                fb.syncToCloud();
+                if (typeof fb.logActivity === 'function') {
+                    fb.logActivity('job.crew_unconfirmed', { entityType: 'job', entityId: jobId, entityLabel: job.customerName, message: 'unconfirmed assignment' });
+                }
+            }
+        }
         function resetJobStopwatch(jobId) {
             const st = { isRunning: false, startedAt: null, elapsedMs: 0, checkpoints: {} };
             setJobTimerState(jobId, st);
@@ -1433,6 +1454,8 @@
             } else if (!isEst && !isDone) {
                 if (needConfirm) {
                     actionsRow = `<button type="button" class="jc-start jc-start--confirm" onclick="confirmAssignment('${job.id}')"><i class="fas fa-check-circle"></i> Confirm assignment</button>`;
+                } else if (iConfirmed) {
+                    actionsRow = `<button type="button" class="jc-start jc-start--unconfirm" onclick="unconfirmAssignment('${job.id}')"><i class="fas fa-times-circle"></i> Unconfirm</button>`;
                 } else if (timerState.isRunning) {
                     actionsRow = `<button type="button" class="jc-start jc-start--running" onclick="clockIn('${job.id}')"><i class="fas fa-pause"></i> <span data-timer-card="${job.id}">${timerText}</span> · Pause</button>`;
                 } else {

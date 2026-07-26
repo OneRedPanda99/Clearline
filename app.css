@@ -1221,6 +1221,12 @@ textarea {
     color: #08251c;
     font-weight: 700;
 }
+.job-card-v2__actions .jc-start--unconfirm {
+    background: transparent;
+    color: #f87171;
+    border: 1px solid rgba(248, 113, 113, 0.5);
+    font-weight: 600;
+}
 .job-card-v2__actions .jc-msg {
     color: #94a3b8;
 }
