@@ -365,7 +365,9 @@
             if (!myUid) { showToast('Sign in to confirm', 'error'); return; }
             const confirmations = (job.crewConfirmations && typeof job.crewConfirmations === 'object') ? { ...job.crewConfirmations } : {};
             confirmations[myUid] = { confirmedAt: new Date().toISOString(), name: (me.displayName || me.email || 'Worker') };
-            CL_DATA.updateJob(jobId, { crewConfirmations: confirmations });
+            const crewNames = (job.crewNames && typeof job.crewNames === 'object') ? { ...job.crewNames } : {};
+            crewNames[myUid] = (me.displayName || me.email || 'Worker');
+            CL_DATA.updateJob(jobId, { crewConfirmations: confirmations, crewNames: crewNames });
             renderJobs();
             if (fb && fb.isSignedIn) {
                 fb.syncToCloud();
@@ -1175,14 +1177,25 @@
             } catch (_) { return false; }
         }
 
+        // Resolve a crew member's display name for anyone reading the job.
+        // Workers can't read other users' docs, so we prefer the name
+        // denormalized onto the job (crewNames), then a confirmation's own
+        // name, then the local worker list (owner/manager), else "Worker".
+        function crewNameOf(job, uid) {
+            const names = (job && job.crewNames && typeof job.crewNames === 'object') ? job.crewNames : {};
+            if (names[uid]) return names[uid];
+            const w = (typeof allWorkers !== 'undefined' && allWorkers.find(x => x.uid === uid));
+            if (w) return (w.displayName || w.username || 'Worker');
+            const conf = (job && job.crewConfirmations && typeof job.crewConfirmations === 'object') ? job.crewConfirmations[uid] : null;
+            if (conf && conf.name) return conf.name;
+            return 'Worker';
+        }
+
         function renderCrewCard(job) {
             const ids = Array.isArray(job.assignedWorkers) && job.assignedWorkers.length
                 ? job.assignedWorkers
                 : (job.assignedTo ? [job.assignedTo] : []);
-            const nameOf = (uid) => {
-                const w = allWorkers.find(x => x.uid === uid);
-                return w ? (w.displayName || w.username || 'Worker') : 'Worker';
-            };
+            const nameOf = (uid) => crewNameOf(job, uid);
             const chips = ids.length
                 ? ids.map(uid => `<span class="crew-chip">${escapeHtml(nameOf(uid))}</span>`).join('')
                 : '<span class="text-sm" style="color:var(--md-sys-color-on-surface-variant)">Nobody assigned yet</span>';
@@ -1231,11 +1244,7 @@
                 : (job.assignedTo ? [job.assignedTo] : []);
             if (!ids.length) return '';
             const confirmations = (job.crewConfirmations && typeof job.crewConfirmations === 'object') ? job.crewConfirmations : {};
-            const nameOf = (uid) => {
-                const w = (typeof allWorkers !== 'undefined' && allWorkers.find(x => x.uid === uid))
-                    || (typeof allManagers !== 'undefined' && allManagers.find(x => x.uid === uid));
-                return w ? (w.displayName || w.username || 'Worker') : 'Worker';
-            };
+            const nameOf = (uid) => crewNameOf(job, uid);
             const rows = ids.map(uid => {
                 const c = confirmations[uid];
                 const when = c && c.confirmedAt ? new Date(c.confirmedAt).toLocaleString() : '';
@@ -1263,7 +1272,14 @@
             console.log('[saveJobCrew] jobId=' + jobId + ' picked=' + JSON.stringify(picked));
             CL_DATA.updateJob(jobId, {
                 assignedWorkers: picked,
-                assignedTo: null
+                assignedTo: null,
+                // Denormalize crew names onto the job so every reader
+                // (including assigned workers, who can't read other users'
+                // docs) can see who's on the job. accessUids already grants
+                // job read; this carries the display names along.
+                crewNames: Object.fromEntries(
+                    picked.map(uid => [uid, (allWorkers.find(x => x.uid === uid)?.displayName || allWorkers.find(x => x.uid === uid)?.username || 'Worker')])
+                )
             });
             const fb = window.CL_FIREBASE;
             const fbUser = fb && typeof fb.getCurrentUser === 'function' ? fb.getCurrentUser() : null;
