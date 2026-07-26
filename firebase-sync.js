@@ -539,6 +539,9 @@ const CL_FIREBASE = (function() {
     function _stampForCloud(entity, collName) {
         if (!entity) return entity;
         const out = { ...entity };
+        // Never overwrite an existing createdBy. The jobs update rule
+        // requires request.createdBy == resource.createdBy, so a worker
+        // syncing a job they didn't create must keep the original author.
         if (!out.createdBy && currentUser) out.createdBy = currentUser.uid;
         if (!out.lastUpdated) out.lastUpdated = new Date().toISOString();
         // Every job needs accessUids, including unassigned leads: the read

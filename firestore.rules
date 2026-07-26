@@ -178,13 +178,17 @@ service cloud.firestore {
       // they created or are assigned to.
       allow update: if isOwner()
         || (accessUidsConsistent()
+            && request.resource.data.createdBy == resource.data.createdBy
             && ((isManager()
                   && perm("canEditOwnJobs")
                   && resource.data.assignedManager == uid())
                 || (isCrew()
-                  && perm("canEditOwnJobs")
-                  && (resource.data.createdBy == uid() || isAssignedWorker())))
-            && request.resource.data.createdBy == resource.data.createdBy);
+                  // Assigned crew (or the job's creator) may update a job
+                  // they're on — this is what powers "Confirm assignment"
+                  // and field edits from the crew. accessUidsConsistent()
+                  // above already forbids changing who can see the job, so
+                  // no separate canEditOwnJobs flag is required for crew.
+                  && (resource.data.createdBy == uid() || isAssignedWorker()))));
 
       allow delete: if isOwner();
     }

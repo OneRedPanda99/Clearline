@@ -352,9 +352,10 @@
         }
 
         // Worker "Confirm assignment" — one tap records that this worker
-        // accepted the job. Writes a per-worker flag on the job (rules allow
-        // an assigned crew member with canEditOwnJobs; accessUids stays
-        // consistent via _stampForCloud). Owner/manager see who confirmed.
+        // accepted the job. Writes a per-worker flag on the job. The jobs
+        // update rule lets any assigned crew member (or creator) write as
+        // long as accessUids stays consistent (_stampForCloud guarantees
+        // that). Owner/manager see who confirmed in the job modal.
         function confirmAssignment(jobId) {
             const job = jobs.find(j => j.id === jobId);
             if (!job) return;
