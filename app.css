@@ -101,6 +101,11 @@
     scrollbar-width: none;
 }
 
+/* Hidden attribute must always win (Tailwind preflight normally supplied
+   this; with preflight disabled it's needed so .sheet/.modal overlays that
+   use the `hidden` attribute stay collapsed instead of covering the page). */
+[hidden] { display: none !important; }
+
 /* Remove ALL list markers/bullets */
 *, *::before, *::after,
 ul, ol, li {
