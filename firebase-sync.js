@@ -710,27 +710,33 @@ const CL_FIREBASE = (function() {
             const deletedPayroll = localData.deletedPayroll || [];
 
             const ownerOnly = userProfile && userProfile.role === 'owner';
-            const ops = [
-                _syncCollection('customers', customers, deletedCustomers),
-                _syncCollection('jobs', jobs, deletedJobs)
-            ];
+            const runColl = async (name, items, tombs) => {
+                try { await _syncCollection(name, items, tombs); }
+                catch (e) { console.error('[CL_FIREBASE] BATCH REJECTED on collection:', name, e && e.code, e && e.message); throw e; }
+            };
+            await runColl('customers', customers, deletedCustomers);
+            await runColl('jobs', jobs, deletedJobs);
             if (ownerOnly) {
-                ops.push(_syncCollection('expenses', expenses, deletedExpenses));
-                ops.push(_syncCollection('payroll', payroll, deletedPayroll));
+                await runColl('expenses', expenses, deletedExpenses);
+                await runColl('payroll', payroll, deletedPayroll);
             }
-            await Promise.all(ops);
 
             const userRef = db.collection('users').doc(currentUser.uid);
-            await userRef.set({
-                deletedCustomers,
-                deletedJobs,
-                deletedExpenses: ownerOnly ? deletedExpenses : firebase.firestore.FieldValue.delete(),
-                deletedPayroll: ownerOnly ? deletedPayroll : firebase.firestore.FieldValue.delete(),
-                settings: JSON.parse(localStorage.getItem('cl-settings') || '{}'),
-                migrationVersion: MIGRATION_VERSION,
-                lastSync: firebase.firestore.FieldValue.serverTimestamp(),
-                lastDevice: getDeviceId()
-            }, { merge: true });
+            try {
+                await userRef.set({
+                    deletedCustomers,
+                    deletedJobs,
+                    deletedExpenses: ownerOnly ? deletedExpenses : firebase.firestore.FieldValue.delete(),
+                    deletedPayroll: ownerOnly ? deletedPayroll : firebase.firestore.FieldValue.delete(),
+                    settings: JSON.parse(localStorage.getItem('cl-settings') || '{}'),
+                    migrationVersion: MIGRATION_VERSION,
+                    lastSync: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastDevice: getDeviceId()
+                }, { merge: true });
+            } catch (e) {
+                console.error('[CL_FIREBASE] BATCH REJECTED on collection: users/' + currentUser.uid, e && e.code, e && e.message);
+                throw e;
+            }
 
             console.log('Data synced to cloud');
             emitSyncState('saved');
