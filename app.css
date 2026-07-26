@@ -3029,3 +3029,48 @@ body.cl-page-exit .bottom-nav {
         animation: none !important;
     }
 }
+
+/* Worker home: prominent "confirm your jobs" banner */
+.confirm-banner {
+    background: linear-gradient(135deg, #8ab4ff, #6aa0ff);
+    color: #08251c;
+    border-radius: 16px;
+    padding: 14px 16px;
+    box-shadow: 0 6px 18px rgba(106, 160, 255, 0.35);
+    animation: confirmPulse 2s ease-in-out infinite;
+}
+@keyframes confirmPulse {
+    0%, 100% { box-shadow: 0 6px 18px rgba(106, 160, 255, 0.30); }
+    50% { box-shadow: 0 6px 24px rgba(106, 160, 255, 0.55); }
+}
+.confirm-banner__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 800;
+    font-size: 15px;
+    margin-bottom: 8px;
+}
+.confirm-banner__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    background: rgba(8, 37, 28, 0.10);
+    border-radius: 12px;
+    text-decoration: none;
+    color: #08251c;
+}
+.confirm-banner__name { font-weight: 700; font-size: 14px; margin: 0; }
+.confirm-banner__sub { font-size: 12px; color: rgba(8,37,28,0.7); margin: 2px 0 0; }
+.confirm-banner__cta {
+    flex-shrink: 0;
+    background: #08251c;
+    color: #8ab4ff;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 999px;
+}

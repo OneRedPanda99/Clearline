@@ -68,6 +68,8 @@
                 <div class="next-job-card" id="nextJobCard"></div>
             </div>
 
+            <div id="confirmBanner" class="hidden" style="margin-bottom:14px;"></div>
+
             <div id="activeTimerSection" class="hidden" style="margin-bottom:12px;">
                 <div class="glass-card" style="padding:12px 14px;border:1px solid rgba(56,189,248,0.35);">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
@@ -415,6 +417,46 @@
             }
 
             renderActiveTimerCard();
+            renderConfirmBanner();
+        }
+
+        // Worker-only: a prominent "confirm your jobs" banner on the home
+        // screen for any assigned job not yet confirmed. Each row deep-links
+        // to the job so the worker can tap Confirm assignment. Hides once all
+        // assigned jobs are confirmed.
+        function renderConfirmBanner() {
+            const banner = document.getElementById('confirmBanner');
+            if (!banner) return;
+            const me = (typeof CL_FIREBASE !== 'undefined' && CL_FIREBASE && typeof CL_FIREBASE.getCurrentUser === 'function')
+                ? CL_FIREBASE.getCurrentUser() : null;
+            const myUid = me ? me.uid : null;
+            if (!myUid) { banner.classList.add('hidden'); banner.innerHTML = ''; return; }
+            const jobs = CL_DATA.getJobs();
+            const pending = jobs.filter(j =>
+                j.status !== 'completed' && j.status !== 'lost' &&
+                Array.isArray(j.assignedWorkers) && j.assignedWorkers.includes(myUid) &&
+                !(j.crewConfirmations && j.crewConfirmations[myUid])
+            );
+            if (!pending.length) { banner.classList.add('hidden'); banner.innerHTML = ''; return; }
+            const rows = pending.map(j => {
+                const href = `jobs.html?highlight=${encodeURIComponent(j.id)}`;
+                return `<a href="${href}" data-cl-nav class="confirm-banner__row">
+                    <div style="min-width:0;">
+                        <p class="confirm-banner__name">${esc(j.customerName || 'Job')}</p>
+                        ${j.jobDate ? `<p class="confirm-banner__sub">${esc(j.jobDate)}${j.jobTime ? ' · ' + esc(j.jobTime) : ''}</p>` : ''}
+                    </div>
+                    <span class="confirm-banner__cta"><i class="fas fa-check-circle mr-1"></i>Confirm</span>
+                </a>`;
+            }).join('');
+            banner.innerHTML = `
+                <div class="confirm-banner">
+                    <div class="confirm-banner__head">
+                        <i class="fas fa-bell" style="color:#08251c;"></i>
+                        <span>Confirm your job${pending.length !== 1 ? 's' : ''} (${pending.length})</span>
+                    </div>
+                    ${rows}
+                </div>`;
+            banner.classList.remove('hidden');
         }
 
         function openAccount()  { document.getElementById('accountSheet').removeAttribute('hidden'); }

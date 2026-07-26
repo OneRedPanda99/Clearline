@@ -1199,6 +1199,38 @@
             if (p) p.classList.toggle('hidden');
         };
 
+        // Owner/manager view: who has confirmed this assignment. Shows each
+        // assigned worker with a Confirmed/Not yet row so you can see at a
+        // glance whether the crew acknowledged the job.
+        function renderJobConfirmations(job) {
+            if (!canAssignCrew()) return '';
+            const ids = Array.isArray(job.assignedWorkers) && job.assignedWorkers.length
+                ? job.assignedWorkers
+                : (job.assignedTo ? [job.assignedTo] : []);
+            if (!ids.length) return '';
+            const confirmations = (job.crewConfirmations && typeof job.crewConfirmations === 'object') ? job.crewConfirmations : {};
+            const nameOf = (uid) => {
+                const w = (typeof allWorkers !== 'undefined' && allWorkers.find(x => x.uid === uid))
+                    || (typeof allManagers !== 'undefined' && allManagers.find(x => x.uid === uid));
+                return w ? (w.displayName || w.username || 'Worker') : 'Worker';
+            };
+            const rows = ids.map(uid => {
+                const c = confirmations[uid];
+                const when = c && c.confirmedAt ? new Date(c.confirmedAt).toLocaleString() : '';
+                const state = c
+                    ? `<span style="color:#34d399;font-weight:600;"><i class="fas fa-check-circle mr-1"></i>Confirmed</span>${when ? `<span style="color:#64748b;font-size:11px;margin-left:6px;">${escapeHtml(when)}</span>` : ''}`
+                    : `<span style="color:#fbbf24;font-weight:600;"><i class="fas fa-clock mr-1"></i>Not yet</span>`;
+                return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,0.06);">
+                    <span style="font-size:14px;">${escapeHtml(nameOf(uid))}</span>${state}</div>`;
+            }).join('');
+            const confirmedCount = ids.filter(uid => confirmations[uid]).length;
+            return `<div class="glass-card rounded-xl p-3" style="margin-top:10px;">
+                <p class="section-title" style="margin:0 0 2px;padding:0;">Assignment confirmations</p>
+                <p style="font-size:12px;color:#64748b;margin:0 0 6px;">${confirmedCount}/${ids.length} confirmed</p>
+                ${rows}
+            </div>`;
+        }
+
         /** Writes the crew straight from the job view. accessUids is
          *  recomputed on sync so the new crew can actually read the job. */
         window.saveJobCrew = async function(jobId) {
@@ -1714,6 +1746,8 @@
                     ` : ''}
 
                     ${renderCrewCard(job)}
+
+                    ${renderJobConfirmations(job)}
 
                     ${isOwnerRole() ? `
                     <button type="button" onclick="toggleJobDetailSection('econSection')" class="m3-outlined" style="width:100%">
