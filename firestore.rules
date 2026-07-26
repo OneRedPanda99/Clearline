@@ -79,9 +79,10 @@ service cloud.firestore {
     match /customers/{id} {
       allow read: if signedIn();
 
-      allow create: if signedIn()
-        && perm("canCreateCustomers")
-        && request.resource.data.createdBy == uid();
+      allow create: if isOwner()
+        || (signedIn()
+            && perm("canCreateCustomers")
+            && request.resource.data.createdBy == uid());
 
       allow update: if isOwner()
         || (perm("canEditOwnCustomers")
@@ -160,13 +161,15 @@ service cloud.firestore {
       allow list: if signedIn()
         && uid() in resource.data.accessUids;
 
-      // create: writer must stamp accessUids including themselves + owner.
-      allow create: if signedIn()
-        && perm("canCreateJobs")
-        && request.resource.data.createdBy == uid()
-        && request.resource.data.accessUids is list
-        && uid() in request.resource.data.accessUids
-        && ownerUid() in request.resource.data.accessUids;
+      // create: Owner may create any job; others must stamp accessUids
+      // including themselves + owner.
+      allow create: if isOwner()
+        || (signedIn()
+            && perm("canCreateJobs")
+            && request.resource.data.createdBy == uid()
+            && request.resource.data.accessUids is list
+            && uid() in request.resource.data.accessUids
+            && ownerUid() in request.resource.data.accessUids);
 
       // update: Owner may do anything. Non-owners may edit a job they are
       // on, but only if accessUids stays consistent (see above). Managers
