@@ -147,7 +147,8 @@ service cloud.firestore {
       // created it, or they are its assigned manager. (Legacy
       // assignedWorkers/assignedTo fallbacks dropped — backfill ran.)
       allow get: if signedIn()
-        && (resource.data.accessUids is list && uid() in resource.data.accessUids
+        && (isOwner()
+            || resource.data.accessUids is list && uid() in resource.data.accessUids
             || resource.data.createdBy == uid()
             || resource.data.assignedManager == uid());
 
