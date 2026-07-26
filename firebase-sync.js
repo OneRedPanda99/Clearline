@@ -834,6 +834,7 @@ const CL_FIREBASE = (function() {
 
             CL_DATA.mergeFromCloud({
                 version: 3,
+                currentUid: currentUser ? currentUser.uid : null,
                 customers,
                 jobs,
                 expenses,

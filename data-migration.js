@@ -496,6 +496,7 @@ var CL_DATA = {
     // Merge cloud data without overwriting newer local changes
     mergeFromCloud(data) {
         if (!data) return;
+        const currentUid = data.currentUid || null;
         const localCustomers = this.getCustomers();
         const localJobs = this.getJobs();
         const localExpenses = this.getExpenses();
@@ -532,7 +533,7 @@ var CL_DATA = {
         const deletedExpenseMap = new Map(mergedDeletedExpenses.map(d => [d.id, d.deletedAt || 0]));
         const deletedPayrollMap = new Map(mergedDeletedPayroll.map(d => [d.id, d.deletedAt || 0]));
 
-        const mergeRecords = (localList, remoteList, deletedMap, collName) => {
+        const mergeRecords = (localList, remoteList, deletedMap, collName, currentUid) => {
             const map = new Map();
             localList.forEach(item => map.set(item.id, item));
             remoteList.forEach(item => {
@@ -582,6 +583,25 @@ var CL_DATA = {
                     map.delete(id);
                 }
             });
+
+            // Jobs: if a job the cloud no longer returns is in our local
+            // list, access was revoked (e.g. owner unassigned us). Drop it —
+            // it is GONE from the cloud, so keeping it is stale ("saved in
+            // cookies") data, not an unsynced local edit. The one exception
+            // is a job THIS device created but hasn't pushed yet (it won't
+            // exist in the cloud yet, so it must survive locally).
+            if (collName === 'jobs' && Array.isArray(remoteList)) {
+                const remoteIds = new Set(remoteList.map(r => r && r.id).filter(Boolean));
+                map.forEach((rec, id) => {
+                    if (!id || remoteIds.has(id)) return;
+                    const createdHere = currentUid
+                        && rec
+                        && (rec.createdBy === currentUid)
+                        && (!rec.lastUpdated || Date.parse(rec.lastUpdated) >= Date.now() - 60000);
+                    if (!createdHere) map.delete(id);
+                });
+            }
+
             return Array.from(map.values());
         };
 
@@ -590,8 +610,8 @@ var CL_DATA = {
         const remoteExpenses = Array.isArray(data.expenses) ? data.expenses : [];
         const remotePayroll = Array.isArray(data.payroll) ? data.payroll : [];
 
-        const mergedCustomers = mergeRecords(localCustomers, remoteCustomers, deletedCustomerMap, 'customers');
-        const mergedJobs = mergeRecords(localJobs, remoteJobs, deletedJobMap, 'jobs');
+        const mergedCustomers = mergeRecords(localCustomers, remoteCustomers, deletedCustomerMap, 'customers', currentUid);
+        const mergedJobs = mergeRecords(localJobs, remoteJobs, deletedJobMap, 'jobs', currentUid);
         const mergedExpenses = mergeRecords(localExpenses, remoteExpenses, deletedExpenseMap, 'expenses');
         const mergedPayroll = mergeRecords(localPayroll, remotePayroll, deletedPayrollMap, 'payroll');
 
