@@ -321,6 +321,36 @@
             const job = jobs.find(j => j.id === jobId);
             if (job) openJobModal(jobId);
         }
+        // One-tap clock-in from the job card (no modal). Toggles the same
+        // stopwatch state used everywhere else, syncs, and re-renders so the
+        // card shows a live running timer. Kept self-contained: a worker just
+        // taps a job once to start, again to pause.
+        function clockIn(jobId) {
+            toggleJobStopwatch(jobId); // flips running state + writes duration
+            const st = getJobTimerState(jobId);
+            if (st.isRunning) startJobTimerTicker(jobId);
+            else stopJobTimerTicker();
+            renderJobs();
+            if (CL_FIREBASE && CL_FIREBASE.isSignedIn) CL_FIREBASE.syncToCloud();
+        }
+
+        // Global card-timer ticker: keeps any running job-card clocks live.
+        let _cardTimerTick = null;
+        function startCardTimerTick() {
+            if (_cardTimerTick) clearInterval(_cardTimerTick);
+            _cardTimerTick = setInterval(() => {
+                const anyRunning = jobs.some(j => getJobTimerState(j.id).isRunning);
+                if (!anyRunning) { clearInterval(_cardTimerTick); _cardTimerTick = null; return; }
+                // Only repaint cards whose timer label is visible.
+                document.querySelectorAll('[data-timer-card]').forEach(el => {
+                    const id = el.getAttribute('data-timer-card');
+                    if (!id) return;
+                    const st = getJobTimerState(id);
+                    if (st.isRunning) el.textContent = fmtElapsed(timerElapsedMs(st));
+                });
+            }, 1000);
+        }
+
         function resetJobStopwatch(jobId) {
             const st = { isRunning: false, startedAt: null, elapsedMs: 0, checkpoints: {} };
             setJobTimerState(jobId, st);
@@ -896,6 +926,10 @@
             if (params.get('addLead') === '1') {
                 setTimeout(() => openAddLeadModal(), 250);
             }
+
+            // Resume live card clocks for any job already running (e.g. after a
+            // refresh mid-shift) so Xavier's clock-in timer keeps ticking.
+            if (jobs.some(j => getJobTimerState(j.id).isRunning)) startCardTimerTick();
             const tab = params.get('tab');
             if (tab && ['all', 'booked', 'estimate', 'overdue', 'completed'].includes(tab)) {
                 setTab(tab);
@@ -1325,13 +1359,21 @@
                 ? `<p class="job-card-v2__meta">${metaBits.map(b => escapeHtml(b)).join(' · ')}</p>`
                 : '';
 
-            // Keep list cards quiet. Scheduling lives in the job detail sheet.
-            // Only show a primary action for lost leads or booked jobs to start.
+            // Worker affordance: one-tap clock-in right on the card. Shows a
+            // live running timer; tap again to pause. Reuses the shared
+            // stopwatch state (no schema/rules change).
             let actionsRow = '';
+            const timerState = getJobTimerState(job.id);
+            const timerText = fmtElapsed(timerElapsedMs(timerState));
             if (isLost) {
                 actionsRow = `<button type="button" class="jc-start" onclick="reopenLead('${job.id}')"><i class="fas fa-rotate-left"></i> Reopen</button>`;
             } else if (!isEst && !isDone) {
-                actionsRow = `<a class="jc-start" href="${startHref}" data-cl-nav><i class="fas ${isOverdue ? 'fa-check-circle' : 'fa-play'}"></i> ${startLabel}</a>`;
+                if (timerState.isRunning) {
+                    actionsRow = `<button type="button" class="jc-start jc-start--running" onclick="clockIn('${job.id}')"><i class="fas fa-pause"></i> <span data-timer-card="${job.id}">${timerText}</span> · Pause</button>`;
+                } else {
+                    const label = isOverdue ? 'Mark done' : 'Start';
+                    actionsRow = `<a class="jc-start" href="${startHref}" data-cl-nav><i class="fas ${isOverdue ? 'fa-check-circle' : 'fa-play'}"></i> ${label}</a>`;
+                }
             }
 
             return `
