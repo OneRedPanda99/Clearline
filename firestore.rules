@@ -30,9 +30,9 @@ service cloud.firestore {
     // in users/{uid}.permissions drive what someone may WRITE. Interns are
     // "workers" for data access — what they can do stays on the flags the
     // Owner ticks per person (no second capability list in the rules).
-    function perm(flag) { return role() == "owner" || (perms()[flag] == true); }
+    function perm(flag) { return isOwner() || (perms()[flag] == true); }
 
-    function isOwner() { return signedIn() && role() == "owner"; }
+    function isOwner() { return signedIn() && uid() == ownerUid(); }
     function isManager() { return signedIn() && role() == "manager"; }
     // Crew = workers OR interns (both read jobs via accessUids; the
     // exact-match "worker" trap is avoided by grouping them here).
