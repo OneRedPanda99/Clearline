@@ -1211,6 +1211,11 @@ textarea {
     color: var(--md-sys-color-on-tertiary, #08251c);
     font-variant-numeric: tabular-nums;
 }
+.job-card-v2__actions .jc-start--confirm {
+    background: var(--md-sys-color-secondary, #8ab4ff);
+    color: #08251c;
+    font-weight: 700;
+}
 .job-card-v2__actions .jc-msg {
     color: #94a3b8;
 }

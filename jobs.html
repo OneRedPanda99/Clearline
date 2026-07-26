@@ -351,6 +351,28 @@
             }, 1000);
         }
 
+        // Worker "Confirm assignment" — one tap records that this worker
+        // accepted the job. Writes a per-worker flag on the job (rules allow
+        // an assigned crew member with canEditOwnJobs; accessUids stays
+        // consistent via _stampForCloud). Owner/manager see who confirmed.
+        function confirmAssignment(jobId) {
+            const job = jobs.find(j => j.id === jobId);
+            if (!job) return;
+            const fb = (typeof CL_FIREBASE !== 'undefined' && CL_FIREBASE) || window.CL_FIREBASE || null;
+            const me = fb && typeof fb.getCurrentUser === 'function' ? fb.getCurrentUser() : null;
+            const myUid = me ? me.uid : null;
+            if (!myUid) { showToast('Sign in to confirm', 'error'); return; }
+            const confirmations = (job.crewConfirmations && typeof job.crewConfirmations === 'object') ? { ...job.crewConfirmations } : {};
+            confirmations[myUid] = { confirmedAt: new Date().toISOString(), name: (me.displayName || me.email || 'Worker') };
+            CL_DATA.updateJob(jobId, { crewConfirmations: confirmations });
+            renderJobs();
+            if (fb && fb.isSignedIn) {
+                fb.syncToCloud();
+                if (typeof fb.logActivity === 'function') {
+                    fb.logActivity('job.crew_confirmed', { entityType: 'job', entityId: jobId, entityLabel: job.customerName, message: 'confirmed assignment' });
+                }
+            }
+        }
         function resetJobStopwatch(jobId) {
             const st = { isRunning: false, startedAt: null, elapsedMs: 0, checkpoints: {} };
             setJobTimerState(jobId, st);
@@ -1365,10 +1387,20 @@
             let actionsRow = '';
             const timerState = getJobTimerState(job.id);
             const timerText = fmtElapsed(timerElapsedMs(timerState));
+            // Confirm-assignment CTA: only for a worker who is assigned and
+            // hasn't confirmed yet.
+            const fbC = (typeof CL_FIREBASE !== 'undefined' && CL_FIREBASE) || window.CL_FIREBASE || null;
+            const myUid = fbC && typeof fbC.getCurrentUser === 'function' && fbC.getCurrentUser() ? fbC.getCurrentUser().uid : null;
+            const amAssigned = myUid && Array.isArray(job.assignedWorkers) && job.assignedWorkers.includes(myUid);
+            const confirmedMap = (job.crewConfirmations && typeof job.crewConfirmations === 'object') ? job.crewConfirmations : {};
+            const iConfirmed = myUid && confirmedMap[myUid];
+            const needConfirm = amAssigned && !iConfirmed && !isDone && !isLost;
             if (isLost) {
                 actionsRow = `<button type="button" class="jc-start" onclick="reopenLead('${job.id}')"><i class="fas fa-rotate-left"></i> Reopen</button>`;
             } else if (!isEst && !isDone) {
-                if (timerState.isRunning) {
+                if (needConfirm) {
+                    actionsRow = `<button type="button" class="jc-start jc-start--confirm" onclick="confirmAssignment('${job.id}')"><i class="fas fa-check-circle"></i> Confirm assignment</button>`;
+                } else if (timerState.isRunning) {
                     actionsRow = `<button type="button" class="jc-start jc-start--running" onclick="clockIn('${job.id}')"><i class="fas fa-pause"></i> <span data-timer-card="${job.id}">${timerText}</span> · Pause</button>`;
                 } else {
                     const label = isOverdue ? 'Mark done' : 'Start';
@@ -1384,7 +1416,7 @@
                             <div class="job-card-v2__top">
                                 <div class="min-w-0">
                                     <p class="job-card-v2__name">${escapeHtml(job.customerName || 'No name')}</p>
-                                    <div class="job-card-v2__pills">${pill}${payPill}</div>
+                                    <div class="job-card-v2__pills">${pill}${payPill}${iConfirmed ? '<span class="tag-pill tag-pill--completed" style="background:rgba(52,211,153,0.18);color:#6ee7b7;"><i class="fas fa-check-circle mr-1"></i>Confirmed</span>' : ''}</div>
                                     ${metaLine}
                                 </div>
                                 ${money}
