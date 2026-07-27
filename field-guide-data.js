@@ -95,7 +95,6 @@ window.CL_GUIDE = (function () {
   const soft = (ratio, extra) => Object.assign({
     id: 'soft',
     label: 'Soft Wash',
-    icon: 'fa-spray-can-sparkles',
     iconImg: 'method-water-jet.svg',
     when: SOFT_WHEN,
     ratio: ratio,
@@ -105,14 +104,19 @@ window.CL_GUIDE = (function () {
   const MATERIALS = [
     {
       id: 'concrete', label: 'Concrete', icon: 'fa-road',
-      surfaces: ['Driveway', 'Sidewalk', 'Patio', 'Pool Deck', 'Garage Floor'].map(function (name) {
+      surfaces: [
+        { label: 'Driveway' },
+        { label: 'Sidewalk' },
+        { label: 'Patio' },
+        { label: 'Garage Floor' }
+      ].map(function (name) {
         return {
-          label: name,
+          label: name.label,
           before: 'Confirm with the client: was this poured more than 30 days ago? If it is recent or they are unsure — soft wash only.',
           methods: [
             soft(RATIOS.medium),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
                 'Test spot: normal pressure, about 3 seconds, out-of-sight corner. Etching or pitting means the pour is weak no matter how old it is — stop and soft wash instead.',
@@ -124,7 +128,28 @@ window.CL_GUIDE = (function () {
             }
           ]
         };
-      })
+      }).concat([
+        {
+          label: 'Pool Deck',
+          before: 'Confirm with the client: was this poured more than 30 days ago? If it is recent or they are unsure — soft wash only.',
+          methods: [
+            soft(RATIOS.medium),
+            {
+              id: 'pressure', label: 'Pressure Wash', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
+              prechecks: [PRECHECK.testSpot],
+              note: 'Turn the pool pump OFF before you start and leave it off until you are done rinsing. You do not want chemical or grit pulled into the filter or circulation.',
+              steps: [
+                'Lay long sandbags (or water-filled barrier bags) along the pool edge before you start, so wand overspray and runoff are caught at the coping instead of washing into the water.',
+                'Test spot: normal pressure, about 3 seconds, out-of-sight corner. Etching or pitting means the pour is weak — stop and soft wash instead.',
+                'Use the surface cleaner for open deck — it cleans evenly and keeps spray off the water. Wand only for edges and the band right by the sandbags.',
+                'Set the pressure at the machine, not by choking the trigger. Turn it down for older or softer concrete.',
+                'Keep the wand pointed away from the pool. Rinse the sandbags and the deck toward the lawn, never toward the coping.',
+                'When finished, pull the sandbags, hose the lip, and only then switch the pump back on.'
+              ]
+            }
+          ]
+        }
+      ])
     },
     {
       id: 'brick', label: 'Brick', icon: 'fa-border-all',
@@ -167,7 +192,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.light),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
                 'Test spot on a corner post.',
@@ -220,7 +245,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.light),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
                 'Test spot on a low-visibility panel or rail. Watch for denting — thin aluminum dents easily.',
@@ -269,7 +294,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.medium),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
               steps: [
                 'Surface cleaner works well on open paver flats. Wand the edges and joints by hand.',
                 'Wide fan tip, moderate pressure — set it at the machine.',
@@ -323,7 +348,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.medium),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
               steps: [
                 'Moderate pressure, standard fan tip.',
                 'If chemical went on this surface, rinse the runoff off the grass.'
@@ -349,7 +374,7 @@ window.CL_GUIDE = (function () {
 
   function brickPressure() {
     return {
-      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
+      id: 'pressure', label: 'Pressure Wash', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
       prechecks: [PRECHECK.testSpot],
       steps: [
         'Test spot on the oldest mortar joints you can find. Mortar erodes before the brick face does — that is the weak point.',
@@ -361,7 +386,7 @@ window.CL_GUIDE = (function () {
 
   function woodPressure() {
     return {
-      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
+      id: 'pressure', label: 'Pressure Wash', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
       prechecks: [PRECHECK.startLow, PRECHECK.woodId, PRECHECK.rot],
       steps: [
         'Confirm the wood type using all four checks above — nail, weight, colour, smell.',
