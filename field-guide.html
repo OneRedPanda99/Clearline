@@ -43,6 +43,21 @@
             font-family: inherit;
         }
         .fg-tile i { font-size: 30px; color: #38bdf8; }
+        .fg-art { width: auto; max-width: 100%; object-fit: contain; display: block; }
+        .fg-diagram {
+            margin: 12px 0 0;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.16);
+            background: rgba(255,255,255,0.04);
+            padding: 10px;
+        }
+        .fg-diagram img { width: 100%; border-radius: 10px; display: block; }
+        .fg-diagram figcaption {
+            font-size: 13px;
+            color: #94a3b8;
+            text-align: center;
+            margin-top: 8px;
+        }
         /* Method tiles carry a line of guidance, so they get a full row. */
         .fg-tile--wide { grid-column: 1 / -1; min-height: 96px; }
         .fg-when {
@@ -245,6 +260,15 @@
 
         function go(hash) { window.location.hash = hash; }
 
+        /** Real artwork when we have it, Font Awesome glyph until we do.
+         *  onerror falls back so a missing file never shows a broken image. */
+        function art(item, faIcon, size) {
+            const px = size || 56;
+            if (!item || !item.img) return `<i class="fas ${faIcon}" aria-hidden="true"></i>`;
+            return `<img src="images/guide/${item.img}" alt="" class="fg-art" style="height:${px}px;"
+                         onerror="this.outerHTML='<i class='fas ${faIcon}' aria-hidden='true'></i>'">`;
+        }
+
         // ── Screen 1: materials ─────────────────────────────────────
         function screenMaterials() {
             document.getElementById('fgTitle').textContent = 'Field Guide';
@@ -253,7 +277,7 @@
                 <div class="fg-grid">
                     ${G.MATERIALS.map(m => `
                         <button type="button" class="fg-tile" onclick="go('#/${m.id}')">
-                            <i class="fas ${m.icon}" aria-hidden="true"></i>
+                            ${art(m, m.icon)}
                             <span>${esc(m.label)}</span>
                         </button>`).join('')}
                 </div>
@@ -274,7 +298,7 @@
                 <div class="fg-grid" style="margin-top:14px;">
                     ${material.surfaces.map((s, i) => `
                         <button type="button" class="fg-tile" onclick="go('#/${material.id}/${i}')">
-                            <i class="fas ${material.icon}" aria-hidden="true"></i>
+                            ${art(s, material.icon)}
                             <span>${esc(s.label)}</span>
                         </button>`).join('')}
                 </div>
@@ -314,6 +338,13 @@
                 <p class="fg-crumb">${esc(material.label)} · ${esc(surface.label)}</p>
                 <p class="fg-h1">${esc(method.label)}</p>
                 ${method.when ? `<p class="fg-when-lead">${esc(method.when)}</p>` : ''}
+
+                ${surface.diagram ? `
+                    <figure class="fg-diagram">
+                        <img src="images/guide/${surface.diagram}" alt="Labelled diagram of ${esc(surface.label)}"
+                             onerror="this.closest('figure').remove()">
+                        <figcaption>This is what you are cleaning.</figcaption>
+                    </figure>` : ''}
 
                 <div class="fg-block fg-note" style="margin-top:12px;">
                     <strong><i class="fas fa-helmet-safety mr-2"></i>PPE:</strong>

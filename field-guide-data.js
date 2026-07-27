@@ -77,12 +77,11 @@ window.CL_GUIDE = (function () {
               id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
-                'Water nearby grass and plants at the edges first.',
                 'Test spot: normal pressure, about 3 seconds, out-of-sight corner. Etching or pitting means the pour is weak no matter how old it is — stop and soft wash instead.',
                 'Use the surface cleaner for open flatwork — it cleans evenly and leaves no wand stripes. Wand only for edges, corners and anywhere the surface cleaner will not sit flat.',
                 'Set the pressure at the machine, not by choking the trigger. Turn it down for older or softer concrete.',
                 'Pressure wash low to high. With the wand, use a wide fan tip and keep it moving — never hold it in one spot.',
-                'Rinse chemical and heavy runoff off the grass edges when done.'
+                'If you soft washed this surface first, rinse the chemical runoff off the grass edges when you finish.'
               ]
             }
           ]
@@ -133,10 +132,9 @@ window.CL_GUIDE = (function () {
               id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
-                'Water nearby grass and plants.',
                 'Test spot on a corner post.',
                 'Low pressure only, wide fan tip, wand moving continuously.',
-                'Rinse runoff off the grass.'
+                'If chemical went on this surface, rinse the runoff off the grass.'
               ]
             }
           ]
@@ -187,10 +185,9 @@ window.CL_GUIDE = (function () {
               id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
-                'Water nearby plants and grass.',
                 'Test spot on a low-visibility panel or rail. Watch for denting — thin aluminum dents easily.',
                 'Moderate pressure, wide fan tip, wand moving continuously.',
-                'Rinse runoff off the grass.'
+                'If chemical went on this surface, rinse the runoff off the grass.'
               ]
             }
           ]
@@ -236,11 +233,10 @@ window.CL_GUIDE = (function () {
             {
               id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
               steps: [
-                'Water nearby plants and grass.',
                 'Surface cleaner works well on open paver flats. Wand the edges and joints by hand.',
                 'Wide fan tip, moderate pressure — set it at the machine.',
                 'Stay off the polymeric sand joints — high pressure blows the sand out and it has to be re-sanded after.',
-                'Rinse runoff off the grass.'
+                'If chemical went on this surface, rinse the runoff off the grass.'
               ]
             }
           ]
@@ -290,9 +286,8 @@ window.CL_GUIDE = (function () {
             {
               id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
               steps: [
-                'Water nearby plants and grass below.',
                 'Moderate pressure, standard fan tip.',
-                'Rinse runoff off the grass.'
+                'If chemical went on this surface, rinse the runoff off the grass.'
               ]
             }
           ]
@@ -318,10 +313,9 @@ window.CL_GUIDE = (function () {
       id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
       prechecks: [PRECHECK.testSpot],
       steps: [
-        'Water nearby grass and plants.',
         'Test spot on the oldest mortar joints you can find. Mortar erodes before the brick face does — that is the weak point.',
         'Pressure wash low to high with a wide fan tip. Do not park the wand on a mortar line.',
-        'Rinse runoff off the grass edges.'
+        'If chemical went on this surface, rinse the runoff off the grass edges.'
       ]
     };
   }
@@ -331,7 +325,6 @@ window.CL_GUIDE = (function () {
       id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
       prechecks: [PRECHECK.woodId, PRECHECK.rot],
       steps: [
-        'Water nearby plants and grass.',
         'Confirm the wood type with the fingernail test above.',
         'Set pressure: softwood 500–800 PSI max. Hardwood up to 1,200 PSI.',
         'Wide fan tip, 30° or wider. White or green tip only — never red or yellow.',
@@ -339,7 +332,7 @@ window.CL_GUIDE = (function () {
         'Keep the tip at least 8 inches off the surface at all times.',
         'Work with the grain in even strokes. Never let the wand pause in one spot.',
         'Lift the tip 12+ inches away before changing direction, or you leave a visible line in the wood.',
-        'Rinse runoff off nearby plants and grass.'
+        'If chemical went on this surface, rinse the runoff off nearby plants and grass.'
       ],
       stop: 'If the rot check failed anywhere — soft wash only on that section, and flag it to the client and Parker. It may be a repair job, not a cleaning job.'
     };
@@ -394,9 +387,9 @@ window.CL_GUIDE = (function () {
       body: 'Never let chemical or dirt sit longer than instructed. Chemical left too long etches and discolors. Dirt left too long re-dries and gets harder to lift.'
     },
     {
-      title: 'Water the vegetation three times',
+      title: 'Water the vegetation three times — on chemical jobs',
       icon: 'fa-seedling',
-      body: 'Before chemical, right after chemical goes on, and after the final rinse. It is built into every soft wash sequence — you should not have to remember it separately.'
+      body: 'Before chemical, right after chemical goes on, and after the final rinse. It is built into every soft wash sequence. A pressure wash is water only, so there is nothing to protect the plants from — no pre-watering needed unless you soft washed the same surface first.'
     },
     {
       title: 'Soft wash is not damage-proof',
