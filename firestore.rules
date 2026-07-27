@@ -191,6 +191,22 @@ service cloud.firestore {
                 || (isCrew()
                   && (resource.data.createdBy == uid() || isAssignedWorker()))));
 
+      // Lightweight update: a write that does NOT change access/crew/owner
+      // fields (e.g. Confirm assignment, status, notes) is allowed for
+      // anyone already on the job, without re-proving accessUidsConsistent().
+      // This is what powers worker "Confirm assignment": the worker is in
+      // the job's accessUids (so they can read it) but a diverged/legacy
+      // assignedWorkers or a stale extra accessUids entry would otherwise
+      // fail the strict branch above. Requiring every access field to be
+      // UNCHANGED prevents this line from ever widening read access.
+      allow update: if signedIn()
+        && request.resource.data.accessUids == resource.data.accessUids
+        && request.resource.data.assignedWorkers == resource.data.assignedWorkers
+        && request.resource.data.assignedManager == resource.data.assignedManager
+        && request.resource.data.createdBy == resource.data.createdBy
+        && ((isManager() && resource.data.assignedManager == uid())
+            || (isCrew() && (resource.data.createdBy == uid() || uid() in resource.data.accessUids)));
+
       allow delete: if isOwner();
     }
 
