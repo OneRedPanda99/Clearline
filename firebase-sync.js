@@ -1026,7 +1026,6 @@ const CL_FIREBASE = (function() {
         toAuthEmail,
         USERNAME_EMAIL_SUFFIX,
         can,
-        updateJobDoc,
         get isSignedIn() { return !!getCurrentUser(); },
         get user() { return getUserInfo(); },
         get role() { return userProfile ? userProfile.role : null; },
