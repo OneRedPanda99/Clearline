@@ -250,6 +250,21 @@ var CL_DATA = {
         return null;
     },
     
+    // Update a job (local only — does NOT trigger cloud sync). Used by
+    // Confirm/Unconfirm so the cloud write goes through CL_FIREBASE.updateJobDoc
+    // (a targeted, rule-safe update) instead of a full-job syncToCloud merge
+    // that can trip the jobs update rule.
+    updateJobLocal(id, updates) {
+        const jobs = this.getJobs();
+        const index = jobs.findIndex(j => j.id === id);
+        if (index >= 0) {
+            jobs[index] = { ...jobs[index], ...updates, lastUpdated: new Date().toISOString() };
+            this.saveJobs(jobs, { skipSync: true });
+            return jobs[index];
+        }
+        return null;
+    },
+
     // Update a job
     updateJob(id, updates) {
         const jobs = this.getJobs();

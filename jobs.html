@@ -9,11 +9,11 @@
     <meta name="theme-color" content="#1a1c1f">
     <title>Jobs - Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js?v=13"></script>
-    <script src="data-migration.js?v=13"></script>
-    <script src="firebase-sync.js?v=13"></script>
-    <link rel="stylesheet" href="tailwind.css?v=13">
-    <link rel="stylesheet" href="app.css?v=13">
+    <script src="utils.js?v=14"></script>
+    <script src="data-migration.js?v=14"></script>
+    <script src="firebase-sync.js?v=14"></script>
+    <link rel="stylesheet" href="tailwind.css?v=14">
+    <link rel="stylesheet" href="app.css?v=14">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -367,7 +367,7 @@
             confirmations[myUid] = { confirmedAt: new Date().toISOString(), name: (me.displayName || me.email || 'Worker') };
             const crewNames = (job.crewNames && typeof job.crewNames === 'object') ? { ...job.crewNames } : {};
             crewNames[myUid] = (me.displayName || me.email || 'Worker');
-            CL_DATA.updateJob(jobId, { crewConfirmations: confirmations, crewNames: crewNames });
+            CL_DATA.updateJobLocal(jobId, { crewConfirmations: confirmations, crewNames: crewNames });
             renderJobs();
             if (fb && fb.isSignedIn) {
                 // Targeted update — only crewConfirmations/crewNames/lastUpdated
@@ -392,7 +392,7 @@
             if (!myUid) { showToast('Sign in to unconfirm', 'error'); return; }
             const confirmations = (job.crewConfirmations && typeof job.crewConfirmations === 'object') ? { ...job.crewConfirmations } : {};
             delete confirmations[myUid];
-            CL_DATA.updateJob(jobId, { crewConfirmations: confirmations });
+            CL_DATA.updateJobLocal(jobId, { crewConfirmations: confirmations });
             renderJobs();
             if (fb && fb.isSignedIn) {
                 fb.updateJobDoc(jobId, { crewConfirmations: confirmations })
