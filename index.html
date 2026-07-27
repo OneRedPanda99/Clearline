@@ -598,7 +598,11 @@
 
             const can = (flag) => isOwner || isManager || perms[flag] === true;
             show('newLead', can('canCreateJobs'));
-            show('newEstimate', isOwner || isManager || perms.isEstimator === true || perms.canUseEstimateForm === true);
+            // Mirrors perm("canUseEstimateForm") in firestore.rules exactly:
+            // only the Owner is blanket-allowed. A manager without the flag
+            // would otherwise see the button and eat a permission-denied on
+            // save. (isEstimator was dropped — nothing sets that flag.)
+            show('newEstimate', isOwner || perms.canUseEstimateForm === true);
             show('newCustomer', can('canCreateCustomers'));
 
             const anyCreate = [...document.querySelectorAll('#newSheet a')].some(a => !a.classList.contains('hidden'));
