@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1a1c1f">
+    <title>Field Guide - Clearline</title>
+    <script src="config.js"></script>
+    <script src="utils.js?v=10"></script>
+    <script src="field-guide-data.js?v=10"></script>
+    <link rel="stylesheet" href="tailwind.css?v=10">
+    <link rel="stylesheet" href="app.css?v=10">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Read at arm's length, in the sun, with wet gloves on. Type is
+           deliberately larger than the rest of the app and tap targets are
+           oversized — this screen is used standing up, not sitting down. */
+        .fg-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+        }
+        .fg-tile {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-height: 116px;
+            padding: 16px 10px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.16);
+            background: rgba(255,255,255,0.05);
+            color: #f1f5f9;
+            font-size: 17px;
+            font-weight: 700;
+            text-align: center;
+            line-height: 1.2;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .fg-tile i { font-size: 30px; color: #38bdf8; }
+        .fg-tile:active { background: rgba(56,189,248,0.16); }
+
+        .fg-crumb {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin: 0 0 10px;
+        }
+        .fg-h1 { font-size: 26px; font-weight: 800; margin: 0 0 4px; line-height: 1.15; }
+
+        .fg-block {
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            font-size: 16px;
+            line-height: 1.45;
+        }
+        /* Loud enough that you cannot scroll past it to reach step 1. */
+        .fg-precheck {
+            border: 2px solid #f59e0b;
+            background: rgba(245,158,11,0.14);
+            color: #fde68a;
+        }
+        .fg-precheck h3 { font-size: 19px; font-weight: 800; margin: 0 0 6px; color: #fbbf24; }
+        .fg-never {
+            border: 2px solid #f87171;
+            background: rgba(248,113,113,0.14);
+            color: #fecaca;
+            font-weight: 600;
+        }
+        .fg-stop {
+            border: 2px solid #f87171;
+            background: rgba(248,113,113,0.14);
+            color: #fecaca;
+            font-weight: 700;
+        }
+        .fg-note {
+            border: 1px solid rgba(255,255,255,0.16);
+            background: rgba(255,255,255,0.04);
+            color: #cbd5e1;
+        }
+
+        .fg-mix {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .fg-mix-card {
+            flex: 1;
+            border-radius: 14px;
+            border: 1px solid rgba(56,189,248,0.4);
+            background: rgba(56,189,248,0.12);
+            padding: 12px;
+            text-align: center;
+        }
+        .fg-mix-card .k {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #7dd3fc;
+            margin: 0 0 4px;
+        }
+        .fg-mix-card .v { font-size: 24px; font-weight: 800; color: #f1f5f9; margin: 0; }
+
+        .fg-step {
+            display: flex;
+            gap: 14px;
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .fg-step:last-child { border-bottom: 0; }
+        .fg-step-n {
+            flex-shrink: 0;
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            background: #38bdf8;
+            color: #06263a;
+            font-weight: 800;
+            font-size: 17px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .fg-step-t { font-size: 17px; line-height: 1.42; color: #e2e8f0; }
+
+        .fg-timer {
+            border-radius: 14px;
+            border: 1px solid rgba(56,189,248,0.4);
+            background: rgba(56,189,248,0.1);
+            padding: 14px;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        .fg-timer-v {
+            font-size: 42px;
+            font-weight: 800;
+            color: #38bdf8;
+            line-height: 1;
+            margin: 6px 0 10px;
+            font-variant-numeric: tabular-nums;
+        }
+        .fg-timer.done { border-color: #4ade80; background: rgba(74,222,128,0.14); }
+        .fg-timer.done .fg-timer-v { color: #4ade80; }
+
+        .fg-call {
+            position: sticky;
+            bottom: calc(var(--safe-bottom, 0px) + 12px);
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+            z-index: 20;
+        }
+        .fg-call a {
+            flex: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 54px;
+            border-radius: 14px;
+            font-size: 17px;
+            font-weight: 700;
+            text-decoration: none;
+            background: #2563eb;
+            color: #fff;
+        }
+        .fg-call a.alt { background: rgba(255,255,255,0.08); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.18); }
+
+        .fg-safety-item { border-bottom: 1px solid rgba(255,255,255,0.08); padding: 14px 0; }
+        .fg-safety-item:last-child { border-bottom: 0; }
+        .fg-safety-item h3 { font-size: 18px; font-weight: 800; margin: 0 0 6px; color: #f1f5f9; }
+        .fg-safety-item.danger h3 { color: #fca5a5; }
+        .fg-safety-item p { font-size: 16px; line-height: 1.45; color: #cbd5e1; margin: 0; }
+        .fg-safety-item ul { margin: 10px 0 0 18px; }
+        .fg-safety-item li { font-size: 15px; line-height: 1.45; color: #cbd5e1; margin-bottom: 6px; }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <div class="app-header-inner app-header-inner--split">
+            <div class="app-header-wing">
+                <button type="button" class="header-tool-btn" id="fgBack" aria-label="Back"><i class="fas fa-chevron-left"></i></button>
+            </div>
+            <div class="app-header-center"><h1 id="fgTitle">Field Guide</h1></div>
+            <div class="app-header-wing app-header-wing--end">
+                <button type="button" class="header-tool-btn" onclick="showSafety()" aria-label="Safety"><i class="fas fa-triangle-exclamation"></i></button>
+            </div>
+        </div>
+    </header>
+
+    <main class="app-content">
+        <div class="content-wrapper" id="fgBody"></div>
+    </main>
+
+    <nav class="tab-bar"></nav>
+
+    <script>
+        const G = window.CL_GUIDE;
+        // Screen state lives in the URL hash so the back arrow, the phone's
+        // own back gesture, and a reload all land in the same place.
+        let timerId = null;
+
+        function phone() {
+            const p = (window.CL_CONFIG && CL_CONFIG.phone) || '';
+            return p.replace(/\D/g, '');
+        }
+
+        function callBar() {
+            const d = phone();
+            if (!d) return '';
+            return `
+                <div class="fg-call">
+                    <a href="tel:${d}"><i class="fas fa-phone"></i> Call Parker</a>
+                    <a class="alt" href="sms:${d}"><i class="fas fa-comment-dots"></i> Text</a>
+                </div>`;
+        }
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        }
+
+        function go(hash) { window.location.hash = hash; }
+
+        // ── Screen 1: materials ─────────────────────────────────────
+        function screenMaterials() {
+            document.getElementById('fgTitle').textContent = 'Field Guide';
+            return `
+                <p class="fg-crumb">What are you cleaning?</p>
+                <div class="fg-grid">
+                    ${G.MATERIALS.map(m => `
+                        <button type="button" class="fg-tile" onclick="go('#/${m.id}')">
+                            <i class="fas ${m.icon}" aria-hidden="true"></i>
+                            <span>${esc(m.label)}</span>
+                        </button>`).join('')}
+                </div>
+                <button type="button" class="fg-tile" style="width:100%;margin-top:12px;min-height:64px;flex-direction:row;"
+                        onclick="showPrejob()">
+                    <i class="fas fa-clipboard-check" aria-hidden="true"></i>
+                    <span>Before you start — pre-job checks</span>
+                </button>
+                ${callBar()}`;
+        }
+
+        // ── Screen 2: surfaces ──────────────────────────────────────
+        function screenSurfaces(material) {
+            document.getElementById('fgTitle').textContent = material.label;
+            return `
+                <p class="fg-crumb">${esc(material.label)}</p>
+                <p class="fg-h1">Which surface?</p>
+                <div class="fg-grid" style="margin-top:14px;">
+                    ${material.surfaces.map((s, i) => `
+                        <button type="button" class="fg-tile" onclick="go('#/${material.id}/${i}')">
+                            <i class="fas ${material.icon}" aria-hidden="true"></i>
+                            <span>${esc(s.label)}</span>
+                        </button>`).join('')}
+                </div>
+                ${callBar()}`;
+        }
+
+        // ── Screen 3: method ────────────────────────────────────────
+        // Only methods that exist in the data are rendered. A method that
+        // would wreck the surface is absent, not disabled — there is no
+        // button to mis-tap.
+        function screenMethods(material, surface, mi, si) {
+            document.getElementById('fgTitle').textContent = surface.label;
+            return `
+                <p class="fg-crumb">${esc(material.label)} · ${esc(surface.label)}</p>
+                <p class="fg-h1">How are you cleaning it?</p>
+                ${surface.warn ? `<div class="fg-block fg-never" style="margin-top:12px;"><i class="fas fa-ban mr-2"></i>${esc(surface.warn)}</div>` : ''}
+                <div class="fg-grid" style="margin-top:14px;">
+                    ${surface.methods.map((m, k) => `
+                        <button type="button" class="fg-tile" onclick="go('#/${mi}/${si}/${k}')">
+                            <i class="fas ${m.icon}" aria-hidden="true"></i>
+                            <span>${esc(m.label)}</span>
+                        </button>`).join('')}
+                    <button type="button" class="fg-tile" onclick="showUnsure()">
+                        <i class="fas fa-circle-question" aria-hidden="true"></i>
+                        <span>Not sure — ask Parker</span>
+                    </button>
+                </div>
+                ${callBar()}`;
+        }
+
+        // ── Screen 4: instructions ──────────────────────────────────
+        function screenSteps(material, surface, method) {
+            document.getElementById('fgTitle').textContent = method.label;
+            const ratio = method.ratio;
+            return `
+                <p class="fg-crumb">${esc(material.label)} · ${esc(surface.label)}</p>
+                <p class="fg-h1">${esc(method.label)}</p>
+
+                <div class="fg-block fg-note" style="margin-top:12px;">
+                    <strong><i class="fas fa-helmet-safety mr-2"></i>PPE:</strong>
+                    gloves, mask, goggles, long sleeves, long pants, boots. No exposed skin.
+                </div>
+
+                ${surface.warn ? `<div class="fg-block fg-never"><i class="fas fa-ban mr-2"></i>${esc(surface.warn)}</div>` : ''}
+                ${surface.before ? `<div class="fg-block fg-precheck"><h3>Before you start</h3>${esc(surface.before)}</div>` : ''}
+
+                ${(method.prechecks || []).map(p => `
+                    <div class="fg-block fg-precheck">
+                        <h3><i class="fas fa-triangle-exclamation mr-2"></i>${esc(p.title)}</h3>
+                        ${esc(p.body)}
+                    </div>`).join('')}
+
+                ${ratio ? `
+                    <div class="fg-mix">
+                        <div class="fg-mix-card"><p class="k">Mix</p><p class="v">${esc(ratio.sh)}</p></div>
+                        <div class="fg-mix-card"><p class="k">Dwell</p><p class="v">${esc(ratio.dwell)}</p></div>
+                    </div>
+                    <div class="fg-timer" id="fgTimer">
+                        <p class="k" style="font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#7dd3fc;margin:0;">Dwell timer</p>
+                        <p class="fg-timer-v" id="fgTimerV">${fmt(ratio.dwellSec)}</p>
+                        <button type="button" class="btn-primary" style="width:100%;" id="fgTimerBtn"
+                                onclick="toggleTimer(${ratio.dwellSec})">Start timer</button>
+                    </div>` : ''}
+
+                ${method.note ? `<div class="fg-block fg-note">${esc(method.note)}</div>` : ''}
+
+                <div style="margin-top:6px;">
+                    ${method.steps.map((s, i) => `
+                        <div class="fg-step">
+                            <div class="fg-step-n">${i + 1}</div>
+                            <div class="fg-step-t">${esc(s)}</div>
+                        </div>`).join('')}
+                </div>
+
+                ${method.stop ? `<div class="fg-block fg-stop" style="margin-top:14px;"><i class="fas fa-hand mr-2"></i>${esc(method.stop)}</div>` : ''}
+
+                <div class="fg-block fg-note" style="margin-top:14px;">
+                    <strong>Old chemical is weaker chemical.</strong> Check the mix date. More than a couple of weeks old — go to the higher end of the range and test spot first.
+                </div>
+                ${callBar()}`;
+        }
+
+        function fmt(sec) {
+            const m = Math.floor(sec / 60), s = sec % 60;
+            return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        }
+
+        function toggleTimer(seconds) {
+            const box = document.getElementById('fgTimer');
+            const val = document.getElementById('fgTimerV');
+            const btn = document.getElementById('fgTimerBtn');
+            if (timerId) {
+                clearInterval(timerId); timerId = null;
+                btn.textContent = 'Start timer';
+                val.textContent = fmt(seconds);
+                box.classList.remove('done');
+                return;
+            }
+            let left = seconds;
+            val.textContent = fmt(left);
+            btn.textContent = 'Reset';
+            box.classList.remove('done');
+            timerId = setInterval(() => {
+                left--;
+                val.textContent = fmt(Math.max(0, left));
+                if (left <= 0) {
+                    clearInterval(timerId); timerId = null;
+                    box.classList.add('done');
+                    val.textContent = 'RINSE NOW';
+                    btn.textContent = 'Reset';
+                    try { navigator.vibrate && navigator.vibrate([400, 150, 400]); } catch (e) {}
+                    showToast('Dwell time is up — rinse now');
+                }
+            }, 1000);
+        }
+
+        function showSafety() {
+            stopTimer();
+            document.getElementById('fgTitle').textContent = 'Safety';
+            document.getElementById('fgBody').innerHTML = `
+                <p class="fg-crumb">Read before every job</p>
+                <div>
+                    ${G.SAFETY.map(s => `
+                        <div class="fg-safety-item ${s.danger ? 'danger' : ''}">
+                            <h3><i class="fas ${s.icon} mr-2"></i>${esc(s.title)}</h3>
+                            <p>${esc(s.body)}</p>
+                            ${s.rules ? `<ul>${s.rules.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+                        </div>`).join('')}
+                </div>
+                ${callBar()}`;
+            window.scrollTo(0, 0);
+        }
+
+        function showPrejob() {
+            stopTimer();
+            document.getElementById('fgTitle').textContent = 'Pre-job checks';
+            document.getElementById('fgBody').innerHTML = `
+                <p class="fg-crumb">Before any chemical comes out</p>
+                <div>
+                    ${G.PREJOB.map((p, i) => `
+                        <div class="fg-step">
+                            <div class="fg-step-n">${i + 1}</div>
+                            <div class="fg-step-t">${esc(p)}</div>
+                        </div>`).join('')}
+                </div>
+                ${callBar()}`;
+            window.scrollTo(0, 0);
+        }
+
+        function showUnsure() {
+            stopTimer();
+            document.getElementById('fgTitle').textContent = 'Ask Parker';
+            document.getElementById('fgBody').innerHTML = `
+                <p class="fg-h1" style="margin-top:10px;">Don't guess.</p>
+                <div class="fg-block fg-note" style="margin-top:12px;">
+                    If you can't tell which method this surface takes, stop and ask.
+                    A five minute phone call is cheaper than a re-side, a re-stain,
+                    or a warranty claim.
+                </div>
+                ${callBar()}`;
+            window.scrollTo(0, 0);
+        }
+
+        function stopTimer() {
+            if (timerId) { clearInterval(timerId); timerId = null; }
+        }
+
+        function render() {
+            stopTimer();
+            const parts = (window.location.hash || '').replace(/^#\/?/, '').split('/').filter(Boolean);
+            const body = document.getElementById('fgBody');
+
+            if (!parts.length) { body.innerHTML = screenMaterials(); window.scrollTo(0, 0); return; }
+
+            const mi = G.MATERIALS.findIndex(m => m.id === parts[0]);
+            const material = mi >= 0 ? G.MATERIALS[mi] : null;
+            if (!material) { go(''); return; }
+
+            if (parts.length === 1) { body.innerHTML = screenSurfaces(material); window.scrollTo(0, 0); return; }
+
+            const si = parseInt(parts[1], 10);
+            const surface = material.surfaces[si];
+            if (!surface) { go('#/' + material.id); return; }
+
+            if (parts.length === 2) {
+                // One valid method means there is no choice to make — skip
+                // straight to the instructions.
+                if (surface.methods.length === 1) {
+                    body.innerHTML = screenSteps(material, surface, surface.methods[0]);
+                } else {
+                    body.innerHTML = screenMethods(material, surface, material.id, si);
+                }
+                window.scrollTo(0, 0);
+                return;
+            }
+
+            const method = surface.methods[parseInt(parts[2], 10)];
+            if (!method) { go('#/' + material.id + '/' + si); return; }
+            body.innerHTML = screenSteps(material, surface, method);
+            window.scrollTo(0, 0);
+        }
+
+        function goBack() {
+            const parts = (window.location.hash || '').replace(/^#\/?/, '').split('/').filter(Boolean);
+            if (!parts.length) { window.location.href = 'index.html'; return; }
+            parts.pop();
+            // A single-method surface skipped the method screen on the way
+            // in, so skip it on the way out too.
+            if (parts.length === 2) {
+                const m = G.MATERIALS.find(x => x.id === parts[0]);
+                const s = m && m.surfaces[parseInt(parts[1], 10)];
+                if (s && s.methods.length === 1) parts.pop();
+            }
+            go(parts.length ? '#/' + parts.join('/') : '');
+            if (!parts.length) render();
+        }
+
+        window.addEventListener('hashchange', render);
+        document.addEventListener('DOMContentLoaded', () => {
+            setActiveNav();
+            document.getElementById('fgBack').addEventListener('click', goBack);
+            render();
+        });
+    </script>
+</body>
+</html>
