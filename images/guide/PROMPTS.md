@@ -39,12 +39,24 @@ better at tile size — decide per image once a few are in.
 
 `aspect_ratio: "4:3"`.
 
-## Status
+## Filenames
 
-| Asset | File | State |
+`field-guide-data.js` references these by name. Drop the file in this folder
+and it appears; leave it missing and the tile falls back to an icon. Nothing
+else to wire.
+
+| Surface | File | State |
 |---|---|---|
-| Trim / Fascia diagram | `fascia-diagram.png` | **Done** — arrows read FASCIA / SOFFIT / GUTTER / TRIM |
-| Everything else | — | Not generated (out of credits 2026-07-27) |
+| Trim / Fascia (labelled diagram) | `fascia-diagram.png` | In repo |
+| Concrete — Driveway | `concrete-driveway.jpg` | Wired, awaiting file |
+| Brick — House Siding | `brick-siding.jpg` | Wired, awaiting file |
+| Vinyl — House Siding | `vinyl-siding.jpg` | Wired, awaiting file |
+| Wood — House Siding | `wood-siding.jpg` | Wired, awaiting file |
+| Stucco — House Siding | `stucco-siding.jpg` | Wired, awaiting file |
+| Remaining 33 surfaces + 12 material tiles | — | Not generated |
+
+Tiles crop square from the centre of the photo, so frame the surface centrally
+and let the scenery sit at the edges.
 
 ## To generate
 

@@ -70,6 +70,7 @@ window.CL_GUIDE = (function () {
       surfaces: ['Driveway', 'Sidewalk', 'Patio', 'Pool Deck', 'Garage Floor'].map(function (name) {
         return {
           label: name,
+          img: name === 'Driveway' ? 'concrete-driveway.jpg' : undefined,
           before: 'Confirm with the client: was this poured more than 30 days ago? If it is recent or they are unsure — soft wash only.',
           methods: [
             soft(RATIOS.medium),
@@ -93,6 +94,7 @@ window.CL_GUIDE = (function () {
       surfaces: [
         {
           label: 'House Siding',
+          img: 'brick-siding.jpg',
           warn: 'Never pressure wash brick on a house wall.',
           methods: [soft(RATIOS.medium)]
         },
@@ -116,6 +118,7 @@ window.CL_GUIDE = (function () {
       surfaces: [
         {
           label: 'House Siding',
+          img: 'vinyl-siding.jpg',
           warn: 'Never pressure wash vinyl siding. Pressure forces water behind the panels and can blow them off the wall.',
           methods: [soft(RATIOS.light, {
             overrides: {
@@ -153,6 +156,7 @@ window.CL_GUIDE = (function () {
         { label: 'Fence', methods: [soft(RATIOS.light), woodPressure()] },
         {
           label: 'House Siding',
+          img: 'wood-siding.jpg',
           warn: 'Wood siding on a wall gets the same rule as vinyl and stucco. Never pressure wash it.',
           methods: [soft(RATIOS.light)]
         },
@@ -164,6 +168,7 @@ window.CL_GUIDE = (function () {
       surfaces: ['House Siding', 'Retaining Wall'].map(function (name) {
         return {
           label: name,
+          img: name === 'House Siding' ? 'stucco-siding.jpg' : undefined,
           warn: 'Never pressure wash stucco. It is porous — pressure drives water into the wall.',
           methods: [soft(RATIOS.medium, {
             overrides: {
