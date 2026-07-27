@@ -59,6 +59,7 @@ window.CL_GUIDE = (function () {
     id: 'soft',
     label: 'Soft Wash',
     icon: 'fa-spray-can-sparkles',
+    iconImg: 'method-water-jet.png',
     when: SOFT_WHEN,
     ratio: ratio,
     steps: softSteps(ratio, (extra || {}).overrides)
@@ -74,7 +75,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.medium),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
                 'Test spot: normal pressure, about 3 seconds, out-of-sight corner. Etching or pitting means the pour is weak no matter how old it is — stop and soft wash instead.',
@@ -129,7 +130,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.light),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
                 'Test spot on a corner post.',
@@ -182,7 +183,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.light),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
                 'Test spot on a low-visibility panel or rail. Watch for denting — thin aluminum dents easily.',
@@ -231,7 +232,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.medium),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
               steps: [
                 'Surface cleaner works well on open paver flats. Wand the edges and joints by hand.',
                 'Wide fan tip, moderate pressure — set it at the machine.',
@@ -285,7 +286,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.medium),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
               steps: [
                 'Moderate pressure, standard fan tip.',
                 'If chemical went on this surface, rinse the runoff off the grass.'
@@ -311,7 +312,7 @@ window.CL_GUIDE = (function () {
 
   function brickPressure() {
     return {
-      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
+      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
       prechecks: [PRECHECK.testSpot],
       steps: [
         'Test spot on the oldest mortar joints you can find. Mortar erodes before the brick face does — that is the weak point.',
@@ -323,7 +324,7 @@ window.CL_GUIDE = (function () {
 
   function woodPressure() {
     return {
-      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
+      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
       prechecks: [PRECHECK.woodId, PRECHECK.rot],
       steps: [
         'Confirm the wood type with the fingernail test above.',

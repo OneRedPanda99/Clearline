@@ -43,6 +43,12 @@
             font-family: inherit;
         }
         .fg-tile i { font-size: 30px; color: #38bdf8; }
+        .fg-method-icon {
+            height: 40px;
+            width: auto;
+            object-fit: contain;
+            display: block;
+        }
         .fg-art {
             width: 100%;
             height: 84px;
@@ -335,7 +341,7 @@
                 <div class="fg-grid" style="margin-top:14px;">
                     ${surface.methods.map((m, k) => `
                         <button type="button" class="fg-tile fg-tile--wide" onclick="go('#/${mi}/${si}/${k}')">
-                            <i class="fas ${m.icon}" aria-hidden="true"></i>
+                            <i class="fas ${m.icon}" aria-hidden="true"></i>${m.iconImg ? `<img src="images/guide/${m.iconImg}" alt="" class="fg-method-icon" loading="lazy" onerror="this.remove()">` : ''}
                             <span>${esc(m.label)}</span>
                             ${m.when ? `<small class="fg-when">${esc(m.when)}</small>` : ''}
                         </button>`).join('')}
