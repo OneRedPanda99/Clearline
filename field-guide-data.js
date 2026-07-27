@@ -248,6 +248,7 @@ window.CL_GUIDE = (function () {
       surfaces: ['Trim / Fascia', 'Painted Brick', 'Painted Wood Siding'].map(function (name) {
         return {
           label: name,
+          diagram: name === 'Trim / Fascia' ? 'fascia-diagram.png' : undefined,
           warn: 'Never pressure wash anything painted. Pressure strips paint even at moderate settings, whatever is underneath it.',
           methods: [soft(RATIOS.light)]
         };
