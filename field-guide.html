@@ -123,6 +123,29 @@
             color: #fecaca;
             font-weight: 700;
         }
+        /* An upsell, not step 10 — different colour, own border, clearly
+           bracketed off from the numbered clean. */
+        .fg-optional {
+            margin-top: 18px;
+            border: 2px dashed rgba(74, 222, 128, 0.5);
+            background: rgba(74, 222, 128, 0.07);
+            border-radius: 14px;
+            padding: 14px 16px;
+        }
+        .fg-optional h3 {
+            font-size: 19px;
+            font-weight: 800;
+            margin: 0 0 4px;
+            color: #4ade80;
+        }
+        .fg-optional-when {
+            font-size: 15px;
+            line-height: 1.45;
+            color: #cbd5e1;
+            margin: 0 0 6px;
+        }
+        .fg-step-n--opt { background: #4ade80; color: #052e16; }
+
         .fg-note {
             border: 1px solid rgba(255,255,255,0.16);
             background: rgba(255,255,255,0.04);
@@ -395,6 +418,12 @@
                                 onclick="toggleTimer(${ratio.dwellSec})">Start timer</button>
                     </div>` : ''}
 
+                ${method.exception ? `
+                    <div class="fg-block fg-precheck">
+                        <h3><i class="fas fa-flask mr-2"></i>${esc(method.exception.title)}</h3>
+                        ${esc(method.exception.body)}
+                    </div>` : ''}
+
                 ${method.note ? `<div class="fg-block fg-note">${esc(method.note)}</div>` : ''}
 
                 <div style="margin-top:6px;">
@@ -404,6 +433,17 @@
                             <div class="fg-step-t">${esc(s)}</div>
                         </div>`).join('')}
                 </div>
+
+                ${method.optional ? `
+                    <div class="fg-optional">
+                        <h3><i class="fas fa-plus mr-2"></i>${esc(method.optional.title)}</h3>
+                        <p class="fg-optional-when">${esc(method.optional.when)}</p>
+                        ${method.optional.steps.map((t, i) => `
+                            <div class="fg-step">
+                                <div class="fg-step-n fg-step-n--opt">${i + 1}</div>
+                                <div class="fg-step-t">${esc(t)}</div>
+                            </div>`).join('')}
+                    </div>` : ''}
 
                 ${method.stop ? `<div class="fg-block fg-stop" style="margin-top:14px;"><i class="fas fa-hand mr-2"></i>${esc(method.stop)}</div>` : ''}
 

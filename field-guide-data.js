@@ -39,14 +39,37 @@ window.CL_GUIDE = (function () {
       title: 'Test spot required',
       body: 'Pick an out-of-sight corner and run your normal pressure for about 3 seconds. If the surface etches, pits, or the top layer lifts — stop. Drop to soft wash, or lower the pressure and widen the tip, then re-test.'
     },
+    startLow: {
+      title: 'Start at the low end. Always.',
+      body: 'Begin at the bottom of the pressure range and the bottom of the SH range unless the wood is confirmed otherwise by the fingernail test, its weight, or a job you have done before. Stepping up after a test spot is easy. You cannot undo damage from starting too strong. This applies to PSI and to chemical strength.'
+    },
     woodId: {
       title: 'Identify the wood first',
-      body: 'Press your fingernail hard into a crisp edge. Leaves a dent = softwood (500–800 PSI max). Barely marks it = hardwood (up to 1,200 PSI). Pressure-treated is usually treated softwood — do not assume it takes more. Not sure? Treat it as softwood.'
+      body: 'Fingernail: press hard into a crisp edge. Leaves a dent = softwood (500–800 PSI max). Barely marks it = hardwood (up to 1,200 PSI). '
+        + 'Weight: hardwoods like ipe, teak and cumaru feel noticeably heavy and dense next to pressure-treated pine. '
+        + 'Colour: PT is greenish when new and greys with age, cedar is reddish-brown, tropical hardwoods run dark brown to near-black. '
+        + 'Smell: cedar has a distinct aromatic smell, strongest when damp — the quickest way to tell cedar from pine. '
+        + 'Pressure-treated is treated softwood, not hardwood. Not sure after all four? Treat it as softwood, or drop to soft wash — pressure is the higher-risk method on wood.'
     },
     rot: {
       title: 'Check for rot first',
       body: 'Walk it and feel for spots that give or feel spongy. Look for dark patches, cracking, crumbling, musty smell or fungus. Press a screwdriver into anything suspicious — if it sinks in or crumbles instead of splintering, that section is rotted. Soft wash only, and flag it.'
     }
+  };
+
+  // Brightening is a chemistry step that happens AFTER the wood is clean and
+  // is quoted separately. Kept out of the numbered steps on purpose so nobody
+  // does it as a matter of course on a job that was not sold with it.
+  const WOOD_BRIGHTEN = {
+    title: 'Brighten — optional, sold separately',
+    when: 'Only if the wood shows tannin staining, grey weathering, or rust and iron streaking after cleaning. This is its own line item, not part of the wash.',
+    steps: [
+      'Mix oxalic acid 4–8 oz per gallon of warm water. 4 oz for light maintenance, 8 oz for heavy restoration.',
+      'Wet the wood first. Never apply brightener to a dry surface.',
+      'Apply and let it dwell 5–15 minutes. Do not let it dry on the wood — mist it to keep it wet if the sun is on it.',
+      'Rinse thoroughly, top to bottom, until runoff runs clear.',
+      'Let the wood dry 48–72 hours before any stain or sealer goes on. Sealing damp wood traps the moisture and the finish fails.'
+    ]
   };
 
   // Shown on the method screen so the crew picks on evidence, not vibes.
@@ -55,11 +78,25 @@ window.CL_GUIDE = (function () {
   const SOFT_WHEN = 'Lighter dirt and organic growth — mildew, algae, green film.';
   const PRESSURE_WHEN = 'Caked-on dirt and less organic buildup. Still cleans organic growth too.';
 
+  // Wood soft wash differs from siding soft wash in two ways that matter, so
+  // it gets its own builder rather than an override on the generic one.
+  function woodSoft() {
+    return Object.assign(soft(RATIOS.light), {
+      prechecks: [PRECHECK.startLow],
+      note: 'Surfactant is optional on wood, unlike siding and stucco. The film is hard to rinse fully out of porous wood, so if you are downstreaming SH straight it is fine to skip it. If you do use it, rinse extra thoroughly.',
+      exception: {
+        title: 'Raw or untreated wood? Do not use SH at the normal strength.',
+        body: 'If the wood is unfinished — no visible coating, raw grey timber, or new unstained lumber — there is no finish protecting it from the chemical. Use sodium percarbonate instead of SH. If SH is the only option on the truck, go well below the 1–2% range and test a spot first.'
+      },
+      optional: WOOD_BRIGHTEN
+    });
+  }
+
   const soft = (ratio, extra) => Object.assign({
     id: 'soft',
     label: 'Soft Wash',
     icon: 'fa-spray-can-sparkles',
-    iconImg: 'method-water-jet.png',
+    iconImg: 'method-water-jet.svg',
     when: SOFT_WHEN,
     ratio: ratio,
     steps: softSteps(ratio, (extra || {}).overrides)
@@ -75,7 +112,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.medium),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
                 'Test spot: normal pressure, about 3 seconds, out-of-sight corner. Etching or pitting means the pour is weak no matter how old it is — stop and soft wash instead.',
@@ -130,7 +167,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.light),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
                 'Test spot on a corner post.',
@@ -150,14 +187,14 @@ window.CL_GUIDE = (function () {
     {
       id: 'wood', label: 'Wood', icon: 'fa-tree',
       surfaces: [
-        { label: 'Deck', methods: [soft(RATIOS.light), woodPressure()] },
-        { label: 'Fence', methods: [soft(RATIOS.light), woodPressure()] },
+        { label: 'Deck', methods: [woodSoft(), woodPressure()] },
+        { label: 'Fence', methods: [woodSoft(), woodPressure()] },
         {
           label: 'House Siding',
           warn: 'Wood siding on a wall gets the same rule as vinyl and stucco. Never pressure wash it.',
-          methods: [soft(RATIOS.light)]
+          methods: [woodSoft()]
         },
-        { label: 'Pergola', methods: [soft(RATIOS.light), woodPressure()] }
+        { label: 'Pergola', methods: [woodSoft(), woodPressure()] }
       ]
     },
     {
@@ -183,7 +220,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.light),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
                 'Test spot on a low-visibility panel or rail. Watch for denting — thin aluminum dents easily.',
@@ -232,7 +269,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.medium),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
               steps: [
                 'Surface cleaner works well on open paver flats. Wand the edges and joints by hand.',
                 'Wide fan tip, moderate pressure — set it at the machine.',
@@ -286,7 +323,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.medium),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
               steps: [
                 'Moderate pressure, standard fan tip.',
                 'If chemical went on this surface, rinse the runoff off the grass.'
@@ -312,7 +349,7 @@ window.CL_GUIDE = (function () {
 
   function brickPressure() {
     return {
-      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
+      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
       prechecks: [PRECHECK.testSpot],
       steps: [
         'Test spot on the oldest mortar joints you can find. Mortar erodes before the brick face does — that is the weak point.',
@@ -324,11 +361,11 @@ window.CL_GUIDE = (function () {
 
   function woodPressure() {
     return {
-      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.png', when: PRESSURE_WHEN,
-      prechecks: [PRECHECK.woodId, PRECHECK.rot],
+      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', iconImg: 'method-pressure-gauge.svg', when: PRESSURE_WHEN,
+      prechecks: [PRECHECK.startLow, PRECHECK.woodId, PRECHECK.rot],
       steps: [
-        'Confirm the wood type with the fingernail test above.',
-        'Set pressure: softwood 500–800 PSI max. Hardwood up to 1,200 PSI.',
+        'Confirm the wood type using all four checks above — nail, weight, colour, smell.',
+        'Set pressure at the LOW end for that wood: softwood start at 500 PSI (800 absolute max). Hardwood start well under 1,200 PSI.',
         'Wide fan tip, 30° or wider. White or green tip only — never red or yellow.',
         'Test spot on an out-of-sight board before doing the whole thing.',
         'Keep the tip at least 8 inches off the surface at all times.',
@@ -336,6 +373,7 @@ window.CL_GUIDE = (function () {
         'Lift the tip 12+ inches away before changing direction, or you leave a visible line in the wood.',
         'If chemical went on this surface, rinse the runoff off nearby plants and grass.'
       ],
+      optional: WOOD_BRIGHTEN,
       stop: 'If the rot check failed anywhere — soft wash only on that section, and flag it to the client and Parker. It may be a repair job, not a cleaning job.'
     };
   }
