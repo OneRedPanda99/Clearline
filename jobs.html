@@ -9,11 +9,11 @@
     <meta name="theme-color" content="#1a1c1f">
     <title>Jobs - Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js?v=11"></script>
-    <script src="data-migration.js?v=11"></script>
-    <script src="firebase-sync.js?v=11"></script>
-    <link rel="stylesheet" href="tailwind.css?v=11">
-    <link rel="stylesheet" href="app.css?v=11">
+    <script src="utils.js?v=12"></script>
+    <script src="data-migration.js?v=12"></script>
+    <script src="firebase-sync.js?v=12"></script>
+    <link rel="stylesheet" href="tailwind.css?v=12">
+    <link rel="stylesheet" href="app.css?v=12">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -370,15 +370,19 @@
             CL_DATA.updateJob(jobId, { crewConfirmations: confirmations, crewNames: crewNames });
             renderJobs();
             if (fb && fb.isSignedIn) {
-                fb.syncToCloud();
+                // Targeted update — only crewConfirmations/crewNames/lastUpdated
+                // are sent, so the jobs update rule's accessUids/createdBy
+                // checks read the authoritative cloud values and pass.
+                fb.updateJobDoc(jobId, { crewConfirmations: confirmations, crewNames: crewNames })
+                    .then(r => { if (!r.ok && r.code) showToast('Confirm failed: ' + r.code, 'error'); })
+                    .catch(() => {});
                 if (typeof fb.logActivity === 'function') {
                     fb.logActivity('job.crew_confirmed', { entityType: 'job', entityId: jobId, entityLabel: job.customerName, message: 'confirmed assignment' });
                 }
             }
         }
         // Worker "Unconfirm" — clears this worker's confirmation (e.g. they
-        // can no longer make the job). Same write path as confirm, so the
-        // jobs update rule (assigned crew may write) already allows it.
+        // can no longer make the job). Same targeted write path as confirm.
         function unconfirmAssignment(jobId) {
             const job = jobs.find(j => j.id === jobId);
             if (!job) return;
@@ -391,7 +395,9 @@
             CL_DATA.updateJob(jobId, { crewConfirmations: confirmations });
             renderJobs();
             if (fb && fb.isSignedIn) {
-                fb.syncToCloud();
+                fb.updateJobDoc(jobId, { crewConfirmations: confirmations })
+                    .then(r => { if (!r.ok && r.code) showToast('Unconfirm failed: ' + r.code, 'error'); })
+                    .catch(() => {});
                 if (typeof fb.logActivity === 'function') {
                     fb.logActivity('job.crew_unconfirmed', { entityType: 'job', entityId: jobId, entityLabel: job.customerName, message: 'unconfirmed assignment' });
                 }

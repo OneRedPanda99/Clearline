@@ -1026,10 +1026,30 @@ const CL_FIREBASE = (function() {
         toAuthEmail,
         USERNAME_EMAIL_SUFFIX,
         can,
+        updateJobDoc,
         get isSignedIn() { return !!getCurrentUser(); },
         get user() { return getUserInfo(); },
         get role() { return userProfile ? userProfile.role : null; },
-        get permissions() { return userProfile ? Object.assign({}, userProfile.permissions) : {}; }
+        get permissions() { return userProfile ? Object.assign({}, userProfile.permissions) : {}; },
+
+        // Targeted job update — sends ONLY the given fields (no full-job
+        // merge). Used by Confirm/Unconfirm so the write can't accidentally
+        // change createdBy/accessUids/crew, which would trip the jobs update
+        // rule. The rule's accessUidsConsistent() + createdBy-unchanged
+        // checks then read the authoritative cloud values and pass.
+        async updateJobDoc(jobId, fields) {
+            if (!db || !currentUser) return { ok: false, code: 'not-ready' };
+            try {
+                await db.collection('jobs').doc(jobId).update({
+                    ...fields,
+                    lastUpdated: new Date().toISOString()
+                });
+                return { ok: true };
+            } catch (err) {
+                console.error('[CL_FIREBASE] updateJobDoc failed:', err && err.code, err && err.message);
+                return { ok: false, code: (err && err.code) || 'unknown', message: err && err.message };
+            }
+        }
     };
 })();
 
