@@ -1,49 +1,112 @@
 # Field guide artwork — generation manifest
 
-Approved style, decided 2026-07-27: **photorealistic, shot in place as the
-crew actually finds it** — a sidewalk running through grass, siding on a real
-wall — not an isolated product shot floating on white. A worker should look at
-it and think "yeah, that's what I'm cleaning," not "I think that's what this
-is."
+Approved style, decided 2026-07-27: **photorealistic, in place as the crew
+actually finds it** — a driveway meeting a garage, siding on a real wall — not
+an isolated product shot on white. A worker should look at it and think
+"yeah, that's what I'm cleaning," not "I think that's what this is."
 
 Two asset types:
 
-- **`img`** — the tile icon in the material and surface grids. Square, 1:1.
+- **`img`** — the tile in the material and surface grids. Square, 1:1. The app
+  crops square from the centre, so frame the surface centrally.
 - **`diagram`** — the large labelled image above the steps, for surfaces where
-  knowing *which part* is the hard bit (fascia vs trim vs soffit). 4:3, with
-  bold arrows and printed labels.
+  knowing *which part* is the hard bit (fascia vs trim vs soffit). 4:3, bold
+  arrows, printed labels.
 
-Filenames are referenced from `field-guide-data.js` as `img:` and `diagram:`.
-A missing file falls back to the Font Awesome glyph, so these can land one at
-a time without breaking anything.
+A missing file falls back to the Font Awesome glyph, so art can land one
+surface at a time without breaking anything.
 
-## Shared prompt template — `img`
+---
 
-> Photorealistic photograph of {SUBJECT} in place on a real residential
-> property, {ANGLE}. {DISTINGUISHING DETAIL — the thing that makes it
-> unmistakably this surface and not a similar one}. Natural daylight, shallow
-> depth of field, sharp focus on the subject, realistic materials and wear.
-> No people, no text, no watermarks.
+## Use the right model
 
-Generated with `nano_banana_pro`, `aspect_ratio: "1:1"`. Cut the background
-after approval with `remove_background`, or leave the scene if in-place reads
-better at tile size — decide per image once a few are in.
+This is the single biggest lever, and the first batch got it wrong.
 
-## Shared prompt template — `diagram`
+| Job | Model | Why |
+|---|---|---|
+| Surface photos (`img`) | **`kling_omni_image`** | Tagged photorealistic; built for realism. |
+| Labelled diagrams (`diagram`) | **`nano_banana_pro`** | The only one that reliably renders readable text. |
 
-> Photorealistic photograph of {SUBJECT} on a real house, {ANGLE}. Clean bold
+The first surface batch was generated with `nano_banana_pro`, whose own
+description is *"ultimate quality, text and diagrams."* It is a diagram model.
+That is why those images came back looking rendered rather than photographed —
+right tool for the fascia diagram, wrong tool for a brick wall.
+
+---
+
+## Feed it a real photo
+
+Every model above accepts a reference image (`medias`, role `image_references`
+for kling, `image` for the nano models). A real photo from one of our own jobs
+as reference beats any amount of prompt wording, and it makes the output look
+like *our market* — our concrete, our algae, our brick.
+
+Workflow: `media_upload` or `media_import_url` the reference, pass the returned
+`media_id` in `medias[].value`, then prompt for the framing you want.
+
+---
+
+## Why the first batch read as fake
+
+Worth naming, because these are the things to prompt against:
+
+1. **Too much background blur.** Nearly every shot had a narrow sharp band and
+   heavy bokeh everywhere else. Real jobsite photos are mostly in focus —
+   phones have small sensors and deep depth of field.
+2. **Dirt that ignores gravity.** Grime was sprinkled evenly like noise. Real
+   dirt runs *down*: streaks under seams, heavier at the bottom course, algae
+   worst on the shaded north side and where the gutter overflows.
+3. **Surfaces too new.** No caulk lines, no nail heads, no mismatched
+   replacement panel, no fading where the sun hits. Real houses are repaired.
+4. **Melted backgrounds.** In the driveway shot the neighbouring houses and the
+   garage interior dissolve into mush. Keep backgrounds simple or crop them out.
+5. **Repeating texture.** Woodgrain and stucco swirls tiled visibly. Ask for
+   irregular, non-repeating texture.
+
+---
+
+## Prompt recipe — `img`
+
+> Documentary photograph of {SUBJECT} on an ordinary suburban house,
+> {ANGLE}. Shot handheld on a phone camera, wide depth of field with the whole
+> surface in sharp focus — no background blur. Flat overcast daylight, no
+> harsh sun, no lens flare. The surface shows honest age: {WEAR — e.g. algae
+> streaking downward from the seams, heavier growth along the bottom course,
+> faint rain runoff marks, a caulk line, visible nail heads, one slightly
+> mismatched replacement piece}. Irregular non-repeating texture. Plain
+> uncluttered background. No people, no text, no watermark, no vignette.
+
+Model `kling_omni_image`, `aspect_ratio: "1:1"`, reference photo attached where
+we have one.
+
+Per-surface, swap in the detail that makes it unmistakably that surface and not
+its neighbour:
+
+- **Driveway** — meets a garage door, tyre marks, a control joint running across.
+- **Sidewalk** — runs through grass, regular slab joints, edge crumbling slightly.
+- **Vinyl siding** — corner post, J-channel, the interlocking bottom lip, gloss.
+- **Wood siding** — real knots, splits, grain raised where paint has failed.
+- **Fiber cement** — woodgrain embossing but butt joints with caulk, matte.
+- **Stucco** — irregular hand-troweled swirl, a hairline crack, window sill.
+- **Composite decking** — uniform grain, hidden fasteners, no knots.
+- **Pavers** — individual units, sand joints, slight settling out of level.
+
+## Prompt recipe — `diagram`
+
+> Documentary photograph of {SUBJECT} on a real house, {ANGLE}. Clean bold
 > black arrows point to each part with short printed labels reading exactly:
-> {LABELS}. Labels large, legible, sans-serif, high contrast. Natural
-> daylight, sharp focus, instructional reference style. No people, no
-> watermarks.
+> {LABELS}. Labels large, legible, sans-serif, high contrast. Flat overcast
+> daylight, sharp focus throughout, instructional reference style. No people,
+> no watermark.
 
-`aspect_ratio: "4:3"`.
+Model `nano_banana_pro`, `aspect_ratio: "4:3"`.
+
+---
 
 ## Filenames
 
 `field-guide-data.js` references these by name. Drop the file in this folder
-and it appears; leave it missing and the tile falls back to an icon. Nothing
-else to wire.
+and it appears.
 
 | Surface | File | State |
 |---|---|---|
@@ -55,33 +118,11 @@ else to wire.
 | Stucco — House Siding | `stucco-siding.jpg` | Wired, awaiting file |
 | Remaining 33 surfaces + 12 material tiles | — | Not generated |
 
-Tiles crop square from the centre of the photo, so frame the surface centrally
-and let the scenery sit at the edges.
+---
 
-## To generate
+## Still the best option
 
-12 material tiles: concrete, brick, vinyl, wood, stucco, metal, composite
-decking, roofing, pavers/stone, painted surfaces, glass/windows, gutters.
-
-38 surface tiles — the `surfaces` arrays in `field-guide-data.js` are the
-source of truth for the list. The ones worth extra care, because crew mix
-them up:
-
-- **Concrete driveway vs sidewalk vs patio** — sidewalk needs its joint lines
-  and a run through grass; driveway needs to meet a garage; patio needs to sit
-  against a house with furniture nearby.
-- **Brick house siding vs brick walkway** — the whole method changes between
-  them, so the images must not look alike.
-- **Vinyl siding vs wood siding vs stucco** — three "walls" that take three
-  different rules. Shoot each close enough to see the material.
-- **Composite decking vs wood decking** — composite should show the uniform
-  grain and hidden fasteners.
-- **Pavers vs stamped concrete** — pavers need visible individual units and
-  sand joints.
-
-Additional diagrams worth doing while the labelled style is set up:
-
-- Gutter exterior vs interior/downspout.
-- Deck: boards vs railings vs joists.
-- Window: glass vs frame vs seal, since chemical is allowed on one and not the
-  others.
+Real photos from our own jobs. We stand in front of every one of these
+surfaces every week, the phone in the app already takes and compresses photos
+for job records, and a real photo cannot look fake. Generation is the fallback
+for surfaces we rarely see — tile roof, storefront glass.
