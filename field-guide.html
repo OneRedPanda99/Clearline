@@ -43,6 +43,21 @@
             font-family: inherit;
         }
         .fg-tile i { font-size: 30px; color: #38bdf8; }
+        /* Method tiles carry a line of guidance, so they get a full row. */
+        .fg-tile--wide { grid-column: 1 / -1; min-height: 96px; }
+        .fg-when {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.35;
+            color: #94a3b8;
+            max-width: 34ch;
+        }
+        .fg-when-lead {
+            font-size: 16px;
+            line-height: 1.4;
+            color: #94a3b8;
+            margin: 0 0 4px;
+        }
         .fg-tile:active { background: rgba(56,189,248,0.16); }
 
         .fg-crumb {
@@ -278,9 +293,10 @@
                 ${surface.warn ? `<div class="fg-block fg-never" style="margin-top:12px;"><i class="fas fa-ban mr-2"></i>${esc(surface.warn)}</div>` : ''}
                 <div class="fg-grid" style="margin-top:14px;">
                     ${surface.methods.map((m, k) => `
-                        <button type="button" class="fg-tile" onclick="go('#/${mi}/${si}/${k}')">
+                        <button type="button" class="fg-tile fg-tile--wide" onclick="go('#/${mi}/${si}/${k}')">
                             <i class="fas ${m.icon}" aria-hidden="true"></i>
                             <span>${esc(m.label)}</span>
+                            ${m.when ? `<small class="fg-when">${esc(m.when)}</small>` : ''}
                         </button>`).join('')}
                     <button type="button" class="fg-tile" onclick="showUnsure()">
                         <i class="fas fa-circle-question" aria-hidden="true"></i>
@@ -297,6 +313,7 @@
             return `
                 <p class="fg-crumb">${esc(material.label)} · ${esc(surface.label)}</p>
                 <p class="fg-h1">${esc(method.label)}</p>
+                ${method.when ? `<p class="fg-when-lead">${esc(method.when)}</p>` : ''}
 
                 <div class="fg-block fg-note" style="margin-top:12px;">
                     <strong><i class="fas fa-helmet-safety mr-2"></i>PPE:</strong>

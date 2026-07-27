@@ -23,7 +23,7 @@ window.CL_GUIDE = (function () {
     const o = overrides || {};
     return [
       o.s1 || 'Water all nearby plants and grass. Do this before any chemical — a dry plant drinks chemical faster than a wet one.',
-      o.s2 || 'Cover or move anything the chemical should not touch. A/C units, light fixtures, vehicles, furniture.',
+      o.s2 || 'Move or cover what the chemical should not touch: light fixtures, vehicles, furniture. NEVER cover the A/C unit — shut it off and rinse it instead (see Safety).',
       o.s3 || 'Pre-rinse the surface with plain water to knock off loose dirt.',
       o.s4 || ('Mix chemical to ' + ratio.sh + ' SH. Mix outside in open air, never in an enclosed space.'),
       o.s5 || 'Apply the chemical low to high, so runoff never re-dirties a section you already cleaned.',
@@ -49,10 +49,17 @@ window.CL_GUIDE = (function () {
     }
   };
 
+  // Shown on the method screen so the crew picks on evidence, not vibes.
+  const HOUSE_RINSE = 'Rinse every window on the wall you just washed. Chemical left to dry on glass spots it and we end up cleaning them twice.';
+
+  const SOFT_WHEN = 'Lighter dirt and organic growth — mildew, algae, green film.';
+  const PRESSURE_WHEN = 'Caked-on dirt and less organic buildup. Still cleans organic growth too.';
+
   const soft = (ratio, extra) => Object.assign({
     id: 'soft',
     label: 'Soft Wash',
     icon: 'fa-spray-can-sparkles',
+    when: SOFT_WHEN,
     ratio: ratio,
     steps: softSteps(ratio, (extra || {}).overrides)
   }, extra || {});
@@ -67,12 +74,14 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.medium),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up',
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
                 'Water nearby grass and plants at the edges first.',
                 'Test spot: normal pressure, about 3 seconds, out-of-sight corner. Etching or pitting means the pour is weak no matter how old it is — stop and soft wash instead.',
-                'Pressure wash low to high with a wide fan tip. Keep the wand moving — never hold it in one spot.',
+                'Use the surface cleaner for open flatwork — it cleans evenly and leaves no wand stripes. Wand only for edges, corners and anywhere the surface cleaner will not sit flat.',
+                'Set the pressure at the machine, not by choking the trigger. Turn it down for older or softer concrete.',
+                'Pressure wash low to high. With the wand, use a wide fan tip and keep it moving — never hold it in one spot.',
                 'Rinse chemical and heavy runoff off the grass edges when done.'
               ]
             }
@@ -111,7 +120,8 @@ window.CL_GUIDE = (function () {
           warn: 'Never pressure wash vinyl siding. Pressure forces water behind the panels and can blow them off the wall.',
           methods: [soft(RATIOS.light, {
             overrides: {
-              s8: 'Rinse high to low, keeping the wand 3+ feet off the surface even on soft wash. Held close, soft wash pressure still drives water behind panels.'
+              s8: 'Rinse high to low, keeping the wand 3+ feet off the surface even on soft wash. Held close, soft wash pressure still drives water behind panels.',
+              s9: 'Final rinse on plants and grass. ' + HOUSE_RINSE
             }
           })]
         },
@@ -120,7 +130,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.light),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up',
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
                 'Water nearby grass and plants.',
@@ -159,7 +169,8 @@ window.CL_GUIDE = (function () {
           warn: 'Never pressure wash stucco. It is porous — pressure drives water into the wall.',
           methods: [soft(RATIOS.medium, {
             overrides: {
-              s8: 'Rinse high to low and keep the wand moving. Do not linger in one spot even at soft wash pressure — standing pressure drives water into the wall.'
+              s8: 'Rinse high to low and keep the wand moving. Do not linger in one spot even at soft wash pressure — standing pressure drives water into the wall.',
+              s9: 'Final rinse on plants and grass. ' + HOUSE_RINSE
             }
           })]
         };
@@ -173,7 +184,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.light),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up',
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
               prechecks: [PRECHECK.testSpot],
               steps: [
                 'Water nearby plants and grass.',
@@ -223,10 +234,11 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.medium),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up',
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
               steps: [
                 'Water nearby plants and grass.',
-                'Wide fan tip, moderate pressure.',
+                'Surface cleaner works well on open paver flats. Wand the edges and joints by hand.',
+                'Wide fan tip, moderate pressure — set it at the machine.',
                 'Stay off the polymeric sand joints — high pressure blows the sand out and it has to be re-sanded after.',
                 'Rinse runoff off the grass.'
               ]
@@ -252,13 +264,17 @@ window.CL_GUIDE = (function () {
           label: name,
           warn: 'Never pressure wash glass. No chemical on wood window frames or seals — chemical on the glass only, plain water on the frames.',
           methods: [{
-            id: 'soft', label: 'Rinse Only', icon: 'fa-droplet',
+            id: 'soft', label: 'Water-Fed Pole', icon: 'fa-droplet',
+            when: 'The only way we clean glass. No pressure, ever.',
             ratio: null,
+            note: 'Pure water only — never tap water. Tap water carries minerals that dry as spots and you will be back doing it again.',
             steps: [
               'Water any nearby plants if chemical is going on the surrounding trim.',
-              'Chemical on the glass only. Plain water rinse on wood frames and seals.',
-              'Rinse the glass with the wand well back from the glass and the seals. Cracked glass and blown seals happen on the soft setting too if you get close.',
-              'Final rinse and check for streaking.'
+              'Rinse the glass first to float off grit, so the brush is not dragging it across the pane.',
+              'Scrub the glass with the brush — work the frame edges and corners where dirt sits.',
+              'Work back and forth across the pane until the whole surface has been scrubbed evenly.',
+              'Final rinse with pure water, top down. Let it sheet off — do not towel it.',
+              'No chemical on wood frames or seals. Chemical belongs on glass only, plain water on the frames.'
             ]
           }]
         };
@@ -272,7 +288,7 @@ window.CL_GUIDE = (function () {
           methods: [
             soft(RATIOS.medium),
             {
-              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up',
+              id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
               steps: [
                 'Water nearby plants and grass below.',
                 'Moderate pressure, standard fan tip.',
@@ -299,7 +315,7 @@ window.CL_GUIDE = (function () {
 
   function brickPressure() {
     return {
-      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up',
+      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
       prechecks: [PRECHECK.testSpot],
       steps: [
         'Water nearby grass and plants.',
@@ -312,7 +328,7 @@ window.CL_GUIDE = (function () {
 
   function woodPressure() {
     return {
-      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up',
+      id: 'pressure', label: 'Pressure Wash', icon: 'fa-jet-fighter-up', when: PRESSURE_WHEN,
       prechecks: [PRECHECK.woodId, PRECHECK.rot],
       steps: [
         'Water nearby plants and grass.',
@@ -348,6 +364,23 @@ window.CL_GUIDE = (function () {
         'Strong chemical smell after mixing or applying — stop, back away, get to fresh air. Do not lean in to identify it. Call Parker. If breathing is affected, call 911.',
         'Store SH away from any acid or ammonia product in the truck. A spill in transit can mix them.'
       ]
+    },
+    {
+      title: 'Never cover a running A/C unit',
+      icon: 'fa-fan',
+      danger: true,
+      body: 'Covering a condenser chokes the airflow it needs to dump heat. Run it covered and you can overheat the compressor — an expensive failure we would be paying for. A wrapped unit also traps moisture against the coil and corrodes it.',
+      rules: [
+        'Shut the unit off at the thermostat or the disconnect before you wash near it. Ask the client first.',
+        'Do not wrap or bag it. Rinse the fins with plain water before you start, keep chemical off the coil, and rinse again after.',
+        'SH eats aluminum fins. If chemical gets on the coil, flush it right away — do not let it dwell.',
+        'Turn it back on when you are done and confirm with the client that it runs.'
+      ]
+    },
+    {
+      title: 'Check your connections before you pull the trigger',
+      icon: 'fa-link',
+      body: 'Walk the line before every job: machine to hose, hose to gun, gun to wand or surface cleaner. A connection that lets go under pressure whips, and a loose fitting on the chemical side sprays SH where you are not looking.'
     },
     {
       title: 'Chemical on skin or in eyes',
@@ -388,6 +421,8 @@ window.CL_GUIDE = (function () {
   ];
 
   const PREJOB = [
+    'Check every hose connection: machine to hose, hose to gun, gun to wand or surface cleaner.',
+    'Ask the client to shut the A/C off, or shut it off at the disconnect. Never cover it.',
     'Locate the water shutoff.',
     'Identify any septic or well systems nearby.',
     'Note fragile plants and anything that needs covering.',
