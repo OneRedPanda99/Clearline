@@ -793,6 +793,13 @@
                 if (CL_FIREBASE.init) await CL_FIREBASE.init();
             } catch (_) { /* fall through; the guard below still protects us */ }
             if (typeof firebase === 'undefined') return;
+            // Only owners/managers may read the full users collection
+            // (rules: read requires isOwner() || isManager()). Workers can't,
+            // and don't need to — job crew names come from the denormalized
+            // crewNames map on each job. Skip the read for workers so we
+            // don't throw a permission-denied on every cold load.
+            const myRole = (typeof CL_FIREBASE !== 'undefined' && CL_FIREBASE.role) || null;
+            if (myRole !== 'owner' && myRole !== 'manager') { refreshOpenCrewCard(); return; }
             const db = firebase.firestore();
             const snap = await db.collection('users').get();
             allManagers = [];
