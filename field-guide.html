@@ -270,9 +270,21 @@
          *  onerror falls back so a missing file never shows a broken image. */
         function art(item, faIcon) {
             if (!item || !item.img) return `<i class="fas ${faIcon}" aria-hidden="true"></i>`;
-            return `<img src="images/guide/${item.img}" alt="" class="fg-art" loading="lazy"
-                         onerror="this.outerHTML='<i class='fas ${faIcon}' aria-hidden='true'></i>'">`;
+            // The glyph name rides on a data attribute rather than an inline
+            // onerror: nesting quotes inside the attribute mangled the handler,
+            // so a missing photo showed a broken-image box instead of the icon.
+            return `<img src="images/guide/${item.img}" alt="" class="fg-art" loading="lazy" data-fallback="${faIcon}">`;
         }
+
+        // error does not bubble, so listen in the capture phase.
+        document.addEventListener('error', function (e) {
+            const el = e.target;
+            if (!el || el.tagName !== 'IMG' || !el.dataset.fallback) return;
+            const glyph = document.createElement('i');
+            glyph.className = 'fas ' + el.dataset.fallback;
+            glyph.setAttribute('aria-hidden', 'true');
+            el.replaceWith(glyph);
+        }, true);
 
         // ── Screen 1: materials ─────────────────────────────────────
         function screenMaterials() {

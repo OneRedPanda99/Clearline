@@ -70,7 +70,6 @@ window.CL_GUIDE = (function () {
       surfaces: ['Driveway', 'Sidewalk', 'Patio', 'Pool Deck', 'Garage Floor'].map(function (name) {
         return {
           label: name,
-          img: name === 'Driveway' ? 'concrete-driveway.jpg' : undefined,
           before: 'Confirm with the client: was this poured more than 30 days ago? If it is recent or they are unsure — soft wash only.',
           methods: [
             soft(RATIOS.medium),
@@ -94,7 +93,6 @@ window.CL_GUIDE = (function () {
       surfaces: [
         {
           label: 'House Siding',
-          img: 'brick-siding.jpg',
           warn: 'Never pressure wash brick on a house wall.',
           methods: [soft(RATIOS.medium)]
         },
@@ -118,7 +116,6 @@ window.CL_GUIDE = (function () {
       surfaces: [
         {
           label: 'House Siding',
-          img: 'vinyl-siding.jpg',
           warn: 'Never pressure wash vinyl siding. Pressure forces water behind the panels and can blow them off the wall.',
           methods: [soft(RATIOS.light, {
             overrides: {
@@ -156,7 +153,6 @@ window.CL_GUIDE = (function () {
         { label: 'Fence', methods: [soft(RATIOS.light), woodPressure()] },
         {
           label: 'House Siding',
-          img: 'wood-siding.jpg',
           warn: 'Wood siding on a wall gets the same rule as vinyl and stucco. Never pressure wash it.',
           methods: [soft(RATIOS.light)]
         },
@@ -168,7 +164,6 @@ window.CL_GUIDE = (function () {
       surfaces: ['House Siding', 'Retaining Wall'].map(function (name) {
         return {
           label: name,
-          img: name === 'House Siding' ? 'stucco-siding.jpg' : undefined,
           warn: 'Never pressure wash stucco. It is porous — pressure drives water into the wall.',
           methods: [soft(RATIOS.medium, {
             overrides: {
@@ -428,6 +423,74 @@ window.CL_GUIDE = (function () {
     'Check the wind direction — chemical drift onto a neighbour\'s car, plants or pool is on us.',
     'Check the chemical mix date on the container.'
   ];
+
+
+  // ── Artwork lookup ──────────────────────────────────────────────────
+  // One filename per surface and per material, assigned here rather than
+  // scattered through the data. A file that does not exist yet simply falls
+  // back to the icon glyph, so art can land one photo at a time.
+  const SURFACE_ART = {
+      "concrete|Driveway": "concrete-driveway.jpg",
+      "concrete|Sidewalk": "concrete-sidewalk.jpg",
+      "concrete|Patio": "concrete-patio.jpg",
+      "concrete|Pool Deck": "concrete-pool-deck.jpg",
+      "concrete|Garage Floor": "concrete-garage-floor.jpg",
+      "brick|House Siding": "brick-house-siding.jpg",
+      "brick|Walkway / Patio": "brick-walkway.jpg",
+      "brick|Retaining Wall": "brick-retaining-wall.jpg",
+      "brick|Chimney": "brick-chimney.jpg",
+      "vinyl|House Siding": "vinyl-house-siding.jpg",
+      "vinyl|Fence": "vinyl-fence.jpg",
+      "vinyl|Shutters": "vinyl-shutters.jpg",
+      "wood|Deck": "wood-deck.jpg",
+      "wood|Fence": "wood-fence.jpg",
+      "wood|House Siding": "wood-house-siding.jpg",
+      "wood|Pergola": "wood-pergola.jpg",
+      "stucco|House Siding": "stucco-house-siding.jpg",
+      "stucco|Retaining Wall": "stucco-retaining-wall.jpg",
+      "metal|Siding": "metal-siding.jpg",
+      "metal|Gutters": "metal-gutters.jpg",
+      "metal|Awnings": "metal-awnings.jpg",
+      "metal|Railings": "metal-railings.jpg",
+      "composite|Deck Boards": "composite-deck-boards.jpg",
+      "composite|Railings": "composite-railings.jpg",
+      "roof|Asphalt Shingle": "roof-shingle.jpg",
+      "roof|Metal Roof": "roof-metal.jpg",
+      "roof|Tile Roof": "roof-tile.jpg",
+      "pavers|Driveway": "pavers-driveway.jpg",
+      "pavers|Patio": "pavers-patio.jpg",
+      "pavers|Walkway": "pavers-walkway.jpg",
+      "pavers|Retaining Wall": "pavers-retaining-wall.jpg",
+      "painted|Trim / Fascia": "painted-trim-fascia.jpg",
+      "painted|Painted Brick": "painted-brick.jpg",
+      "painted|Painted Wood Siding": "painted-wood-siding.jpg",
+      "glass|Windows": "glass-windows.jpg",
+      "glass|Storefront Glass": "glass-storefront.jpg",
+      "gutters|Exterior Faces": "gutters-exterior.jpg",
+      "gutters|Interior / Downspouts": "gutters-downspout.jpg"
+  };
+  const MATERIAL_ART = {
+      "concrete": "material-concrete.jpg",
+      "brick": "material-brick.jpg",
+      "vinyl": "material-vinyl.jpg",
+      "wood": "material-wood.jpg",
+      "stucco": "material-stucco.jpg",
+      "metal": "material-metal.jpg",
+      "composite": "material-composite.jpg",
+      "roof": "material-roof.jpg",
+      "pavers": "material-pavers.jpg",
+      "painted": "material-painted.jpg",
+      "glass": "material-glass.jpg",
+      "gutters": "material-gutters.jpg"
+  };
+
+  MATERIALS.forEach(function (m) {
+    if (MATERIAL_ART[m.id]) m.img = MATERIAL_ART[m.id];
+    m.surfaces.forEach(function (surface) {
+      const key = m.id + '|' + surface.label;
+      if (SURFACE_ART[key]) surface.img = SURFACE_ART[key];
+    });
+  });
 
   return { MATERIALS: MATERIALS, SAFETY: SAFETY, PREJOB: PREJOB, RATIOS: RATIOS };
 })();

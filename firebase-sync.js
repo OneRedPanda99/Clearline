@@ -539,6 +539,18 @@ const CL_FIREBASE = (function() {
     function _stampForCloud(entity, collName) {
         if (!entity) return entity;
         const out = { ...entity };
+        // Firestore rejects `undefined` field values — they must be `null`
+        // or omitted. Normalize the assignment fields so a job that was
+        // loaded with `assignedManager: undefined` (e.g. an unassigned lead)
+        // doesn't fail the whole batch with invalid-argument.
+        ['assignedManager', 'assignedTo'].forEach(k => {
+            if (out[k] === undefined) out[k] = null;
+        });
+        if (out.assignedWorkers === undefined) out.assignedWorkers = [];
+        if (out.crewNames === undefined) out.crewNames = {};
+        if (out.crewConfirmations === undefined) out.crewConfirmations = {};
+        // Drop any remaining undefined values so the merge write is valid.
+        Object.keys(out).forEach(k => { if (out[k] === undefined) delete out[k]; });
         // Never overwrite an existing createdBy. The jobs update rule
         // requires request.createdBy == resource.createdBy, so a worker
         // syncing a job they didn't create must keep the original author.

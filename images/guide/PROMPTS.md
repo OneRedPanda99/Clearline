@@ -116,6 +116,7 @@ and it appears.
 | Vinyl — House Siding | `vinyl-siding.jpg` | Wired, awaiting file |
 | Wood — House Siding | `wood-siding.jpg` | Wired, awaiting file |
 | Stucco — House Siding | `stucco-siding.jpg` | Wired, awaiting file |
+| Painted — Painted Wood Siding | `painted-wood-siding.jpg` | Wired, awaiting file |
 | Remaining 33 surfaces + 12 material tiles | — | Not generated |
 
 ---
