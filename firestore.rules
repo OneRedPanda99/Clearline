@@ -159,8 +159,12 @@ service cloud.firestore {
       // filtered query as "unprovable" (permission-denied) even with correct
       // data. array-contains already guarantees the field is a list at query
       // time. Type-safety is enforced in create/update/get instead.
+      // The Owner gets a read-free escape hatch (uid() == ownerUid() is a
+      // constant comparison, provable without a document read) so the
+      // backfill/repair tool can list every job — including any job that
+      // lost its accessUids and would otherwise be invisible to everyone.
       allow list: if signedIn()
-        && uid() in resource.data.accessUids;
+        && (uid() in resource.data.accessUids || uid() == ownerUid());
 
       // create: Owner may create any job; others must stamp accessUids
       // including themselves + owner.
@@ -175,19 +179,16 @@ service cloud.firestore {
       // update: Owner may do anything. Non-owners may edit a job they are
       // on, but only if accessUids stays consistent (see above). Managers
       // may edit jobs they manage; crew (workers + interns) may edit jobs
-      // they created or are assigned to.
+      // they created or are assigned to. No canEditOwnJobs flag is required
+      // for either — that flag is only a local default and was never written
+      // to Firestore, so requiring it just reproduced Xavier's denial for
+      // managers. accessUidsConsistent() is the real guard.
       allow update: if isOwner()
         || (accessUidsConsistent()
             && request.resource.data.createdBy == resource.data.createdBy
             && ((isManager()
-                  && perm("canEditOwnJobs")
                   && resource.data.assignedManager == uid())
                 || (isCrew()
-                  // Assigned crew (or the job's creator) may update a job
-                  // they're on — this is what powers "Confirm assignment"
-                  // and field edits from the crew. accessUidsConsistent()
-                  // above already forbids changing who can see the job, so
-                  // no separate canEditOwnJobs flag is required for crew.
                   && (resource.data.createdBy == uid() || isAssignedWorker()))));
 
       allow delete: if isOwner();
