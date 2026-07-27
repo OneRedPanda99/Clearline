@@ -13,11 +13,11 @@
     <link rel="manifest" href="manifest.json">
     <title>Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js?v=14"></script>
-    <link rel="stylesheet" href="tailwind.css?v=14">
-    <script src="data-migration.js?v=14"></script>
-    <script src="firebase-sync.js?v=14"></script>
-    <link rel="stylesheet" href="app.css?v=14">
+    <script src="utils.js?v=15"></script>
+    <link rel="stylesheet" href="tailwind.css?v=15">
+    <script src="data-migration.js?v=15"></script>
+    <script src="firebase-sync.js?v=15"></script>
+    <link rel="stylesheet" href="app.css?v=15">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -428,6 +428,29 @@
         // screen for any assigned job not yet confirmed. Each row deep-links
         // to the job so the worker can tap Confirm assignment. Hides once all
         // assigned jobs are confirmed.
+        // Worker "Confirm assignment" — inline on the home banner. Updates
+        // local state (no full-job sync) and pushes a targeted update so the
+        // jobs update rule's accessUids/createdBy checks pass. Then
+        // re-renders the banner so this job drops off the pending list.
+        function confirmAssignment(jobId) {
+            const job = CL_DATA.getJobs().find(j => j.id === jobId);
+            if (!job) return;
+            const fb = (typeof CL_FIREBASE !== 'undefined' && CL_FIREBASE) || window.CL_FIREBASE || null;
+            const me = fb && typeof fb.getCurrentUser === 'function' ? fb.getCurrentUser() : null;
+            const myUid = me ? me.uid : null;
+            if (!myUid) return;
+            const confirmations = (job.crewConfirmations && typeof job.crewConfirmations === 'object') ? { ...job.crewConfirmations } : {};
+            confirmations[myUid] = { confirmedAt: new Date().toISOString(), name: (me.displayName || me.email || 'Worker') };
+            const crewNames = (job.crewNames && typeof job.crewNames === 'object') ? { ...job.crewNames } : {};
+            crewNames[myUid] = (me.displayName || me.email || 'Worker');
+            CL_DATA.updateJobLocal(jobId, { crewConfirmations: confirmations, crewNames: crewNames });
+            if (fb && fb.isSignedIn) {
+                fb.updateJobDoc(jobId, { crewConfirmations: confirmations, crewNames: crewNames })
+                    .catch(() => {});
+            }
+            renderConfirmBanner();
+        }
+
         function renderConfirmBanner() {
             const banner = document.getElementById('confirmBanner');
             if (!banner) return;
@@ -443,14 +466,13 @@
             );
             if (!pending.length) { banner.classList.add('hidden'); banner.innerHTML = ''; return; }
             const rows = pending.map(j => {
-                const href = `jobs.html?highlight=${encodeURIComponent(j.id)}`;
-                return `<a href="${href}" data-cl-nav class="confirm-banner__row">
+                return `<button type="button" class="confirm-banner__row" onclick="confirmAssignment('${j.id}')">
                     <div style="min-width:0;">
                         <p class="confirm-banner__name">${esc(j.customerName || 'Job')}</p>
                         ${j.jobDate ? `<p class="confirm-banner__sub">${esc(j.jobDate)}${j.jobTime ? ' · ' + esc(j.jobTime) : ''}</p>` : ''}
                     </div>
                     <span class="confirm-banner__cta"><i class="fas fa-check-circle mr-1"></i>Confirm</span>
-                </a>`;
+                </button>`;
             }).join('');
             banner.innerHTML = `
                 <div class="confirm-banner">

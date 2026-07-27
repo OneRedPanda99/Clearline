@@ -3069,10 +3069,15 @@ body.cl-page-exit .bottom-nav {
     gap: 10px;
     padding: 10px 12px;
     margin-top: 8px;
+    width: 100%;
+    text-align: left;
     background: rgba(8, 37, 28, 0.10);
+    border: none;
     border-radius: 12px;
     text-decoration: none;
     color: #08251c;
+    font: inherit;
+    cursor: pointer;
 }
 .confirm-banner__name { font-weight: 700; font-size: 14px; margin: 0; }
 .confirm-banner__sub { font-size: 12px; color: rgba(8,37,28,0.7); margin: 2px 0 0; }
