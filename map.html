@@ -8,11 +8,11 @@
     <meta name="theme-color" content="#1a1c1f">
     <title>Job Map - Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js?v=15"></script>
-    <script src="data-migration.js?v=15"></script>
-    <script src="firebase-sync.js?v=15"></script>
-    <link rel="stylesheet" href="tailwind.css?v=15">
-    <link rel="stylesheet" href="app.css?v=15">
+    <script src="utils.js?v=16"></script>
+    <script src="data-migration.js?v=16"></script>
+    <script src="firebase-sync.js?v=16"></script>
+    <link rel="stylesheet" href="tailwind.css?v=16">
+    <link rel="stylesheet" href="app.css?v=16">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
@@ -185,20 +185,39 @@
             const weekEndStr = (window.localYmd ? localYmd(weekEnd) : weekEnd.toISOString().split('T')[0]);
 
             // Filter contract:
-            // - 'allJobs' (default): every job with an address, any date/status.
-            //   This is the only tab that shows jobs without a jobDate.
-            // - 'today'/'week'/'all' (Upcoming): require jobDate and exclude
-            //   completed. Jobs without a date are intentionally invisible here.
+            // - 'allJobs' (default): every live job with an address.
+            // - 'today'/'week'/'all' (Upcoming): require jobDate, exclude
+            //   completed, and INCLUDE overdue work.
+            //
+            // Two things were wrong here. A lead marked *lost* was plotted as
+            // a destination on every tab. And an overdue job — scheduled,
+            // unfinished, sitting in the past — matched none of Today, This
+            // Week or Upcoming, so a crew planning a route never saw the job
+            // they still owed. Overdue work is the most urgent thing on the
+            // map, so it rides along with Today.
+            const isOverdue = (j) => j.status === 'scheduled' && j.jobDate && j.jobDate < today;
             filteredJobs = jobs.filter(j => {
                 if (!j.address) return false;
+                if (j.status === 'lost') return false;
                 if (currentFilter === 'allJobs') return true;
                 if (!j.jobDate) return false;
                 if (j.status === 'completed') return false;
+                if (isOverdue(j)) return true;
                 if (currentFilter === 'today') return j.jobDate === today;
                 if (currentFilter === 'week') return j.jobDate >= today && j.jobDate <= weekEndStr;
                 return j.jobDate >= today;
             });
+            // Number the pins in the order you'd actually drive them: overdue
+            // first, then today, then forward. Sorting purely by date put a
+            // job finished four weeks ago at pin 1 and today's work at pin 4.
+            const rank = (j) => {
+                if (isOverdue(j)) return 0;
+                if (j.status === 'completed') return 2;
+                return 1;
+            };
             filteredJobs.sort((a, b) => {
+                const ra = rank(a), rb = rank(b);
+                if (ra !== rb) return ra - rb;
                 const da = a.jobDate || '9999-12-31';
                 const db = b.jobDate || '9999-12-31';
                 if (da !== db) return da.localeCompare(db);
@@ -223,7 +242,7 @@
                     });
                     const when = job.jobDate
                         ? new Date(job.jobDate + 'T12:00:00').toLocaleDateString()
-                        : 'Unscheduled';
+                        : 'Not scheduled';
                     const displayTotal = getJobDisplayTotal(job);
                     const priceLine = displayTotal > 0 ? `<br><strong style="color:#10b981">$${displayTotal.toFixed(0)}</strong>` : '';
                     const marker = L.marker([coords.lat, coords.lng], { icon })
@@ -244,11 +263,19 @@
             const today = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
             container.innerHTML = filteredJobs.map((job, i) => {
                 const isToday = job.jobDate === today;
-                const dateStr = new Date(job.jobDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                const overdue = job.status === 'scheduled' && job.jobDate && job.jobDate < today;
+                // A job with no date produced `new Date('T12:00:00')` and the
+                // list printed the string "Invalid Date".
+                const dateStr = job.jobDate
+                    ? new Date(job.jobDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                    : 'Not scheduled';
+                const whenLabel = isToday ? 'TODAY' : (overdue ? 'OVERDUE · ' + dateStr : dateStr);
                 const jobTotal = getJobDisplayTotal(job);
+                const pinBg = overdue ? '#b3341f' : (isToday ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-secondary-container)');
+                const pinFg = overdue ? '#fff' : (isToday ? 'var(--md-sys-color-on-primary)' : 'var(--md-sys-color-on-secondary-container)');
                 return `<div class="m3-list-item" onclick="focusJob(${i})" style="cursor:pointer">
-                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold" style="background:${isToday ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-secondary-container)'};color:${isToday ? 'var(--md-sys-color-on-primary)' : 'var(--md-sys-color-on-secondary-container)'}">${i + 1}</div>
-                    <div class="flex-1"><p class="font-semibold">${job.customerName || 'Job'}</p><p class="text-sm ${isToday ? 'text-primary' : 'text-secondary'}">${isToday ? 'TODAY' : dateStr} ${job.jobTime || ''}</p></div>
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold" style="background:${pinBg};color:${pinFg}">${i + 1}</div>
+                    <div class="flex-1"><p class="font-semibold">${job.customerName || 'Job'}</p><p class="text-sm ${overdue ? 'text-red-400' : (isToday ? 'text-primary' : 'text-secondary')}">${whenLabel} ${job.jobTime || ''}</p></div>
                     ${jobTotal > 0 ? `<span class="text-green-400 font-bold">$${jobTotal.toFixed(0)}</span>` : ''}
                 </div>`;
             }).join('');
@@ -356,7 +383,13 @@
 
                 // Job at this stop
                 if (job) {
-                    const durationMin = parseInt(job.jobDuration) || 60;
+                    // jobDuration is HOURS (as the edit form and calendar
+                    // treat it), not minutes. Reading it raw made a 3-hour
+                    // job budget 3 minutes of route time.
+                    const durationHrs = parseFloat(job.jobDuration);
+                    const durationMin = (!isNaN(durationHrs) && durationHrs > 0)
+                        ? Math.round(durationHrs * 60)
+                        : 60;
                     const leaveTime = new Date(currentTime.getTime() + durationMin * 60000);
                     const stopTotal = getJobDisplayTotal(job);
                     html += `<div class="route-stop">

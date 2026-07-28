@@ -7,13 +7,13 @@
     <meta name="theme-color" content="#1a1c1f">
     <title>Generator - Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js?v=15"></script>
+    <script src="utils.js?v=16"></script>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="tailwind.css?v=15">
-    <link rel="stylesheet" href="app.css?v=15">
+    <link rel="stylesheet" href="tailwind.css?v=16">
+    <link rel="stylesheet" href="app.css?v=16">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="data-migration.js?v=15"></script>
-    <script src="firebase-sync.js?v=15"></script>
+    <script src="data-migration.js?v=16"></script>
+    <script src="firebase-sync.js?v=16"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
    * {
@@ -1741,7 +1741,11 @@
             const estimateHTML = `
                 <div class="estimate-logo-header">
                     <div class="logo-block">
-                        <img src="https://raw.githubusercontent.com/OneRedPanda99/Clearline/main/images/Logo.png" alt="SC Pressure Point Logo" onerror="this.style.display='none'">
+                        <!-- Served from this app, not hotlinked off the
+                             public GitHub repo: the letterhead used to break
+                             if the repo were renamed or made private, and it
+                             needed a network round-trip in the field. -->
+                        <img src="images/Logo.png" alt="Business logo" onerror="this.style.display='none'">
                         <div>
                             <div class="logo-text" style="font-weight:bold;font-size:13px;color:#000;">SC Pressure Point</div>
                             <div class="logo-text">Pressure Washing</div>
@@ -1884,10 +1888,17 @@
                     </tr>`;
             });
 
+            // Collapsed by default. It's excluded from the printout, but it
+            // was still sitting on screen a thumb-scroll below the customer's
+            // copy — on the phone you hand over for a signature. Now it takes
+            // a deliberate tap to reveal.
             const marginHTML = `
-                <div style="background:${marginBg};border:1px solid ${marginColor};padding:12px;
+                <details style="background:${marginBg};border:1px solid ${marginColor};padding:12px;
                             margin-top:12px;border-radius:6px;" class="no-print">
-                    <strong style="color:${marginColor};">Internal Margin Summary (not printed)</strong>
+                    <summary style="color:${marginColor};font-weight:700;cursor:pointer;list-style:none;">
+                        <i class="fas fa-eye-slash" style="margin-right:6px;"></i>Show my costs and margin
+                        <span style="display:block;font-weight:400;font-size:11px;color:#666;margin-top:2px;">Never printed or shared. Hidden by default so it isn't on screen when the customer is looking.</span>
+                    </summary>
                     <table style="width:100%;margin-top:8px;font-size:13px;border-collapse:collapse;">
                         <tr><td><strong>Revenue (customer total)</strong></td>
                             <td style="text-align:right;"><strong>$${revenue.toFixed(2)}</strong></td></tr>
@@ -1918,7 +1929,7 @@
                             <tbody>${serviceRateRows}</tbody>
                         </table>
                     </details>` : ''}
-                </div>
+                </details>
             `;
             document.getElementById('estimateContent').innerHTML += marginHTML;
 
@@ -2005,8 +2016,17 @@
             if (!lastEstimateData) {
                 generateEstimate({ quiet: viewMode });
             }
+            // Share used to bail here with no output and no error at all —
+            // the user tapped it and nothing whatsoever happened.
+            if (!lastEstimateData) {
+                showToast('Fill in the estimate and tap Generate first', 'error');
+                return;
+            }
             const preview = document.getElementById('estimateContent');
-            if (!preview) return;
+            if (!preview) {
+                showToast('Nothing to share yet — generate the estimate first', 'error');
+                return;
+            }
             try {
                 const canvas = await html2canvas(preview, {
                     scale: 2,
@@ -2973,7 +2993,14 @@
                 });
                 if (finalizeBtn) finalizeBtn.style.display = 'none';
                 if (shareBtn) { shareBtn.style.display = 'inline-block'; shareBtn.disabled = false; }
-                if (convertBtn) { convertBtn.style.display = 'inline-block'; convertBtn.disabled = false; }
+                // Convert only works on an estimate opened from a job. Shown
+                // without one it was permanently enabled and permanently
+                // answered "Open from a job to convert".
+                if (convertBtn) {
+                    const canConvert = !!jobId;
+                    convertBtn.style.display = canConvert ? 'inline-block' : 'none';
+                    convertBtn.disabled = !canConvert;
+                }
                 if (reopenBtn) reopenBtn.disabled = false;
             } else {
                 banner.style.display = 'none';
@@ -3015,7 +3042,20 @@
             globalSettingsCache = Object.assign({}, globalSettingsCache || {}, { gasPrice: newVal });
         }
 
+        // Save / Lock / Share all used to run on a completely blank form —
+        // the page said "Generate first…" but nothing enforced it, so an
+        // empty estimate could be saved as a draft AND finalized, landing two
+        // indistinguishable "Untitled" rows in the library.
+        function requireGenerated(action) {
+            if (lastEstimateData) return true;
+            showToast(`Tap Generate Estimate first, then ${action}`, 'error');
+            const btn = document.querySelector('[onclick="generateEstimate()"]');
+            if (btn) btn.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            return false;
+        }
+
         async function saveDraftToCloud() {
+            if (!requireGenerated('save a draft')) return;
             let savedToJob = false;
             if (jobId) {
                 saveEstimateToJob({ redirect: false });
@@ -3061,10 +3101,13 @@
         }
 
         async function markAsFinal() {
+            if (!requireGenerated('lock it')) return;
             if (!jobId && !document.getElementById('customerName').value.trim()) {
                 showToast('Customer name is required to finalize', 'error');
                 return;
             }
+            // "Lock Estimate" said nothing about what locking does.
+            if (!confirm('Lock this estimate?\n\nIt becomes read-only and gets a final number you can send to the customer. You can reopen it later if the price changes.')) return;
             const data = collectFormState();
             data.status = 'final';
             document.getElementById('docStatus').value = 'final';

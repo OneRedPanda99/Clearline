@@ -704,12 +704,47 @@ var CL_DATA = {
             }
         }
     },
-    
+
+    // ── Repair: stopwatch time written into the planned-duration field ──
+    // The job stopwatch used to save elapsed time back into `jobDuration`
+    // as "HH:MM:SS". That field is the *planned* length in hours (edit
+    // form, calendar end time, labor cost), so any job that was ever timed
+    // now reads as 0 hours. Move those values into `actualMs` where they
+    // belong and clear the bad duration — the original planned figure is
+    // not recoverable, so leaving it blank lets the calendar fall back to
+    // its 2-hour default instead of scheduling a zero-length event.
+    DURATION_REPAIR_KEY: 'cl-duration-repair-v1',
+    repairTimerDurations() {
+        if (localStorage.getItem(this.DURATION_REPAIR_KEY)) return;
+        try {
+            const jobs = this.getJobs();
+            let changed = 0;
+            jobs.forEach(j => {
+                const d = j && j.jobDuration;
+                if (typeof d !== 'string') return;
+                const m = /^(\d+):([0-5]\d):([0-5]\d)$/.exec(d.trim());
+                if (!m) return;
+                const ms = ((+m[1]) * 3600 + (+m[2]) * 60 + (+m[3])) * 1000;
+                if (!j.actualMs && ms > 0) j.actualMs = ms;
+                j.jobDuration = '';
+                changed++;
+            });
+            if (changed) {
+                this.saveJobs(jobs, { skipSync: true });
+                console.warn('[CL_DATA] repaired jobDuration on ' + changed + ' job(s)');
+            }
+            localStorage.setItem(this.DURATION_REPAIR_KEY, 'true');
+        } catch (e) {
+            // A failed repair must never block app start.
+        }
+    },
+
 };
 
 // Auto-run migration when script loads
 if (typeof window !== 'undefined') {
     CL_DATA.migrate();
+    CL_DATA.repairTimerDurations();
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(registrations => {
             registrations.forEach(r => r.unregister());

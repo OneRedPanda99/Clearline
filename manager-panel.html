@@ -8,24 +8,28 @@
     <meta name="theme-color" content="#1a1c1f">
     <title>Manager Panel - Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js?v=15"></script>
-    <script src="data-migration.js?v=15"></script>
-    <script src="firebase-sync.js?v=15"></script>
-<link rel="stylesheet" href="tailwind.css?v=15">
-    <link rel="stylesheet" href="app.css?v=15">
+    <script src="utils.js?v=16"></script>
+    <script src="data-migration.js?v=16"></script>
+    <script src="firebase-sync.js?v=16"></script>
+<link rel="stylesheet" href="tailwind.css?v=16">
+    <link rel="stylesheet" href="app.css?v=16">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .perm-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 8px; background: rgba(15,23,42,0.5); margin-bottom: 6px; }
-        .perm-row input[type=checkbox] { width: 18px; height: 18px; accent-color: #0ea5e9; }
+        .perm-row input[type=checkbox] { width: 22px; height: 22px; accent-color: #0ea5e9; flex-shrink: 0; }
+        .perm-row--scope { align-items: flex-start; gap: 12px; background: rgba(46,123,255,0.10); border: 1px solid rgba(46,123,255,0.28); }
+        .perm-help { display: block; font-size: 11px; font-weight: 400; color: #94a3b8; margin-top: 3px; line-height: 1.45; }
         .user-card { border-left: 4px solid transparent; }
         .user-card.owner { border-left-color: #fbbf24; }
         .user-card.manager { border-left-color: var(--md-sys-color-secondary); }
         .user-card.worker { border-left-color: #38bdf8; }
         .user-card.inactive { opacity: 0.55; }
         .user-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
-        .user-card-actions button { font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; }
-        .user-card-actions button.danger { color: #fca5a5; border-color: rgba(239,68,68,0.35); }
+        .user-card-actions button { font-size: 13px; font-weight: 600; padding: 0 12px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; }
+        /* Delete sits beside Deactivate and is not reversible — keep it
+           visually distinct and spaced away from the safe action. */
+        .user-card-actions button.danger { color: #fca5a5; border-color: rgba(239,68,68,0.35); margin-left: 6px; }
         .cert-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; padding: 2px 6px; border-radius: 999px; margin-left: 6px; }
         .cert-badge.expired { background: rgba(239,68,68,0.18); color: #fca5a5; }
         .cert-badge.expiring { background: rgba(245,158,11,0.18); color: #fbbf24; }
@@ -37,7 +41,10 @@
         .form-section .section-body { margin-top: 10px; }
         .cert-row, .equip-add-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
         .cert-row input { flex: 1; }
-        .cert-row button, .equip-add-row button { flex-shrink: 0; }
+        /* .btn-secondary is width:100% by default; inside these flex rows it
+           fought the input for space and pushed past the modal edge at 320px. */
+        .cert-row button, .equip-add-row button { flex-shrink: 0; width: auto; }
+        .cert-row input, .equip-add-row input { min-width: 0; }
         .equip-check-row { display: flex; align-items: center; gap: 8px; padding: 6px 2px; font-size: 13px; }
         .activity-row { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(15,23,42,0.4); font-size: 12px; }
         .activity-row .activity-msg { color: #cbd5e1; }
@@ -72,13 +79,15 @@
                     <input id="userSearch" placeholder="Search…" oninput="renderUserList()"
                            class="bg-slate-700/60 text-white text-sm rounded-lg px-3 py-1.5 w-32">
                 </div>
+                <!-- Two filter rows both used to open with a pill labelled
+                     "All", with nothing saying which axis each controlled. -->
                 <div id="userRoleFilterRow" class="page-tabs page-tabs--pills hidden">
-                    <button type="button" class="page-tab active" data-role-filter="all" onclick="setUserRoleFilter('all')">All</button>
+                    <button type="button" class="page-tab active" data-role-filter="all" onclick="setUserRoleFilter('all')">Everyone</button>
                     <button type="button" class="page-tab" data-role-filter="manager" onclick="setUserRoleFilter('manager')">Managers</button>
                     <button type="button" class="page-tab" data-role-filter="worker" onclick="setUserRoleFilter('worker')">Workers</button>
                 </div>
                 <div class="page-tabs page-tabs--pills">
-                    <button type="button" class="page-tab active" data-status-filter="all" onclick="setUserStatusFilter('all')">All</button>
+                    <button type="button" class="page-tab active" data-status-filter="all" onclick="setUserStatusFilter('all')">Any status</button>
                     <button type="button" class="page-tab" data-status-filter="active" onclick="setUserStatusFilter('active')">Active</button>
                     <button type="button" class="page-tab" data-status-filter="inactive" onclick="setUserStatusFilter('inactive')">Inactive</button>
                 </div>
@@ -183,6 +192,14 @@
             ['canLogExpenses', 'Log expenses (receipts)'],
             ['canViewCalendar', 'View Calendar'],
             ['canViewMap', 'View Map']
+        ];
+
+        // Manager-only. Read scope, not a write capability, so it's kept out
+        // of PERMISSION_KEYS and rendered in its own block with an
+        // explanation — granting it rewrites accessUids on every job.
+        const MANAGER_SCOPE_KEYS = [
+            ['canViewAllJobs', 'Sees every job',
+             "On: this manager sees the whole board, including other crews' work (clearly marked as not theirs). Off: only jobs they're on."]
         ];
 
         let myProfile = null;
@@ -308,8 +325,14 @@
             }
 
             container.innerHTML = filtered.map(u => {
+                // "assigned \u2022 Unassigned" read as a contradiction. Name the
+                // manager when there is one, say plainly when there isn't.
+                const mgrName = managers.find(m => m.uid === u.assignedManager)?.displayName || '';
+                const payLine = u.payType === 'commission'
+                    ? `${u.commissionPct ? u.commissionPct + '%' : 'Commission'} of job total`
+                    : (u.payRate ? `$${Number(u.payRate).toFixed(2)}/hr` : '');
                 const subtitle = u.role === 'worker'
-                    ? `${u.workerType || 'assigned'} \u2022 ${managers.find(m => m.uid === u.assignedManager)?.displayName || 'Unassigned'}`
+                    ? (mgrName ? `Reports to ${mgrName}` : 'No manager assigned')
                     : 'Manager';
                 const statusPill = u.active === false
                     ? '<span class="text-[10px] uppercase tracking-wide text-red-300 bg-red-900/30 px-2 py-0.5 rounded-full ml-2">Inactive</span>'
@@ -323,13 +346,13 @@
                             <div class="flex-1 min-w-0">
                                 <p class="font-semibold truncate">${escapeHtml(u.displayName || u.username || '(unnamed)')}${statusPill}${certBadge(u)}</p>
                                 <p class="text-xs text-gray-400 truncate">${escapeHtml(u.username || '')}</p>
-                                <p class="text-[11px] text-gray-500 mt-0.5">${escapeHtml(subtitle)}</p>
+                                <p class="text-[11px] text-gray-500 mt-0.5">${escapeHtml(subtitle)}${payLine ? ' · ' + escapeHtml(payLine) : ''}</p>
                                 ${contactLine}
                             </div>
                             <div class="user-card-actions">
                                 <button type="button" onclick="openEditUser('${u.uid}')">Edit</button>
                                 ${canManageThis ? `<button type="button" onclick="toggleUserActive('${u.uid}', ${nextActive})">${nextActive ? 'Reactivate' : 'Deactivate'}</button>` : ''}
-                                ${myProfile.role === 'owner' ? `<button type="button" class="danger" onclick="confirmDeleteUser('${u.uid}')"><i class="fas fa-trash"></i></button>` : ''}
+                                ${myProfile.role === 'owner' ? `<button type="button" class="danger" aria-label="Delete ${escapeHtml(u.displayName || u.username || 'user')}" title="Delete this person permanently" onclick="confirmDeleteUser('${u.uid}')"><i class="fas fa-trash" aria-hidden="true"></i>Delete</button>` : ''}
                             </div>
                         </div>
                     </div>
@@ -386,6 +409,17 @@
                     <input type="checkbox" data-perm="${key}" ${u.permissions && u.permissions[key] ? 'checked' : ''} ${readOnlyFlags ? 'disabled' : ''}>
                 </label>
             `).join('');
+
+            // Read-scope block, managers only.
+            const scopeRows = (u.role === 'manager') ? MANAGER_SCOPE_KEYS.map(([key, label, help]) => `
+                <label class="perm-row perm-row--scope text-sm">
+                    <span>
+                        ${label}
+                        <span class="perm-help">${help}</span>
+                    </span>
+                    <input type="checkbox" data-perm="${key}" ${u.permissions && u.permissions[key] ? 'checked' : ''} ${readOnlyFlags ? 'disabled' : ''}>
+                </label>
+            `).join('') : '';
 
             const certs = Array.isArray(u.certifications) ? u.certifications : [];
             const certRows = certs.map(c => renderCertRow(c.name, c.expirationDate)).join('');
@@ -509,6 +543,12 @@
                         ` : ''}
                     </div>
                 </details>
+
+                ${scopeRows ? `
+                <details class="form-section" open>
+                    <summary>What this manager can see${readOnlyFlags ? ' (Owner-only to edit)' : ''}</summary>
+                    <div class="section-body">${scopeRows}</div>
+                </details>` : ''}
 
                 <details class="form-section">
                     <summary>Permissions${readOnlyFlags ? ' (Owner-only to edit)' : ''}</summary>
@@ -751,10 +791,29 @@
                 }
                 closeModal('userModal');
                 await loadUsers();
+                // "Sees every job" is read scope, and read scope lives in each
+                // job's accessUids array (a Firestore list rule can't call
+                // get(), so a role check can't widen a query). Granting or
+                // revoking it therefore has to rewrite every job.
+                await refreshGlobalJobViewers();
             } catch (err) {
                 console.error(err);
                 const code = err.code || '';
                 showToast('Error: ' + (code || err.message || 'unknown'), 'error');
+            }
+        }
+
+        // Recompute who can see everything, and push the resulting accessUids
+        // change across the jobs collection. Owner-only; silent no-op
+        // otherwise. Runs after any user create/update/deactivate/delete.
+        async function refreshGlobalJobViewers() {
+            if (!myProfile || myProfile.role !== 'owner') return;
+            if (!CL_FIREBASE.syncGlobalViewers) return;
+            const res = await CL_FIREBASE.syncGlobalViewers();
+            if (res && res.ok && res.jobsUpdated > 0) {
+                showToast(`Job visibility updated on ${res.jobsUpdated} job${res.jobsUpdated === 1 ? '' : 's'}`);
+            } else if (res && !res.ok && res.code !== 'not-owner') {
+                showToast('Could not update job visibility: ' + (res.code || 'unknown'), 'error');
             }
         }
 
@@ -775,6 +834,10 @@
                 });
                 renderUserList();
                 showToast(nextActive ? 'User reactivated' : 'User deactivated');
+                // A deactivated manager loses their see-everything access.
+                if (u.role === 'manager' && u.permissions && u.permissions.canViewAllJobs) {
+                    await refreshGlobalJobViewers();
+                }
             } catch (err) {
                 console.error(err);
                 showToast('Error: ' + (err.code || err.message || 'unknown'), 'error');

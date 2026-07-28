@@ -9,13 +9,13 @@
     <meta name="theme-color" content="#1a1c1f">
     <title>Settings - Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js?v=15"></script>
-    <link rel="stylesheet" href="tailwind.css?v=15">
-    <link rel="stylesheet" href="app.css?v=15">
+    <script src="utils.js?v=16"></script>
+    <link rel="stylesheet" href="tailwind.css?v=16">
+    <link rel="stylesheet" href="app.css?v=16">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="data-migration.js?v=15"></script>
-    <script src="firebase-sync.js?v=15"></script>
+    <script src="data-migration.js?v=16"></script>
+    <script src="firebase-sync.js?v=16"></script>
 </head>
 <body>
     <header class="app-header">
@@ -29,6 +29,12 @@
 
     <main class="app-content">
         <div class="content-wrapper">
+            <!-- Settings save as you change them. `settingsForm` scopes the
+                 change listener so the Data buttons below aren't included. -->
+            <div id="settingsForm">
+            <p id="settingsSaved" class="hidden" style="position:sticky;top:8px;z-index:5;margin:0 0 10px;padding:8px 12px;border-radius:999px;text-align:center;font-size:13px;font-weight:600;background:var(--md-sys-color-tertiary-container);color:var(--md-sys-color-on-tertiary-container);">
+                <i class="fas fa-check mr-1"></i>Saved
+            </p>
             <!-- Business Info -->
             <p class="section-title mb-2 px-1">Business Info</p>
             <div class="glass-card rounded-2xl overflow-hidden mb-4">
@@ -56,26 +62,12 @@
                 </div>
             </div>
 
-            <!-- Default Pricing -->
-            <p class="section-title mb-2 px-1">Default Pricing ($/sqft)</p>
-            <div class="glass-card rounded-2xl overflow-hidden mb-4">
-                <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
-                    <span>Driveway</span>
-                    <input type="number" id="priceDriveway" value="0.15" step="0.01" class="w-20 text-right text-sm">
-                </div>
-                <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
-                    <span>House Wash</span>
-                    <input type="number" id="priceHouse" value="0.25" step="0.01" class="w-20 text-right text-sm">
-                </div>
-                <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
-                    <span>Deck/Patio</span>
-                    <input type="number" id="priceDeck" value="0.30" step="0.01" class="w-20 text-right text-sm">
-                </div>
-                <div class="setting-item p-4 flex justify-between items-center">
-                    <span>Minimum Job</span>
-                    <input type="number" id="priceMin" value="75" class="w-20 text-right text-sm">
-                </div>
-            </div>
+            <!-- Removed: "Default Pricing ($/sqft)" — Driveway, House Wash,
+                 Deck/Patio and Minimum Job. Nothing outside this page ever
+                 read them: the estimate form uses its own $/sqft field and
+                 the minimum was never enforced, so setting a $150 floor here
+                 did nothing while looking like it worked. Per-surface pricing
+                 lives on the estimate itself. -->
 
             <!-- Job Costing -->
             <p class="section-title mb-2 px-1">Job Costing</p>
@@ -99,19 +91,9 @@
             <!-- Preferences -->
             <p class="section-title mb-2 px-1">Preferences</p>
             <div class="glass-card rounded-2xl overflow-hidden mb-4">
-                <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
-                    <div>
-                        <p>Default Job Duration</p>
-                        <p class="text-xs text-gray-400">Hours per job</p>
-                    </div>
-                    <select id="defaultDuration" class="text-sm">
-                        <option value="1">1 hour</option>
-                        <option value="1.5">1.5 hours</option>
-                        <option value="2" selected>2 hours</option>
-                        <option value="3">3 hours</option>
-                        <option value="4">4 hours</option>
-                    </select>
-                </div>
+                <!-- Removed: "Default Job Duration". Nothing read it — every
+                     job's duration is set on the job itself, and the calendar
+                     falls back to 2 hours when it's blank. -->
                 <div class="setting-item p-4 border-b border-white/5 flex justify-between items-center">
                     <div>
                         <p>Calendar View</p>
@@ -132,14 +114,10 @@
                 </div>
             </div>
 
-            <!-- Service Types -->
-            <p class="section-title mb-2 px-1">Service Types</p>
-            <div class="glass-card rounded-2xl overflow-hidden mb-4">
-                <div class="p-4">
-                    <p class="text-xs text-gray-400 mb-2">Customize the services you offer (comma-separated)</p>
-                    <textarea id="serviceTypes" rows="2" class="w-full text-sm" placeholder="Driveway, House, Deck, Patio, Fence..."></textarea>
-                </div>
-            </div>
+            <!-- Removed: "Service Types". The list was saved but never read —
+                 Service Type on a job is a free-text box, so whatever you
+                 curated here never appeared anywhere. Job Categories below
+                 IS wired up, which made the inconsistency worse. -->
 
             <!-- Job Categories -->
             <p class="section-title mb-2 px-1">Job Categories</p>
@@ -188,7 +166,11 @@
                 </div>
             </div>
 
-            <!-- Data Management -->
+            </div><!-- /#settingsForm -->
+
+            <!-- Data Management. Kept below the settings, and the Save
+                 button is gone — "Clear All Data" used to sit immediately
+                 above the button people were reaching for. -->
             <p class="section-title mb-2 px-1">Data</p>
             <p style="font-size: 12px; color: #94a3b8; margin-bottom: 8px; padding-left: 4px;">To move data between devices: Export on one device, then Import on the other.</p>
             <div class="glass-card rounded-2xl overflow-hidden mb-4">
@@ -214,12 +196,6 @@
                     <i class="fas fa-trash text-red-400"></i>
                 </button>
             </div>
-
-
-            <!-- Save Button -->
-            <button onclick="saveSettings(); showToast('Settings saved!')" class="btn-primary mb-4">
-                <i class="fas fa-save mr-2"></i>Save Settings
-            </button>
 
             <!-- App Info -->
             <p class="section-title mb-2 px-1">About</p>
@@ -252,19 +228,21 @@
             if (settings.businessPhone) document.getElementById('businessPhone').value = settings.businessPhone;
             if (settings.businessEmail) document.getElementById('businessEmail').value = settings.businessEmail;
             if (settings.reviewUrl) document.getElementById('reviewUrl').value = settings.reviewUrl;
-            if (settings.priceDriveway) document.getElementById('priceDriveway').value = settings.priceDriveway;
-            if (settings.priceHouse) document.getElementById('priceHouse').value = settings.priceHouse;
-            if (settings.priceDeck) document.getElementById('priceDeck').value = settings.priceDeck;
-            if (settings.priceMin) document.getElementById('priceMin').value = settings.priceMin;
             if (settings.furnitureFee !== undefined && settings.furnitureFee !== '') document.getElementById('furnitureFee').value = settings.furnitureFee;
             if (settings.laborRate !== undefined && settings.laborRate !== '') document.getElementById('laborRate').value = settings.laborRate;
-            if (settings.defaultDuration) document.getElementById('defaultDuration').value = settings.defaultDuration;
             if (settings.calendarView) document.getElementById('calendarView').value = settings.calendarView;
             if (settings.reminders === false) document.getElementById('toggleReminders').classList.remove('on');
 
-            // Load service types and categories
-            document.getElementById('serviceTypes').value = settings.serviceTypes || DEFAULT_SERVICES;
             document.getElementById('jobCategories').value = settings.jobCategories || DEFAULT_CATEGORIES;
+
+            // Save on change instead of relying on one button at the very
+            // bottom of the page (which sat directly under "Clear All Data").
+            // Editing a field and navigating away used to lose the edit with
+            // no warning at all.
+            document.querySelectorAll('#settingsForm input, #settingsForm select, #settingsForm textarea')
+                .forEach(el => {
+                    el.addEventListener('change', () => saveSettings({ quiet: false }));
+                });
 
             // Check Google Calendar connection status
             const token = localStorage.getItem('gcal-token');
@@ -292,18 +270,16 @@
                 businessPhone: document.getElementById('businessPhone').value,
                 businessEmail: document.getElementById('businessEmail').value,
                 reviewUrl: document.getElementById('reviewUrl').value.trim(),
-                priceDriveway: document.getElementById('priceDriveway').value,
-                priceHouse: document.getElementById('priceHouse').value,
-                priceDeck: document.getElementById('priceDeck').value,
-                priceMin: document.getElementById('priceMin').value,
                 furnitureFee: document.getElementById('furnitureFee').value,
                 laborRate: document.getElementById('laborRate').value,
-                defaultDuration: document.getElementById('defaultDuration').value,
                 calendarView: document.getElementById('calendarView').value,
                 reminders: document.getElementById('toggleReminders').classList.contains('on'),
-                serviceTypes: document.getElementById('serviceTypes').value,
                 jobCategories: document.getElementById('jobCategories').value
             };
+            // Drop the settings that no longer have a UI, so they stop
+            // riding along in every cloud sync.
+            ['priceDriveway', 'priceHouse', 'priceDeck', 'priceMin', 'defaultDuration', 'serviceTypes']
+                .forEach(k => { delete settings[k]; });
             localStorage.setItem('cl-settings', JSON.stringify(settings));
 
             if (window.CL_FIREBASE && CL_FIREBASE.isSignedIn) {
@@ -313,6 +289,18 @@
             if (businessName) {
                 document.getElementById('aboutBusinessName').textContent = businessName;
             }
+            flashSaved();
+        }
+
+        // Brief confirmation that the change stuck, since there's no longer
+        // a Save button to press.
+        let _savedTimer = null;
+        function flashSaved() {
+            const el = document.getElementById('settingsSaved');
+            if (!el) return;
+            el.classList.remove('hidden');
+            if (_savedTimer) clearTimeout(_savedTimer);
+            _savedTimer = setTimeout(() => el.classList.add('hidden'), 1600);
         }
 
         // Sync UI functions
@@ -377,25 +365,38 @@
                         localStorage.setItem('cl-settings', JSON.stringify(data.settings));
                     }
                     
-                    alert('Data imported successfully! Reloading...');
-                    location.reload();
+                    // showToast instead of alert(): in an installed PWA,
+                    // alert() renders as "clearline.app says…", which reads
+                    // as a browser error rather than the app talking.
+                    showToast('Data imported — reloading');
+                    setTimeout(() => location.reload(), 700);
                 } catch (err) {
-                    alert('Error importing data: Invalid file format');
+                    showToast("That file isn't a Clearline backup", 'error');
                 }
             };
             reader.readAsText(file);
         }
 
+        // Two vague "are you REALLY sure?" prompts are easy to click through.
+        // One prompt that states the actual damage, and requires typing, is
+        // harder to do by accident and clearer about what's about to happen.
         function confirmClearData() {
-            if (confirm('Are you sure you want to delete ALL data? This cannot be undone!')) {
-                if (confirm('This will delete all customers, jobs, and settings. Are you REALLY sure?')) {
-                    CL_DATA.clearAll();
-                    localStorage.removeItem('cl-settings');
-                    localStorage.removeItem('cl-checklist');
-                    alert('All data cleared.');
-                    location.reload();
-                }
+            const counts = `${CL_DATA.getCustomers().length} customers and ${CL_DATA.getJobs().length} jobs`;
+            const typed = prompt(
+                `This deletes ${counts} from this device, permanently.\n\n` +
+                `Export your data first if you might want it back.\n\n` +
+                `Type DELETE to confirm:`
+            );
+            if (typed === null) return;
+            if (typed.trim().toUpperCase() !== 'DELETE') {
+                showToast('Nothing was deleted', 'error');
+                return;
             }
+            CL_DATA.clearAll();
+            localStorage.removeItem('cl-settings');
+            localStorage.removeItem('cl-checklist');
+            showToast('All data cleared');
+            setTimeout(() => location.reload(), 700);
         }
     </script>
 

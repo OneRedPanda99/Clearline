@@ -770,13 +770,24 @@ window.phoneDigits = function(raw) {
 
 /**
  * Street-only, length-capped address for compact card display.
- * Drops city/state/country after the first comma and truncates long
- * street lines, e.g. "123 Long Winding Road Ct, Columbia, SC 29201" -> "123 Long Winding Road Ct".
+ * e.g. "123 Long Winding Road Ct, Columbia, SC 29201" -> "123 Long Winding Road Ct".
+ *
+ * Taking everything before the first comma is right for a hand-typed
+ * address but wrong for the ones the address autocomplete stores. OSM /
+ * Nominatim returns the house number as its own comma-separated field
+ * ("8, Fishing Point, Columbia, Richland County, South Carolina, …"), so
+ * the naive split rendered job cards with an address of just "8" or
+ * "6113". When the first part is only a number, fold in the next part.
  */
 window.shortJobAddress = function(addr) {
   if (!addr) return '';
-  let s = String(addr).trim();
-  if (s.includes(',')) s = s.split(',')[0].trim();
+  const parts = String(addr).split(',').map(p => p.trim()).filter(Boolean);
+  if (!parts.length) return '';
+  let s = parts[0];
+  // Bare house number (optionally with a unit letter, e.g. "12B" / "8-A").
+  if (parts.length > 1 && /^\d+[a-z]?(-[a-z0-9]+)?$/i.test(s)) {
+    s = s + ' ' + parts[1];
+  }
   s = s.replace(/\s+United States$/i, '').trim();
   if (s.length > 36) s = s.slice(0, 34).trim() + '…';
   return s;
