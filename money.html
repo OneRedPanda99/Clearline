@@ -9,11 +9,11 @@
     <meta http-equiv="Expires" content="0">
     <title>Money - Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js?v=15"></script>
-    <script src="data-migration.js?v=15"></script>
-    <script src="firebase-sync.js?v=15"></script>
-    <link rel="stylesheet" href="tailwind.css?v=15">
-    <link rel="stylesheet" href="app.css?v=15">
+    <script src="utils.js?v=16"></script>
+    <script src="data-migration.js?v=16"></script>
+    <script src="firebase-sync.js?v=16"></script>
+    <link rel="stylesheet" href="tailwind.css?v=16">
+    <link rel="stylesheet" href="app.css?v=16">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -91,11 +91,25 @@
         }
         .seg button.active { background: var(--md-sys-color-primary); color:#0b0d10; }
         .sort-btn {
-            display:inline-flex; align-items:center; gap:5px;
+            display:inline-flex; align-items:center; justify-content:center; gap:5px;
             background: rgba(15,23,42,0.5); border:1px solid var(--md-sys-color-outline-variant);
-            color:#cbd5e1; font-size:12px; font-weight:700; padding:6px 10px; border-radius:999px; cursor:pointer;
+            color:#cbd5e1; font-size:12px; font-weight:700; padding:0 12px; border-radius:999px; cursor:pointer;
+            min-height:40px;
         }
         .sort-btn .arrow { font-size:10px; color:#60a5fa; }
+        /* Per-period money under a tax category. Wraps on a phone, scrolls
+           only inside itself if a row somehow gets long. */
+        .tax-breakdown {
+            display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:4px;
+            font-variant-numeric: tabular-nums;
+        }
+        .tax-breakdown__cell {
+            font-size:12px; color:#cbd5e1; white-space:nowrap;
+        }
+        .tax-breakdown__cell b {
+            display:block; font-size:10px; font-weight:700; letter-spacing:0.04em;
+            color:#64748b; text-transform:uppercase;
+        }
         .emp-card {
             display:flex; align-items:center; gap:12px; padding:12px 14px;
             border-bottom:1px solid var(--md-sys-color-outline-variant);
@@ -564,23 +578,49 @@
         // Two entries are the "same purchase" when they share the same amount
         // AND same calendar day OR same normalized vendor. Used for all
         // dupe pairs (manual↔manual, manual↔receipt, receipt↔receipt).
+        // Two records are the same purchase only if the amount, the vendor
+        // AND the day all match.
+        //
+        // This used to be `sameDay || sameVendor`, which meant "same amount
+        // at the same shop, ever" counted as a duplicate — so two genuine
+        // $43.64 trips to the same supplier seven weeks apart were flagged,
+        // and so was any pair of unrelated same-amount purchases that
+        // happened to fall on one day. That's how 29 of 32 real expenses
+        // ended up marked as duplicates.
         function isSamePurchase(a, b) {
             if (!a || !b) return false;
             if (Math.abs(parseAmt(a.amount) - parseAmt(b.amount)) > 0.01) return false;
-            const sameDay = (a.date || '').slice(0, 10) && (a.date || '').slice(0, 10) === (b.date || '').slice(0, 10);
             const norm = (v) => (v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-            const sameVendor = norm(a.vendor) && norm(a.vendor) === norm(b.vendor);
-            return sameDay || sameVendor;
+            const va = norm(a.vendor), vb = norm(b.vendor);
+            if (!va || !vb || va !== vb) return false;
+            const da = (a.date || '').slice(0, 10), db = (b.date || '').slice(0, 10);
+            // A receipt with no parsed date can still be a duplicate of one
+            // that has a date — same vendor and amount is enough to surface
+            // it for review.
+            if (!da || !db) return true;
+            return da === db;
         }
         // Legacy alias kept for any stray caller.
         function isDupeOfReceipt(manual, auto) { return isSamePurchase(manual, auto); }
+        // Flags the *second and later* copy of each duplicate group, whatever
+        // its source. This only ever considered manual-vs-receipt pairs, so
+        // with a list of receipt-vs-receipt duplicates nothing was ever
+        // flagged as hideable: "✓ Hide dupes" sat switched on while all 29
+        // duplicates stayed on screen. `dupeFirst` marks the copy we keep, so
+        // the review modal can still show both sides of a pair.
         function markDupes(items) {
-            const auto = items.filter(x => x.source === 'auto');
             const okList = dupeOkList();
+            const seen = [];
             items.forEach(x => {
                 x.dupe = false;
-                if (x.source === 'manual' && !okList.includes(x.id)) {
-                    x.dupe = auto.some(a => isDupeOfReceipt(x, a));
+                x.dupeFirst = false;
+                if (okList.includes(x.id)) return;
+                const match = seen.find(s => isSamePurchase(s, x));
+                if (match) {
+                    x.dupe = true;
+                    match.dupeFirst = true;
+                } else {
+                    seen.push(x);
                 }
             });
             return items;
@@ -591,12 +631,9 @@
             let items = [...manualExpenses(), ...auto];
             markDupes(items);
 
-            // "Hide dupes" hides manual entries that match a receipt. The
-            // review-button count uses dupePairs() (all pair types) so it
-            // matches the modal exactly.
-            const dupeManual = items.filter(x => x.source === 'manual' && x.dupe);
+            // "Hide dupes" now hides every extra copy, not just manual ones.
             const dupeCount = dupePairs().length;
-            if (expHideDupes) items = items.filter(x => !(x.source === 'manual' && x.dupe));
+            if (expHideDupes) items = items.filter(x => !x.dupe);
 
             if (expFilter === 'manual') items = items.filter(x => x.source === 'manual');
             else if (expFilter === 'auto') items = items.filter(x => x.source === 'auto');
@@ -641,7 +678,7 @@
                     <div class="stat-card"><p class="value" style="color:#60a5fa;">${autoCount}</p><p class="label">From receipts</p></div>
                     <div class="stat-card"><p class="value" style="color:#fbbf24;">${fmtMoney(total)}</p><p class="label">Total</p></div>
                 </div>
-                ${dupeCount ? `<div class="glass-card rounded-xl p-2 mb-3 text-sm" style="color:#94a3b8;border:1px solid rgba(248,113,113,0.2);"><i class="fas fa-info-circle mr-1" style="color:#f87171;"></i>${dupeCount} possible duplicate${dupeCount===1?'':'s'} found (same amount & vendor/date). Review them side by side and pick which copy to keep.</div>` : ''}`;
+                ${dupeCount ? `<div class="glass-card rounded-xl p-2 mb-3 text-sm" style="color:#94a3b8;border:1px solid rgba(248,113,113,0.2);"><i class="fas fa-info-circle mr-1" style="color:#f87171;"></i>${dupeCount} possible duplicate${dupeCount===1?'':'s'} — same vendor, amount and date. Review them side by side and pick which copy to keep.</div>` : ''}`;
 
             let listHtml;
             if (!items.length) {
@@ -667,7 +704,7 @@
                         ? (x.photo ? `onclick='openLightbox("${esc(x.photo)}")'` : `onclick='openAutoExpense("${esc(x.id)}")'`)
                         : `onclick='event.preventDefault(); openExpenseModal(${JSON.stringify(x.raw)})'`;
                     const detailsBtn = isAuto
-                        ? `<button type="button" onclick='event.stopPropagation(); openAutoExpense("${esc(x.id)}")' style="margin-left:8px;background:rgba(148,163,184,0.16);border:1px solid rgba(148,163,184,0.28);color:#94a3b8;border-radius:999px;font-size:10px;font-weight:800;padding:3px 8px;cursor:pointer;flex-shrink:0;">Details</button>`
+                        ? `<button type="button" onclick='event.stopPropagation(); openAutoExpense("${esc(x.id)}")' style="margin-left:8px;background:rgba(148,163,184,0.16);border:1px solid rgba(148,163,184,0.28);color:#cbd5e1;border-radius:999px;font-size:12px;font-weight:800;padding:0 12px;min-height:36px;display:inline-flex;align-items:center;cursor:pointer;flex-shrink:0;">Details</button>`
                         : '';
                     const photoThumb = x.photo
                         ? `<img src="${esc(x.photo)}" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex-shrink:0;cursor:zoom-in;pointer-events:none;" onerror="this.style.visibility='hidden'">`
@@ -971,9 +1008,14 @@
                 empHtml = `<div class="glass-card" style="overflow:hidden;">${employees.map(u => {
                     const name = u.displayName || u.username || '(unnamed)';
                     const role = u.role === 'manager' ? '<span class="badge-soft mgr">Manager</span>' : '<span class="badge-soft">Worker</span>';
+                    // A salesman on commission used to show a bare "—" with
+                    // nothing saying why they had no hourly rate.
                     const pay = u.payType === 'salary' ? 'Salary'
                         : u.payType === 'per-job' ? 'Per job'
-                        : u.payRate ? `$${Number(u.payRate).toFixed(2)}/hr` : '—';
+                        : u.payType === 'commission'
+                            ? (u.commissionPct ? `${u.commissionPct}% commission` : 'Commission')
+                        : u.payRate ? `$${Number(u.payRate).toFixed(2)}/hr`
+                        : 'No rate set';
                     const initials = name.split(/\s+/).map(s=>s[0]).slice(0,2).join('').toUpperCase();
                     return `<div class="emp-card">
                         <div class="emp-avatar">${esc(initials)}</div>
@@ -981,7 +1023,12 @@
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <p style="font-weight:800;margin:0;">${esc(name)}</p>${role}
                             </div>
-                            <p class="emp-meta">${esc(u.workerType ? u.workerType.charAt(0).toUpperCase()+u.workerType.slice(1) : (u.role==='manager'?'Manager':'Worker'))}${u.phone ? ' · '+esc(u.phone) : ''}</p>
+                            <!-- The role badge above already says Manager /
+                                 Worker; repeating it here just added noise. -->
+                            ${(u.workerType || u.phone) ? `<p class="emp-meta">${[
+                                u.workerType ? esc(u.workerType.charAt(0).toUpperCase() + u.workerType.slice(1)) : '',
+                                u.phone ? esc(u.phone) : ''
+                            ].filter(Boolean).join(' · ')}</p>` : ''}
                         </div>
                         <div class="money-amt" style="font-size:14px;color:#cbd5e1;">${esc(pay)}</div>
                     </div>`;
@@ -1059,6 +1106,22 @@
             return d >= start && d <= end;
         }
         function jobRevenue(job) { return window.getJobDisplayTotal ? Number(getJobDisplayTotal(job) || 0) : 0; }
+        // Money actually received. "Collected" used to be the total of every
+        // completed job, which counted a finished-but-unpaid invoice as cash
+        // in hand and ignored a deposit taken on a job not yet finished.
+        // Matches getCustomerPaid() on the customers page.
+        function jobPaid(job) {
+            if (!job) return 0;
+            const paid = parseFloat(job.amountPaid);
+            if (!isNaN(paid) && paid > 0) return paid;
+            if (job.paymentStatus === 'paid') return jobRevenue(job);
+            return 0;
+        }
+        // What's been billed but not yet received, on work already done.
+        function jobOutstanding(job) {
+            if (!isCompletedJob(job)) return 0;
+            return Math.max(0, jobRevenue(job) - jobPaid(job));
+        }
         function isCompletedJob(job) { return job && (job.status === 'completed' || job.status === 'paid'); }
         function isBookedPipeline(job) {
             if (!job) return false;
@@ -1071,7 +1134,7 @@
             const manual = manualExpenses();
             const expenses = [...manual, ...auto];
             const payroll = CL_DATA.getPayroll();
-            const rev = jobs.filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, start, end)).reduce((s, j) => s + jobRevenue(j), 0);
+            const rev = jobs.filter(j => jobPaid(j) > 0 && inRangeYmd(j.jobDate,start, end)).reduce((s, j) => s + jobPaid(j), 0);
             const exp = expenses.filter(e => inRangeYmd(e.date, start, end)).reduce((s, e) => s + Number(e.amount || 0), 0);
             const pay = payroll.filter(p => inRangeYmd(p.date, start, end)).reduce((s, p) => s + Number(p.grossPay || (Number(p.hours||0)*Number(p.rate||0))), 0);
             return { rev, exp, pay, net: rev - exp - pay };
@@ -1083,17 +1146,24 @@
             const priorYearStart = new Date(year - 1, 0, 1);
             const priorSameDay = new Date(year - 1, today.getMonth(), today.getDate());
             const weekRange = periodRange('week', today);
-            const thisWeek = jobs.filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, weekRange.start, weekRange.end)).reduce((s, j) => s + jobRevenue(j), 0);
-            const ytd = jobs.filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, yearStart, today)).reduce((s, j) => s + jobRevenue(j), 0);
-            const priorYtd = jobs.filter(j => isCompletedJob(j) && inRangeYmd(j.jobDate, priorYearStart, priorSameDay)).reduce((s, j) => s + jobRevenue(j), 0);
+            const thisWeek = jobs.filter(j => jobPaid(j) > 0 && inRangeYmd(j.jobDate,weekRange.start, weekRange.end)).reduce((s, j) => s + jobPaid(j), 0);
+            const ytd = jobs.filter(j => jobPaid(j) > 0 && inRangeYmd(j.jobDate,yearStart, today)).reduce((s, j) => s + jobPaid(j), 0);
+            const priorYtd = jobs.filter(j => jobPaid(j) > 0 && inRangeYmd(j.jobDate,priorYearStart, priorSameDay)).reduce((s, j) => s + jobPaid(j), 0);
             const dayOfYear = Math.max(1, Math.floor((today - yearStart) / 86400000) + 1);
             const weeksSoFar = Math.max(1, Math.ceil(dayOfYear / 7));
             const avgWeekly = ytd / weeksSoFar;
-            const estThisYear = avgWeekly * 52;
+            // The year-end figure is money already banked plus the weeks that
+            // are actually left — not the weekly average × 52, which quietly
+            // re-forecast the seven months you've already lived through.
+            const weeksLeft = Math.max(0, 52 - weeksSoFar);
+            const estThisYear = ytd + (avgWeekly * weeksLeft);
             let growth = null;
             if (priorYtd > 0) growth = (ytd - priorYtd) / priorYtd;
             const estNextYear = avgWeekly * 52 * (1 + (growth === null ? 0 : growth));
-            return { year, nextYear: year + 1, thisWeek, ytd, weeksSoFar, avgWeekly, estThisYear, priorYtd, growth, estNextYear };
+            // With only a few weeks of history the projection is noise. Say so
+            // rather than printing a confident number to the cent.
+            const confident = weeksSoFar >= 8 && ytd > 0;
+            return { year, nextYear: year + 1, thisWeek, ytd, weeksSoFar, weeksLeft, avgWeekly, estThisYear, priorYtd, growth, estNextYear, confident };
         }
         function pieStyle(parts) {
             const total = parts.reduce((s, p) => s + Math.max(0, Number(p.value) || 0), 0);
@@ -1125,9 +1195,20 @@
         }
         function allTimePipeline() {
             const jobs = CL_DATA.getJobs();
-            const collected = jobs.filter(isCompletedJob).reduce((s, j) => s + jobRevenue(j), 0);
-            const open = jobs.filter(isBookedPipeline).reduce((s, j) => s + jobRevenue(j), 0);
-            return { jobs: jobs.length, collected, open, pipeline: collected + open };
+            // Three distinct numbers, previously collapsed into two:
+            //   collected  — cash received, on any job
+            //   owed       — finished work that hasn't been paid for
+            //   booked     — scheduled work not yet done
+            const collected = jobs.reduce((s, j) => s + jobPaid(j), 0);
+            const owed = jobs.reduce((s, j) => s + jobOutstanding(j), 0);
+            const booked = jobs.filter(isBookedPipeline)
+                .reduce((s, j) => s + Math.max(0, jobRevenue(j) - jobPaid(j)), 0);
+            return {
+                jobs: jobs.length,
+                collected, owed, booked,
+                open: owed + booked,
+                pipeline: collected + owed + booked
+            };
         }
         async function expenseCategoryParts(limit = 6) {
             const [auto] = await Promise.all([loadAutoExpenses()]);
@@ -1174,9 +1255,10 @@
                 ? 'No last-year numbers yet. Assuming the same weekly pace.'
                 : `Adjusted for ${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(0)}% vs this time last year.`;
 
-            const moneyPie = renderPieCard('Money in pipeline', [
-                { label: 'Collected', value: all.collected, color: '#34d399', money: true },
-                { label: 'Open', value: all.open, color: '#fbbf24', money: true }
+            const moneyPie = renderPieCard('Where the money is', [
+                { label: 'In the bank', value: all.collected, color: '#34d399', money: true },
+                { label: 'Owed to you', value: all.owed, color: '#f87171', money: true },
+                { label: 'Booked ahead', value: all.booked, color: '#60a5fa', money: true }
             ]);
             const statusPie = renderPieCard('Jobs by status', jobStatusParts());
             const spendPie = renderPieCard('Spend by category', await expenseCategoryParts());
@@ -1212,22 +1294,26 @@
                         <p style="font-size:22px;font-weight:800;margin:2px 0 4px;color:#e2e8f0;">${fmtMoney(fc.avgWeekly)}<span style="font-size:13px;font-weight:600;color:#94a3b8;"> / week avg</span></p>
                         <p class="money-sub" style="margin:0;">YTD ${fmtMoney(fc.ytd)} across ${fc.weeksSoFar} week${fc.weeksSoFar===1?'':'s'}</p>
                     </div>
+                    ${fc.confident ? `
                     <div style="border-top:1px solid var(--md-sys-color-outline-variant);padding-top:12px;">
-                        <p class="money-sub" style="margin:0;">Est. ${fc.year}</p>
+                        <p class="money-sub" style="margin:0;">On track for ${fc.year}</p>
                         <p style="font-size:26px;font-weight:800;margin:2px 0 4px;color:#34d399;">${fmtMoney(fc.estThisYear)}</p>
-                        <p class="money-sub" style="margin:0;">${fmtMoney(fc.avgWeekly)}/week × 52</p>
+                        <p class="money-sub" style="margin:0;">${fmtMoney(fc.ytd)} banked + ${fc.weeksLeft} week${fc.weeksLeft===1?'':'s'} at this pace</p>
                     </div>
                     <div style="border-top:1px solid var(--md-sys-color-outline-variant);padding-top:12px;">
                         <p class="money-sub" style="margin:0;">Est. ${fc.nextYear}</p>
                         <p style="font-size:26px;font-weight:800;margin:2px 0 4px;color:var(--md-sys-color-primary);">${fmtMoney(fc.estNextYear)}</p>
                         <p class="money-sub" style="margin:0;">${esc(growthLine)}</p>
-                    </div>
+                    </div>` : `
+                    <div style="border-top:1px solid var(--md-sys-color-outline-variant);padding-top:12px;">
+                        <p class="money-sub" style="margin:0;">Not enough history to project a year yet — ${fc.weeksSoFar} week${fc.weeksSoFar===1?'':'s'} of payments so far. This fills in after about two months.</p>
+                    </div>`}
                 </div>
                 <p class="section-title">All-time</p>
                 <div class="stats-grid stats-grid--4 mb-3">
-                    <div class="stat-card"><p class="value" style="color:#60a5fa;">${fmtMoney(all.pipeline)}</p><p class="label">Pipeline</p></div>
                     <div class="stat-card"><p class="value" style="color:#34d399;">${fmtMoney(all.collected)}</p><p class="label">Collected</p></div>
-                    <div class="stat-card"><p class="value" style="color:#fbbf24;">${fmtMoney(all.open)}</p><p class="label">Open</p></div>
+                    <div class="stat-card"><p class="value" style="color:#f87171;">${fmtMoney(all.owed)}</p><p class="label">Owed to you</p></div>
+                    <div class="stat-card"><p class="value" style="color:#60a5fa;">${fmtMoney(all.booked)}</p><p class="label">Booked ahead</p></div>
                     <div class="stat-card"><p class="value" style="color:var(--md-sys-color-secondary);">${all.jobs}</p><p class="label">Jobs</p></div>
                 </div>
                 <div class="money-pie-grid mb-3">${moneyPie}${statusPie}${spendPie}</div>
@@ -1255,30 +1341,51 @@
             const [auto] = await Promise.all([loadAutoExpenses()]);
             const manual = manualExpenses();
             const byCatMonth = {}, byCatQuarter = {};
+            // Entries with no readable date used to land in a bucket keyed
+            // "" / "-Q1", which then showed up as a period called "-Q1".
+            const NO_DATE = 'No date';
+            const mKey = (d) => (d ? monthKey(d) : NO_DATE);
+            const qKey = (d) => (d ? quarterKey(d) : NO_DATE);
             [...manual, ...auto].forEach(it => {
                 const cat = it.category || 'Other';
-                const mk = monthKey(it.date), qk = quarterKey(it.date);
+                const mk = mKey(it.date), qk = qKey(it.date);
                 byCatMonth[cat] = byCatMonth[cat] || {}; byCatMonth[cat][mk] = (byCatMonth[cat][mk] || 0) + it.amount;
                 byCatQuarter[cat] = byCatQuarter[cat] || {}; byCatQuarter[cat][qk] = (byCatQuarter[cat][qk] || 0) + it.amount;
             });
             const cats = Object.keys(byCatMonth).sort();
-            const months = Array.from(new Set([...manual, ...auto].map(it => monthKey(it.date)))).sort().reverse().slice(0, 6);
-            const quarters = Array.from(new Set([...manual, ...auto].map(it => quarterKey(it.date)))).sort().reverse().slice(0, 6);
+            const periodSort = (a, b) => (a === NO_DATE ? 1 : b === NO_DATE ? -1 : b.localeCompare(a));
+            const months = Array.from(new Set([...manual, ...auto].map(it => mKey(it.date)))).sort(periodSort).slice(0, 6);
+            const quarters = Array.from(new Set([...manual, ...auto].map(it => qKey(it.date)))).sort(periodSort).slice(0, 6);
             const rowsFor = (bucket, keys) => cats.map(cat => ({
-                cat, total: keys.reduce((s,k) => s + Number((bucket[cat] && bucket[cat][k]) || 0), 0)
+                cat,
+                total: keys.reduce((s,k) => s + Number((bucket[cat] && bucket[cat][k]) || 0), 0),
+                // Per-period figures, so a table called "Monthly totals"
+                // actually breaks the money down by month.
+                byPeriod: keys.map(k => ({ k, v: Number((bucket[cat] && bucket[cat][k]) || 0) }))
             })).sort((a,b) => b.total - a.total);
-            const table = (title, keys, rows) => `
+            // The subtitle used to be `keys.join(' · ')` — it printed the
+            // list of column headings under every category ("Other · 2026-07
+            // · 2026-06 · 2026-05 …") beside a single lump sum, so a table
+            // titled "Monthly totals" showed no monthly split at all.
+            const table = (title, keys, rows, unit) => `
                 <p class="section-title" style="margin-top: 14px;">${title}</p>
                 <div class="glass-card" style="overflow:hidden;">
-                    ${rows.filter(r => r.total > 0).map(r => `<div class="money-row">
-                        <span class="money-dot" style="background: rgba(251,191,36,0.55);"></span>
-                        <div style="min-width:0;"><p style="font-weight:800;margin:0;">${esc(r.cat)}</p><p class="money-sub">${keys.join(' · ')}</p></div>
+                    ${rows.filter(r => r.total > 0).map(r => `<div class="money-row" style="align-items:flex-start;">
+                        <span class="money-dot" style="background: rgba(251,191,36,0.55);margin-top:6px;"></span>
+                        <div style="min-width:0;flex:1;">
+                            <p style="font-weight:800;margin:0;">${esc(r.cat)}</p>
+                            <div class="tax-breakdown">
+                                ${r.byPeriod.filter(p => p.v > 0).map(p =>
+                                    `<span class="tax-breakdown__cell"><b>${esc(p.k)}</b>${fmtMoney(p.v)}</span>`
+                                ).join('') || '<span class="money-sub">No spend in the last ' + keys.length + ' ' + unit + '</span>'}
+                            </div>
+                        </div>
                         <div class="money-amt">${fmtMoney(r.total)}</div>
                     </div>`).join('')}
                 </div>`;
             if (!cats.length) return '';
-            return table('Monthly totals (latest)', months, rowsFor(byCatMonth, months))
-                 + table('Quarterly totals (latest)', quarters, rowsFor(byCatQuarter, quarters));
+            return table('Monthly totals', months, rowsFor(byCatMonth, months), 'months')
+                 + table('Quarterly totals', quarters, rowsFor(byCatQuarter, quarters), 'quarters');
         }
         function quarterKey(ymd) {
             const m = parseInt(String(ymd||'').slice(5,7), 10) || 0;

@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1a1c1f">
-    <title>Messages - Clearline</title>
+    <title>Job notes &amp; texts - Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js?v=15"></script>
-    <script src="data-migration.js?v=15"></script>
-    <script src="firebase-sync.js?v=15"></script>
-    <link rel="stylesheet" href="tailwind.css?v=15">
-    <link rel="stylesheet" href="app.css?v=15">
+    <script src="utils.js?v=16"></script>
+    <script src="data-migration.js?v=16"></script>
+    <script src="firebase-sync.js?v=16"></script>
+    <link rel="stylesheet" href="tailwind.css?v=16">
+    <link rel="stylesheet" href="app.css?v=16">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .chat-wrap { display: flex; flex-direction: column; min-height: 0; flex: 1; }
@@ -101,12 +101,19 @@
     <main class="app-content" style="display:flex;flex-direction:column;">
         <div class="content-wrapper chat-wrap">
             <a id="chatViewJob" href="#" class="chat-view-job"><i class="fas fa-briefcase mr-2"></i>View job details</a>
-            <p class="chat-hint">Quick SMS templates open your messenger. Notes below are saved on this device only.</p>
+            <!-- This page was titled "Messages" and reached from a button
+                 labelled "Text", but nothing here is delivered to the crew —
+                 notes live in localStorage on this phone. Say so up front so
+                 nobody writes "gate is locked" expecting the office to read it. -->
+            <p class="chat-hint">
+                <i class="fas fa-circle-info mr-1"></i>Quick replies open your own messaging app to text the customer.
+                <strong>Notes stay on this phone</strong> — nobody else on the crew can see them.
+            </p>
             <div class="quick-row" id="quickReplies"></div>
             <div class="chat-stream" id="chatStream"></div>
             <div class="chat-input-row">
                 <button type="button" class="chat-icon-btn" id="btnSmsTemplate" title="Insert template" aria-label="Templates"><i class="fas fa-plus"></i></button>
-                <input type="text" id="chatInput" placeholder="Type a note (saved locally)…" autocomplete="off">
+                <input type="text" id="chatInput" placeholder="Private note, this phone only…" autocomplete="off">
                 <button type="button" class="chat-icon-btn" id="btnSendLocal" style="color:#2e7bff;" aria-label="Save note"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
@@ -119,6 +126,27 @@
         let job = null;
 
         function storageKey() { return 'cl-job-chat-' + (jobId || 'unknown'); }
+
+        // Mirrors setJobArrival() in jobs.html: local write plus a targeted
+        // cloud update, so the office sees the crew moving without this page
+        // needing to load the whole jobs module.
+        function setArrivalFromChat(arrival) {
+            if (!jobId) return;
+            const fields = { arrival: arrival, arrivalAt: new Date().toISOString() };
+            CL_DATA.updateJobLocal(jobId, fields);
+            if (job) job.arrival = arrival;
+            const fb = window.CL_FIREBASE;
+            if (fb && fb.isSignedIn) {
+                fb.updateJobDoc(jobId, fields).catch(() => {});
+                if (typeof fb.logActivity === 'function') {
+                    fb.logActivity('job.arrival', {
+                        entityType: 'job', entityId: jobId,
+                        entityLabel: job && job.customerName, message: 'on my way'
+                    });
+                }
+            }
+            if (typeof showToast === 'function') showToast('Marked on my way ✓');
+        }
 
         function loadMessages() {
             return safeGet(storageKey(), []);
@@ -192,14 +220,28 @@
                 phoneBtn.style.display = 'inline-flex';
             }
 
+            // "On my way" used to only open the messenger — it told the
+            // customer and told the app nothing, so the office had no idea
+            // the crew had left. It now sets the job's arrival state as well,
+            // which is what makes the board honest.
             const quick = [
-                { label: 'On my way', body: 'On my way. See you soon.' },
-                { label: 'Running late', body: 'Running a few minutes late. Thanks for your patience.' },
+                { label: 'On my way', body: 'On my way. See you soon.', arrival: 'enroute' },
+                { label: 'Running late', body: 'Running a few minutes late. Thanks for your patience.', arrival: 'enroute' },
                 { label: 'See you soon', body: 'See you soon!' }
             ];
-            document.getElementById('quickReplies').innerHTML = quick.map(q =>
-                `<button type="button" class="quick-pill" onclick="openJobChatSms(${JSON.stringify(q.body)})">${q.label}</button>`
+            document.getElementById('quickReplies').innerHTML = quick.map((q, i) =>
+                `<button type="button" class="quick-pill" data-quick="${i}">${q.label}</button>`
             ).join('');
+            document.getElementById('quickReplies').addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-quick]');
+                if (!btn) return;
+                const q = quick[Number(btn.getAttribute('data-quick'))];
+                if (!q) return;
+                if (q.arrival && job && job.status !== 'completed' && job.arrival !== q.arrival) {
+                    setArrivalFromChat(q.arrival);
+                }
+                openJobChatSms(q.body);
+            });
 
             document.getElementById('btnSendLocal').addEventListener('click', () => {
                 pushLocalNote(document.getElementById('chatInput').value);

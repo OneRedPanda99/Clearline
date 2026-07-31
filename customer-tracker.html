@@ -9,13 +9,13 @@
     <meta name="theme-color" content="#1a1c1f">
     <title>Customers - Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js?v=15"></script>
-    <link rel="stylesheet" href="tailwind.css?v=15">
-    <link rel="stylesheet" href="app.css?v=15">
+    <script src="utils.js?v=16"></script>
+    <link rel="stylesheet" href="tailwind.css?v=16">
+    <link rel="stylesheet" href="app.css?v=16">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="data-migration.js?v=15"></script>
-    <script src="firebase-sync.js?v=15"></script>
+    <script src="data-migration.js?v=16"></script>
+    <script src="firebase-sync.js?v=16"></script>
     <style>
         /* status chips from app.css */
         .filter-btn { transition: all 0.2s; }
@@ -61,11 +61,11 @@
             </div>
             <div class="stat-card">
                 <p class="value" style="color:#34d399;" id="ctStatRev">0</p>
-                <p class="label">Lifetime rev</p>
+                <p class="label">Collected</p>
             </div>
             <div class="stat-card">
                 <p class="value" style="color:#fbbf24;" id="ctStatMonth">0</p>
-                <p class="label">This mo.</p>
+                <p class="label">New this mo.</p>
             </div>
         </div>
 
@@ -227,13 +227,25 @@
             const elM = document.getElementById('ctStatMonth');
             if (elC) elC.textContent = customers.length;
             if (elA) elA.textContent = jobs.filter(j => j.status === 'new' || j.status === 'scheduled').length;
+            // "Lifetime rev" summed completed job *totals*, so unpaid work
+            // counted as revenue — while the customer rows immediately below
+            // showed "$640 paid" from actual payments. Two meanings of money
+            // on one screen. Both now report what's actually been collected.
             if (elR) {
-                const rev = jobs.filter(j => j.status === 'completed').reduce((s, j) => s + getJobDisplayTotal(j), 0);
-                elR.textContent = '$' + rev.toFixed(0);
+                const collected = customers.reduce((s, c) => s + getCustomerPaid(c.id), 0);
+                elR.textContent = '$' + collected.toFixed(0);
             }
+            // This tile sat fourth in a row after "Lifetime rev", rendered a
+            // bare number with no dollar sign, and was labelled "This mo." —
+            // so it read as "$0 earned this month". It has always been a
+            // count of new customers; the label now says so.
             if (elM) {
                 const ym = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]).slice(0, 7);
-                elM.textContent = customers.filter(c => c.dateAdded && c.dateAdded.slice(0, 7) === ym).length;
+                const added = customers.filter(c => {
+                    const when = c.dateAdded || c.createdAt || '';
+                    return when.slice(0, 7) === ym;
+                }).length;
+                elM.textContent = added;
             }
         }
 
@@ -748,7 +760,7 @@
             const data = CL_DATA.exportAll();
             
             if (data.customers.length === 0 && data.jobs.length === 0) {
-                alert('No data to export');
+                showToast('Nothing to export yet', 'error');
                 return;
             }
 
@@ -786,9 +798,9 @@
                     CL_DATA.importData(data);
                     loadData();
                     renderCustomers();
-                    alert('Data imported successfully!');
+                    showToast('Data imported');
                 } catch (err) {
-                    alert('Error reading file: ' + err.message);
+                    showToast("That file couldn't be read — is it a Clearline backup?", 'error');
                 }
             };
             reader.readAsText(file);
@@ -801,7 +813,7 @@
             const vcards = vcfText.split('END:VCARD').filter(v => v.includes('BEGIN:VCARD'));
             
             if (vcards.length === 0) {
-                alert('No contacts found in VCF file');
+                showToast('No contacts found in that file', 'error');
                 return;
             }
             
@@ -824,7 +836,7 @@
             });
             
             if (importedContacts.length === 0) {
-                alert('No valid contacts found');
+                showToast('No usable contacts in that file', 'error');
                 return;
             }
             
@@ -832,7 +844,7 @@
                 importedContacts.forEach(c => CL_DATA.addCustomer(c));
                 loadData();
                 renderCustomers();
-                alert(`Imported ${importedContacts.length} contacts`);
+                showToast(`Imported ${importedContacts.length} contact${importedContacts.length === 1 ? '' : 's'}`);
             }
         }
         

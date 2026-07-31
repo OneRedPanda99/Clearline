@@ -9,11 +9,11 @@
     <meta name="theme-color" content="#1a1c1f">
     <title>Jobs - Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js?v=15"></script>
-    <script src="data-migration.js?v=15"></script>
-    <script src="firebase-sync.js?v=15"></script>
-    <link rel="stylesheet" href="tailwind.css?v=15">
-    <link rel="stylesheet" href="app.css?v=15">
+    <script src="utils.js?v=16"></script>
+    <script src="data-migration.js?v=16"></script>
+    <script src="firebase-sync.js?v=16"></script>
+    <link rel="stylesheet" href="tailwind.css?v=16">
+    <link rel="stylesheet" href="app.css?v=16">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -223,6 +223,19 @@
         function getJobTimerKey(jobId) {
             return `${JOB_TIMER_PREFIX}${jobId}`;
         }
+        // "123 Devine St, Columbia, SC 29205" out of a Nominatim result,
+        // instead of its full county-and-country display_name.
+        function tidyPlaceAddress(p) {
+            const a = (p && p.address) || null;
+            if (!a) return String((p && p.display_name) || '');
+            const street = [a.house_number, a.road].filter(Boolean).join(' ');
+            const city = a.city || a.town || a.village || a.hamlet || a.suburb || '';
+            const state = a.state_code || a.ISO3166_2_lvl4 ? String(a.ISO3166_2_lvl4 || '').split('-').pop() : (a.state || '');
+            const line2 = [city, [state, a.postcode].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+            const out = [street || a.name || '', line2].filter(Boolean).join(', ');
+            return out || String(p.display_name || '');
+        }
+
         function initAddressAutocomplete(inputId) {
             const input = document.getElementById(inputId);
             if (!input) return;
@@ -251,7 +264,13 @@
                 box.style.display = 'block';
                 box.innerHTML = '<div class="px-3 py-2 text-xs text-slate-300">Searching addresses…</div>';
                 try {
-                    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=${encodeURIComponent(q)}`, { headers: { 'Accept': 'application/json' }});
+                    // addressdetails=1 so we can save a normal-looking
+                    // address. Nominatim's raw display_name is a long
+                    // comma chain that includes the county and country
+                    // ("8, Fishing Point, Columbia, Richland County, South
+                    // Carolina, 29201, United States"), which is what left
+                    // job cards showing an address of just "8".
+                    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&q=${encodeURIComponent(q)}`, { headers: { 'Accept': 'application/json' }});
                     const arr = await r.json();
                     if (token !== reqToken) return;
                     if (!Array.isArray(arr) || !arr.length) {
@@ -259,7 +278,10 @@
                         box.innerHTML = '<div class="px-3 py-2 text-xs text-slate-400">No addresses found.</div>';
                         return;
                     }
-                    box.innerHTML = arr.map(p => `<button type="button" class="w-full text-left px-3 py-2 text-sm border-b border-slate-700 last:border-b-0 hover:bg-slate-700" data-place="${String(p.display_name || '').replace(/"/g, '&quot;')}">${String(p.display_name || '').replace(/</g, '&lt;')}</button>`).join('');
+                    box.innerHTML = arr.map(p => {
+                        const tidy = tidyPlaceAddress(p);
+                        return `<button type="button" class="w-full text-left px-3 py-2 text-sm border-b border-slate-700 last:border-b-0 hover:bg-slate-700" data-place="${tidy.replace(/"/g, '&quot;')}">${tidy.replace(/</g, '&lt;')}</button>`;
+                    }).join('');
                     box.style.display = 'block';
                 } catch (_) { closeBox(); }
             };
@@ -302,9 +324,21 @@
             const s = total % 60;
             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         }
-        function writeJobDuration(jobId, elapsedMs) {
-            const v = fmtElapsed(elapsedMs);
-            CL_DATA.updateJob(jobId, { jobDuration: v });
+        // Measured time is its OWN field. It used to be written back into
+        // `jobDuration` as an "HH:MM:SS" string — but jobDuration is the
+        // *planned* length in hours everywhere else (the edit form, the
+        // calendar's event end time, labor-cost math). A four-minute run
+        // turned a 3-hour job into "00:04:00", which parseFloat reads as 0:
+        // labor cost collapsed to $0 and calendar events got a zero-length
+        // slot. Plan and actual are different numbers; keep them apart.
+        function writeJobActual(jobId, elapsedMs) {
+            CL_DATA.updateJob(jobId, { actualMs: Math.max(0, Math.round(elapsedMs || 0)) });
+        }
+        // Hours actually worked, for margin math. Null when never timed.
+        function jobActualHours(job) {
+            const ms = job && Number(job.actualMs);
+            if (!ms || isNaN(ms) || ms <= 0) return null;
+            return ms / 3600000;
         }
         function toggleJobStopwatch(jobId) {
             const st = getJobTimerState(jobId);
@@ -315,12 +349,128 @@
                 st.elapsedMs = timerElapsedMs(st);
                 st.isRunning = false;
                 st.startedAt = null;
-                writeJobDuration(jobId, st.elapsedMs || 0);
+                writeJobActual(jobId, st.elapsedMs || 0);
             }
             setJobTimerState(jobId, st);
             const job = jobs.find(j => j.id === jobId);
             if (job) openJobModal(jobId);
         }
+        // ── The day, as one button ──────────────────────────────────────
+        // A job moves Booked → On my way → On site → Working → Done, and at
+        // every point exactly one of those is the next thing to do. So the
+        // card and the job sheet render a single primary button whose label
+        // IS the next step. Previously the label was fixed ("Start") no
+        // matter what — it still said Start on a job whose clock was already
+        // running, and tapping it did nothing.
+        //
+        // `arrival` is a sub-state of a scheduled job (null | 'enroute' |
+        // 'onsite'), deliberately NOT part of `status`, so every existing
+        // filter, count and query keeps working untouched.
+        const ARRIVAL_LABEL = { enroute: 'On my way', onsite: 'On site' };
+
+        function jobStage(job) {
+            if (!job) return null;
+            if (job.status === 'lost') {
+                return { key: 'lost', label: 'Reopen lead', icon: 'fa-rotate-left', fn: 'reopenLead' };
+            }
+            if (job.status === 'completed') return null;
+            if (job.status === 'new') {
+                return { key: 'lead', label: 'Schedule', icon: 'fa-calendar-plus', fn: 'openScheduleFromCard' };
+            }
+            const t = getJobTimerState(job.id);
+            if (t.isRunning) {
+                return {
+                    key: 'working', label: 'Working', icon: 'fa-pause', fn: 'clockIn',
+                    live: true, tone: 'running'
+                };
+            }
+            if (Number(job.actualMs) > 0) {
+                return { key: 'wrapup', label: 'Mark complete', icon: 'fa-check-circle', fn: 'markCompleteFromCard' };
+            }
+            if (job.arrival === 'onsite') {
+                return { key: 'onsite', label: 'Start work', icon: 'fa-play', fn: 'clockIn' };
+            }
+            if (job.arrival === 'enroute') {
+                return { key: 'enroute', label: "I'm here", icon: 'fa-location-dot', fn: 'markOnSite' };
+            }
+            return { key: 'booked', label: 'On my way', icon: 'fa-truck-fast', fn: 'markEnRoute' };
+        }
+
+        // Set the arrival sub-state. Local write plus a targeted cloud
+        // update (same path Confirm uses) so the rules' accessUids and
+        // createdBy checks pass without a full-job merge.
+        function setJobArrival(jobId, arrival) {
+            const job = CL_DATA.findJob(jobId);
+            if (!job) return;
+            const fields = { arrival: arrival, arrivalAt: new Date().toISOString() };
+            CL_DATA.updateJobLocal(jobId, fields);
+            const fb = window.CL_FIREBASE;
+            if (fb && fb.isSignedIn) {
+                fb.updateJobDoc(jobId, fields).catch(() => {});
+                if (typeof fb.logActivity === 'function') {
+                    fb.logActivity('job.arrival', {
+                        entityType: 'job', entityId: jobId, entityLabel: job.customerName,
+                        message: ARRIVAL_LABEL[arrival] || String(arrival)
+                    });
+                }
+            }
+            loadData();
+            renderJobs();
+            const open = document.getElementById('jobModal');
+            if (open && !open.hasAttribute('hidden')) openJobModal(jobId);
+        }
+        function markEnRoute(jobId) {
+            setJobArrival(jobId, 'enroute');
+            showToast('Marked on my way — the office can see it');
+        }
+        function markOnSite(jobId) {
+            setJobArrival(jobId, 'onsite');
+            showToast('Marked on site');
+        }
+        window.markEnRoute = markEnRoute;
+        window.markOnSite = markOnSite;
+        window.setJobArrival = setJobArrival;
+
+        // Card shortcuts so the one primary button works from the list too.
+        function openScheduleFromCard(jobId) {
+            openJobModal(jobId);
+            setTimeout(() => {
+                const sec = document.getElementById('scheduleSection');
+                if (sec && sec.classList.contains('hidden')) toggleJobDetailSection('scheduleSection');
+            }, 60);
+        }
+        function markCompleteFromCard(jobId) {
+            markComplete(jobId);
+        }
+        window.openScheduleFromCard = openScheduleFromCard;
+        window.markCompleteFromCard = markCompleteFromCard;
+
+        // Open the edit form focused on one field, so a "you're missing a
+        // phone number" prompt lands the user on the phone number.
+        function editJobField(jobId, fieldId) {
+            editJob(jobId);
+            setTimeout(() => {
+                const el = document.getElementById(fieldId);
+                if (!el) return;
+                el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                el.focus();
+            }, 120);
+        }
+        window.editJobField = editJobField;
+
+        // Renders the single primary action button for a job.
+        // `variant` is 'card' (list) or 'sheet' (job detail).
+        function primaryActionButton(job, variant) {
+            const stage = jobStage(job);
+            if (!stage) return '';
+            const cls = variant === 'sheet' ? 'job-primary-action' : 'jc-start';
+            const tone = stage.tone === 'running' ? ` ${cls}--running` : '';
+            const inner = stage.live
+                ? `<i class="fas ${stage.icon}"></i> ${stage.label} <span data-timer-card="${job.id}">${fmtElapsed(timerElapsedMs(getJobTimerState(job.id)))}</span> · tap to stop`
+                : `<i class="fas ${stage.icon}"></i> ${stage.label}`;
+            return `<button type="button" class="${cls}${tone}" onclick="${stage.fn}('${job.id}')">${inner}</button>`;
+        }
+
         // One-tap clock-in from the job card (no modal). Toggles the same
         // stopwatch state used everywhere else, syncs, and re-renders so the
         // card shows a live running timer. Kept self-contained: a worker just
@@ -404,11 +554,16 @@
             }
         }
         function resetJobStopwatch(jobId) {
-            const st = { isRunning: false, startedAt: null, elapsedMs: 0, checkpoints: {} };
-            setJobTimerState(jobId, st);
-            CL_DATA.updateJob(jobId, { jobDuration: '' });
+            const st = getJobTimerState(jobId);
+            const had = timerElapsedMs(st) > 0 || Number((jobs.find(j => j.id === jobId) || {}).actualMs) > 0;
+            // Resetting used to also blank `jobDuration`, wiping the planned
+            // length the job was scheduled against. Only the measured time
+            // belongs to the stopwatch, so only that gets cleared.
+            if (had && !confirm('Clear the time recorded on this job? The scheduled length is not affected.')) return;
+            setJobTimerState(jobId, { isRunning: false, startedAt: null, elapsedMs: 0, checkpoints: {} });
+            CL_DATA.updateJob(jobId, { actualMs: 0 });
             const job = jobs.find(j => j.id === jobId);
-            setJobActionStatus('Stopwatch reset.');
+            setJobActionStatus('Recorded time cleared.');
             if (job) openJobModal(jobId);
         }
 
@@ -1033,6 +1188,37 @@
             return d < now;
         }
 
+        // ── Whose job is this? (manager view) ───────────────────────────
+        // A manager who can see every job needs to tell at a glance which
+        // ones are actually theirs. A job is "mine" if I'm a manager on it,
+        // I created it, or someone who reports to me is on the crew.
+        // Everything else is another crew's work — visible, but not my
+        // problem, and it must not read like a job I'm expected to show up to.
+        function myUidOrNull() {
+            try {
+                const u = (typeof CL_FIREBASE !== 'undefined' && CL_FIREBASE.getCurrentUser)
+                    ? CL_FIREBASE.getCurrentUser() : null;
+                return u ? u.uid : null;
+            } catch (_) { return null; }
+        }
+        function isManagerRole() {
+            try { return (typeof CL_FIREBASE !== 'undefined' && CL_FIREBASE.role) === 'manager'; } catch (_) { return false; }
+        }
+        function myWorkerUids() {
+            const me = myUidOrNull();
+            if (!me || typeof allWorkers === 'undefined') return [];
+            return allWorkers.filter(w => w.assignedManager === me).map(w => w.uid);
+        }
+        function isMyJob(job) {
+            const me = myUidOrNull();
+            if (!me || !job) return false;
+            if (jobManagerIds(job).includes(me)) return true;
+            if (job.createdBy === me) return true;
+            const mine = myWorkerUids();
+            const crew = Array.isArray(job.assignedWorkers) ? job.assignedWorkers : [];
+            return crew.some(uid => mine.includes(uid));
+        }
+
         function renderJobsList() {
             const today = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
             const tomorrowD = new Date();
@@ -1070,7 +1256,18 @@
                     <div class="space-y-2" style="opacity:0.6;">${lostLeads.map(renderJobCard).join('')}</div>
                 </div>` : '';
 
-            if (filtered.length === 0 && !lostSection) {
+            // Managers see other crews' work separated out, never mixed into
+            // their own day. Split before any grouping so the date sections
+            // below only ever describe jobs this manager is responsible for.
+            let othersPool = [];
+            if (isManagerRole()) {
+                const mine = [];
+                filtered.forEach(j => (isMyJob(j) ? mine : othersPool).push(j));
+                filtered = mine;
+            }
+            const othersSection = renderOtherCrewsSection(othersPool);
+
+            if (filtered.length === 0 && !lostSection && !othersSection) {
                 container.innerHTML = '';
                 emptyState.classList.remove('hidden');
                 return;
@@ -1078,14 +1275,18 @@
 
             emptyState.classList.add('hidden');
 
-            if (filtered.length === 0 && lostSection) {
-                container.innerHTML = lostSection;
+            if (filtered.length === 0) {
+                // Nothing of mine, but there may still be other crews' work
+                // or archived leads worth showing.
+                container.innerHTML = (othersSection
+                    ? `<p class="jobs-none-mine"><i class="fas fa-circle-check mr-1"></i>Nothing on your plate in this view.</p>`
+                    : '') + lostSection + othersSection;
                 return;
             }
 
             if (currentTab === 'completed') {
                 filtered.sort((a, b) => new Date(b.lastUpdated || b.dateAdded || 0) - new Date(a.lastUpdated || a.dateAdded || 0));
-                container.innerHTML = `<div class="space-y-2">${filtered.map(renderJobCard).join('')}</div>`;
+                container.innerHTML = `<div class="space-y-2">${filtered.map(renderJobCard).join('')}</div>` + othersSection;
                 return;
             }
 
@@ -1152,7 +1353,54 @@
                     </div>`;
             }
 
+            html += othersSection;
+
             container.innerHTML = html;
+        }
+
+        // Other crews' jobs, for a manager who can see the whole board.
+        // Deliberately un-actionable and visually quiet: grey stripe, no
+        // primary button, collapsed by default, and a heading that says in
+        // words that nobody is expecting them there. The point is that a
+        // glance can never confuse this with their own work.
+        function renderOtherCrewsSection(pool) {
+            if (!pool || !pool.length) return '';
+            const rows = pool
+                .slice()
+                .sort((a, b) => (effectiveJobDate(a) || '9999-12-31').localeCompare(effectiveJobDate(b) || '9999-12-31'))
+                .map(job => {
+                    const when = effectiveJobDate(job)
+                        ? sectionDateLabel(effectiveJobDate(job)) + (job.jobTime ? ' · ' + formatJobTime12(job.jobTime) : '')
+                        : 'Not scheduled';
+                    const who = jobManagerIds(job).map(uid => managerNameOf(job, uid)).join(', ')
+                        || (Array.isArray(job.assignedWorkers) && job.assignedWorkers.length
+                            ? job.assignedWorkers.map(uid => crewNameOf(job, uid)).join(', ')
+                            : 'Unassigned');
+                    const arrival = job.arrival
+                        ? `<span class="other-job__state">${job.arrival === 'onsite' ? 'On site' : 'On the way'}</span>`
+                        : '';
+                    return `
+                        <button type="button" class="other-job" onclick="openJobModal('${job.id}')">
+                            <span class="other-job__stripe"></span>
+                            <span class="other-job__body">
+                                <span class="other-job__name">${escapeHtml(job.customerName || 'Job')}</span>
+                                <span class="other-job__meta">${escapeHtml(when)}</span>
+                                <span class="other-job__crew"><i class="fas fa-user-tie mr-1"></i>${escapeHtml(who)}</span>
+                            </span>
+                            ${arrival}
+                        </button>`;
+                }).join('');
+            return `
+                <details class="other-crews">
+                    <summary class="other-crews__summary">
+                        <span>
+                            <i class="fas fa-users mr-1"></i>Other crews · ${pool.length} job${pool.length === 1 ? '' : 's'}
+                            <span class="other-crews__hint">Not yours — you're not needed on these</span>
+                        </span>
+                        <i class="fas fa-chevron-down other-crews__chev"></i>
+                    </summary>
+                    <div class="other-crews__list">${rows}</div>
+                </details>`;
         }
 
         function renderJobs() {
@@ -1194,6 +1442,34 @@
         // Workers can't read other users' docs, so we prefer the name
         // denormalized onto the job (crewNames), then a confirmation's own
         // name, then the local worker list (owner/manager), else "Worker".
+        function editAssignedWorkerIds() {
+            return [...document.querySelectorAll('#editAssignedWorkers [data-assigned-worker]:checked')]
+                .map(cb => cb.getAttribute('data-assigned-worker'));
+        }
+        function editAssignedManagerIds() {
+            return [...document.querySelectorAll('#editAssignedManagers [data-assigned-manager]:checked')]
+                .map(cb => cb.getAttribute('data-assigned-manager'));
+        }
+
+        // uid -> display name map to store on the job, so every reader
+        // (including assigned workers) can see who's on it.
+        function crewNamesFor(uids) {
+            const out = {};
+            (uids || []).forEach(uid => {
+                const w = (typeof allWorkers !== 'undefined' && allWorkers.find(x => x.uid === uid));
+                if (w) out[uid] = w.displayName || w.username || 'Crew';
+            });
+            return out;
+        }
+        function managerNamesFor(uids) {
+            const out = {};
+            (uids || []).forEach(uid => {
+                const m = (typeof allManagers !== 'undefined' && allManagers.find(x => x.uid === uid));
+                if (m) out[uid] = m.displayName || m.username || 'Manager';
+            });
+            return out;
+        }
+
         function crewNameOf(job, uid) {
             const names = (job && job.crewNames && typeof job.crewNames === 'object') ? job.crewNames : {};
             if (names[uid]) return names[uid];
@@ -1204,39 +1480,72 @@
             return 'Worker';
         }
 
+        // A job's managers. `assignedManagers` is the list; `assignedManager`
+        // is the legacy single field, kept as the first entry.
+        function jobManagerIds(job) {
+            if (Array.isArray(job.assignedManagers)) return job.assignedManagers.filter(Boolean);
+            return job.assignedManager ? [job.assignedManager] : [];
+        }
+        function managerNameOf(job, uid) {
+            const names = (job && job.crewNames && typeof job.crewNames === 'object') ? job.crewNames : {};
+            if (names[uid]) return names[uid];
+            const m = (typeof allManagers !== 'undefined' && allManagers.find(x => x.uid === uid));
+            if (m) return (m.displayName || m.username || 'Manager');
+            return 'Manager';
+        }
+
         function renderCrewCard(job) {
             const ids = Array.isArray(job.assignedWorkers) && job.assignedWorkers.length
                 ? job.assignedWorkers
                 : (job.assignedTo ? [job.assignedTo] : []);
+            const mgrIds = jobManagerIds(job);
             const nameOf = (uid) => crewNameOf(job, uid);
             const chips = ids.length
                 ? ids.map(uid => `<span class="crew-chip">${escapeHtml(nameOf(uid))}</span>`).join('')
                 : '<span class="text-sm" style="color:var(--md-sys-color-on-surface-variant)">Nobody assigned yet</span>';
+            const mgrChips = mgrIds.length
+                ? mgrIds.map(uid => `<span class="crew-chip crew-chip--manager"><i class="fas fa-user-tie mr-1"></i>${escapeHtml(managerNameOf(job, uid))}</span>`).join('')
+                : '<span class="text-sm" style="color:var(--md-sys-color-on-surface-variant)">No manager on this job</span>';
             if (!canAssignCrew()) {
                 return `<div class="glass-card rounded-xl p-3">
-                    <p class="section-title" style="margin:0 0 8px;padding:0;">Crew</p>
+                    <p class="section-title" style="margin:0 0 8px;padding:0;">Who's on this job</p>
+                    <div class="crew-chips mb-2">${mgrChips}</div>
                     <div class="crew-chips">${chips}</div>
                 </div>`;
             }
-            const picker = allWorkers.length ? allWorkers.map(w => `
+            const workerPicker = allWorkers.length ? allWorkers.map(w => `
                 <label class="crew-pick">
                     <input type="checkbox" data-crew-uid="${w.uid}" ${ids.includes(w.uid) ? 'checked' : ''}>
                     <span>${escapeHtml(w.displayName || w.username || 'Worker')}</span>
                 </label>`).join('') : '<p class="text-xs text-gray-500 px-1">No workers yet. Add them in Team.</p>';
+            // Managers are assignable to a job in the same way crew are.
+            // Assigning one puts the job on their board and lets them edit it.
+            const managerPicker = (typeof allManagers !== 'undefined' && allManagers.length)
+                ? allManagers.map(m => `
+                <label class="crew-pick">
+                    <input type="checkbox" data-crew-mgr-uid="${m.uid}" ${mgrIds.includes(m.uid) ? 'checked' : ''}>
+                    <span>${escapeHtml(m.displayName || m.username || 'Manager')}</span>
+                </label>`).join('')
+                : '<p class="text-xs text-gray-500 px-1">No managers yet. Add them in Team.</p>';
+            const anyAssigned = ids.length || mgrIds.length;
             return `
                 <div class="glass-card rounded-xl p-3">
                     <div class="flex items-center justify-between mb-2">
-                        <p class="section-title" style="margin:0;padding:0;">Crew</p>
+                        <p class="section-title" style="margin:0;padding:0;">Who's on this job</p>
                         <button type="button" class="btn-text" style="width:auto;padding:2px 6px;" onclick="toggleCrewPicker()">
-                            <i class="fas fa-user-plus mr-1"></i><span id="crewToggleLabel">${ids.length ? 'Change' : 'Assign'}</span>
+                            <i class="fas fa-user-plus mr-1"></i><span id="crewToggleLabel">${anyAssigned ? 'Change' : 'Assign'}</span>
                         </button>
                     </div>
+                    <div class="crew-chips mb-2" id="crewMgrChips">${mgrChips}</div>
                     <div class="crew-chips" id="crewChips">${chips}</div>
                     <div id="crewPicker" class="hidden mt-3 pt-3" style="border-top:1px solid rgba(255,255,255,0.1);">
-                        <div class="crew-pick-list">${picker}</div>
+                        <p class="crew-pick-heading">Managers</p>
+                        <div class="crew-pick-list">${managerPicker}</div>
+                        <p class="crew-pick-heading" style="margin-top:12px;">Crew</p>
+                        <div class="crew-pick-list">${workerPicker}</div>
                         <div class="grid grid-cols-2 gap-2 mt-3">
                             <button type="button" class="btn-secondary" onclick="toggleCrewPicker()">Cancel</button>
-                            <button type="button" class="btn-primary" onclick="saveJobCrew('${job.id}')"><i class="fas fa-check mr-1"></i>Save crew</button>
+                            <button type="button" class="btn-primary" onclick="saveJobCrew('${job.id}')"><i class="fas fa-check mr-1"></i>Save</button>
                         </div>
                     </div>
                 </div>`;
@@ -1280,46 +1589,47 @@
         window.saveJobCrew = async function(jobId) {
             const picked = [...document.querySelectorAll('#crewPicker [data-crew-uid]:checked')]
                 .map(cb => cb.getAttribute('data-crew-uid'));
+            const pickedMgrs = [...document.querySelectorAll('#crewPicker [data-crew-mgr-uid]:checked')]
+                .map(cb => cb.getAttribute('data-crew-mgr-uid'));
             const job = jobs.find(j => j.id === jobId);
             if (!job) return;
-            console.log('[saveJobCrew] jobId=' + jobId + ' picked=' + JSON.stringify(picked));
+            // Names for BOTH managers and crew, so anyone who opens the job
+            // sees people rather than the word "Worker".
+            const names = Object.assign({}, crewNamesFor(picked), managerNamesFor(pickedMgrs));
             CL_DATA.updateJob(jobId, {
                 assignedWorkers: picked,
+                assignedManagers: pickedMgrs,
+                // Keep the legacy single field in step — the Firestore rules
+                // and older clients still read it.
+                assignedManager: pickedMgrs.length ? pickedMgrs[0] : null,
                 assignedTo: null,
-                // Denormalize crew names onto the job so every reader
-                // (including assigned workers, who can't read other users'
-                // docs) can see who's on the job. accessUids already grants
-                // job read; this carries the display names along.
-                crewNames: Object.fromEntries(
-                    picked.map(uid => [uid, (allWorkers.find(x => x.uid === uid)?.displayName || allWorkers.find(x => x.uid === uid)?.username || 'Worker')])
-                )
+                // Denormalize names onto the job so every reader (including
+                // assigned workers, who can't read other users' docs) can see
+                // who's on the job. accessUids already grants job read; this
+                // carries the display names along.
+                crewNames: names
             });
             const fb = window.CL_FIREBASE;
-            const fbUser = fb && typeof fb.getCurrentUser === 'function' ? fb.getCurrentUser() : null;
-            console.log('[saveJobCrew] fbUser=' + (fbUser ? fbUser.uid : 'null') + ' isSignedIn=' + (fb ? fb.isSignedIn : 'n/a'));
             if (fb) {
                 try {
-                    const ok = await fb.syncToCloud();
-                    console.log('[saveJobCrew] syncToCloud returned=' + ok);
-                    const names = picked.map(uid => {
-                        const w = allWorkers.find(x => x.uid === uid);
-                        return w ? (w.displayName || w.username) : 'worker';
-                    }).join(', ');
+                    await fb.syncToCloud();
+                    const label = [
+                        pickedMgrs.length ? 'managers: ' + pickedMgrs.map(u => names[u] || 'manager').join(', ') : '',
+                        picked.length ? 'crew: ' + picked.map(u => names[u] || 'worker').join(', ') : ''
+                    ].filter(Boolean).join(' · ');
                     if (typeof fb.logActivity === 'function') {
                         fb.logActivity('job.crew_changed', {
                             entityType: 'job', entityId: jobId, entityLabel: job.customerName,
-                            message: picked.length ? ('crew: ' + names) : 'crew cleared'
+                            message: label || 'everyone removed'
                         });
                     }
                 } catch (e) {
                     console.error('[saveJobCrew] sync error', e);
                 }
-            } else {
-                console.log('[saveJobCrew] CL_FIREBASE missing — push skipped');
             }
             loadData();
             renderJobs();
-            showToast(picked.length ? 'Crew updated' : 'Crew cleared');
+            showToast((picked.length || pickedMgrs.length) ? 'Assignment updated' : 'Everyone removed');
             openJobModal(jobId);
         };
 
@@ -1441,20 +1751,26 @@
             const isEst = job.status === 'new';
             const isOverdue = isOverdueJob(job);
             const stripe = isDone ? 'job-card-v2__stripe--done' : (isEst || isLost) ? 'job-card-v2__stripe--estimate' : 'job-card-v2__stripe--booked';
+            // A crew that's rolling or parked outranks "Booked" — that's the
+            // thing the office needs to see at a glance.
+            const arrivalPill = (!isDone && !isLost && job.arrival)
+                ? `<span class="tag-pill tag-pill--lg tag-pill--arrival">${job.arrival === 'onsite' ? '<i class="fas fa-location-dot mr-1"></i>On site' : '<i class="fas fa-truck-fast mr-1"></i>On the way'}</span>`
+                : '';
             const pill = isLost ? '<span class="tag-pill tag-pill--lg" style="background:rgba(148,163,184,0.18);color:#cbd5e1;">Lost</span>'
                 : isDone ? '<span class="tag-pill tag-pill--lg tag-pill--completed">Completed</span>'
+                : arrivalPill ? arrivalPill
                 : isOverdue ? '<span class="tag-pill tag-pill--lg" style="background:rgba(239,68,68,0.18);color:#fca5a5;">Overdue</span>'
                 : isEst ? '<span class="tag-pill tag-pill--lg tag-pill--estimate">Lead</span>'
                 : '<span class="tag-pill tag-pill--lg tag-pill--booked">Booked</span>';
             const total = getJobDisplayTotal(job);
             const money = total > 0 ? `<span class="job-card-v2__money">$${total.toFixed(0)}</span>` : '';
-            // Payment badge on the card (owner only, and only when there's a total).
-            const pay = total > 0 && isOwnerRole() ? jobPaymentInfo(job) : null;
+            // Payment badge on the card (owner only, with a total, and only
+            // once the work is actually done). It used to show on leads and
+            // on jobs weeks away, badging them "Unpaid" when nothing was owed
+            // yet — a screen of red that made a genuinely overdue invoice
+            // impossible to pick out.
+            const pay = (total > 0 && isOwnerRole() && isDone) ? jobPaymentInfo(job) : null;
             const payPill = pay ? paymentPill(pay.status) : '';
-            const startHref = isOverdue
-                ? `jobs.html?highlight=${encodeURIComponent(job.id)}&edit=1`
-                : `jobs.html?highlight=${encodeURIComponent(job.id)}&start=1`;
-            const startLabel = isOverdue ? 'Mark done' : 'Start';
             const time12 = formatJobTime12(job.jobTime);
             const street = shortJobAddress(job.address);
             const metaBits = [];
@@ -1480,16 +1796,14 @@
             const needConfirm = amAssigned && !iConfirmed && !isDone && !isLost;
             if (isLost) {
                 actionsRow = `<button type="button" class="jc-start" onclick="reopenLead('${job.id}')"><i class="fas fa-rotate-left"></i> Reopen</button>`;
-            } else if (!isEst && !isDone) {
+            } else if (!isDone) {
+                // Confirming the assignment comes before anything else — a
+                // worker who hasn't acknowledged the job shouldn't be told to
+                // drive to it. After that, the single stage button takes over.
                 if (needConfirm) {
                     actionsRow = `<button type="button" class="jc-start jc-start--confirm" onclick="confirmAssignment('${job.id}')"><i class="fas fa-check-circle"></i> Confirm assignment</button>`;
-                } else if (iConfirmed) {
-                    actionsRow = `<button type="button" class="jc-start jc-start--unconfirm" onclick="unconfirmAssignment('${job.id}')"><i class="fas fa-times-circle"></i> Unconfirm</button>`;
-                } else if (timerState.isRunning) {
-                    actionsRow = `<button type="button" class="jc-start jc-start--running" onclick="clockIn('${job.id}')"><i class="fas fa-pause"></i> <span data-timer-card="${job.id}">${timerText}</span> · Pause</button>`;
                 } else {
-                    const label = isOverdue ? 'Mark done' : 'Start';
-                    actionsRow = `<a class="jc-start" href="${startHref}" data-cl-nav><i class="fas ${isOverdue ? 'fa-check-circle' : 'fa-play'}"></i> ${label}</a>`;
+                    actionsRow = primaryActionButton(job, 'card');
                 }
             }
 
@@ -1650,7 +1964,9 @@
                 ? new Date(job.jobDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
                 : '-';
             const jobIdShort = (job.id || '').replace('job_', '#JOB-').slice(0, 18) || '-';
-            const assignedManagerName = job.assignedManager ? (allManagers.find(m => m.uid === job.assignedManager)?.displayName || 'Manager') : '';
+            const assignedManagerName = jobManagerIds(job)
+                .map(mid => managerNameOf(job, mid))
+                .join(', ');
             // assignedWorkers is a crew list now; assignedTo is a fallback for jobs assigned before that change.
             const assignedWorkerIds = Array.isArray(job.assignedWorkers) && job.assignedWorkers.length
                 ? job.assignedWorkers
@@ -1667,7 +1983,12 @@
             const whenLine = job.jobDate
                 ? `${formattedDate}${job.jobTime ? ' · ' + formatJobTime12(job.jobTime) : ''}`
                 : 'Not scheduled';
-            const assigneeLine = [assignedManagerName && ('Mgr ' + assignedManagerName), assignedWorkerName && ('Wrk ' + assignedWorkerName)].filter(Boolean).join(' · ');
+            // Was "Mgr Renee Cole · Wrk Xavier Ferrand" — abbreviations
+            // nobody outside the codebase uses.
+            const assigneeLine = [
+                assignedManagerName && ('Manager: ' + assignedManagerName),
+                assignedWorkerName && ('Crew: ' + assignedWorkerName)
+            ].filter(Boolean).join(' · ');
             const todayYmd = (window.localYmd ? localYmd() : new Date().toISOString().split('T')[0]);
             const scheduleDateDefault = job.jobDate || todayYmd;
             const scheduleTimeDefault = job.jobTime || '09:00';
@@ -1750,16 +2071,21 @@
                         </div>
                     </div>
 
+                    <!-- Missing address or phone used to render a 45%-opacity
+                         span: it looked like a button, did nothing when
+                         tapped, said nothing about why, and was close to
+                         invisible outdoors. Offer the fix instead — tapping
+                         opens the edit form at the field that's missing. -->
                     <div class="m3-hub-actions">
                         ${job.address
                             ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="m3-filled"><i class="fas fa-location-arrow"></i>Navigate</a>`
-                            : `<span class="m3-outlined" style="opacity:0.45"><i class="fas fa-location-arrow"></i>Navigate</span>`}
+                            : `<button type="button" class="m3-outlined" onclick="editJobField('${job.id}','editAddress')"><i class="fas fa-plus"></i>Add address</button>`}
                         ${job.customerPhone
                             ? `<a href="tel:${encodeURIComponent(job.customerPhone)}" class="m3-tonal-success"><i class="fas fa-phone"></i>Call</a>`
-                            : `<span class="m3-outlined" style="opacity:0.45"><i class="fas fa-phone"></i>Call</span>`}
+                            : `<button type="button" class="m3-outlined" onclick="editJobField('${job.id}','editPhone')"><i class="fas fa-plus"></i>Add phone</button>`}
                         ${job.customerPhone && canMessage
                             ? `<a href="job-chat.html?jobId=${encodeURIComponent(job.id)}" class="m3-tonal"><i class="fas fa-comment-dots"></i>Text</a>`
-                            : `<span class="m3-outlined" style="opacity:0.45"><i class="fas fa-comment-dots"></i>Text</span>`}
+                            : ''}
                     </div>
 
                     ${docsHtml}
@@ -1810,15 +2136,24 @@
                     <div id="econSection" class="hidden">${renderJobEconomics(job)}</div>
                     ` : ''}
 
+                    <!-- One primary action, always visible, always the next
+                         step. The owner used to get "Payment" in this slot on
+                         any priced job, which meant the Start button simply
+                         never appeared for them. -->
+                    ${primaryActionButton(job, 'sheet')}
+                    ${job.arrival && job.status !== 'completed' ? `
+                        <p class="text-xs text-center" style="color:var(--md-sys-color-on-surface-variant)">
+                            ${job.arrival === 'onsite' ? 'On site' : 'On the way'}${job.arrivalAt ? ' since ' + escapeHtml(formatJobTime12(new Date(job.arrivalAt).toTimeString().slice(0, 5)) || '') : ''}
+                            · <button type="button" class="underline" style="background:none;border:none;color:var(--md-sys-color-primary);cursor:pointer;padding:4px" onclick="setJobArrival('${job.id}', null)">undo</button>
+                        </p>` : ''}
+
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" onclick="toggleJobDetailSection('timerSection')" class="m3-tonal">
-                            <i class="fas fa-stopwatch mr-1"></i>Timer <span id="timerBtnLabel">${timerText}</span>
+                            <i class="fas fa-stopwatch mr-1"></i>Time <span id="timerBtnLabel">${timerText}</span>
                         </button>
                         ${payInfo
                             ? `<button type="button" onclick="toggleJobDetailSection('paymentSection')" class="m3-outlined"><i class="fas fa-dollar-sign mr-1"></i>Payment</button>`
-                            : (job.status === 'scheduled'
-                                ? `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&start=1" class="m3-filled" style="display:inline-flex;align-items:center;justify-content:center;min-height:var(--md-tap-target);border-radius:var(--md-radius-md);font-size:13px;font-weight:650;text-decoration:none"><i class="fas fa-play mr-1"></i>Start job</a>`
-                                : `<button type="button" onclick="addToGoogleCalendar('${job.id}')" class="m3-outlined"><i class="fab fa-google mr-1"></i>Calendar</button>`)}
+                            : `<button type="button" onclick="addToGoogleCalendar('${job.id}')" class="m3-outlined"><i class="fab fa-google mr-1"></i>Calendar</button>`}
                     </div>
 
                     <div id="timerSection" class="hidden">
@@ -1827,7 +2162,8 @@
                                 <div>
                                     <p class="text-xs text-gray-400 uppercase tracking-wide">Stopwatch</p>
                                     <p class="text-2xl font-extrabold text-sky-300" id="timerBigDisplay">${timerText}</p>
-                                    ${job.jobDuration ? `<p class="text-xs text-gray-400">Saved: ${job.jobDuration}</p>` : ''}
+                                    ${job.jobDuration ? `<p class="text-xs text-gray-400">Scheduled for ${escapeHtml(String(job.jobDuration))} hr</p>` : ''}
+                                    ${jobActualHours(job) ? `<p class="text-xs text-gray-400">Recorded ${fmtElapsed(Number(job.actualMs))}</p>` : ''}
                                 </div>
                                 <div class="flex gap-2">
                                     <button type="button" onclick="toggleJobStopwatch('${job.id}')" class="btn-primary btn-sm" style="width:auto;${timerState.isRunning ? 'background:var(--warning);color:#111827' : ''}">${timerBtnText}</button>
@@ -1990,6 +2326,7 @@
             const assignedWorkerIds = Array.isArray(job.assignedWorkers) && job.assignedWorkers.length
                 ? job.assignedWorkers
                 : (job.assignedTo ? [job.assignedTo] : []);
+            const assignedManagerIds = jobManagerIds(job);
             document.body.classList.add('modal-open');
             document.getElementById('jobModal-title').textContent = 'Edit Job';
             editPhotoState = {
@@ -2083,13 +2420,17 @@
                                 <input type="date" id="editFollowUp" value="${job.followUpDate || ''}" class="w-full p-3 rounded-lg edit-field">
                             </div>
                             <div>
-                                <label class="text-xs text-gray-400 block mb-1">Assigned Manager</label>
-                                <select id="editAssignedManager" class="w-full p-3 rounded-lg edit-field">
-                                    <option value="">None</option>
-                                    ${allManagers.map(m =>
-                                        `<option value="${m.uid}" ${job.assignedManager === m.uid ? 'selected' : ''}>${m.displayName || m.username}</option>`
-                                    ).join('')}
-                                </select>
+                                <!-- Was a single-select. A job can run with
+                                     more than one manager on it, same as crew. -->
+                                <label class="text-xs text-gray-400 block mb-1">Managers on this job</label>
+                                <div id="editAssignedManagers" class="w-full p-2 rounded-lg edit-field" style="max-height:140px;overflow-y:auto;">
+                                    ${allManagers.length ? allManagers.map(m => `
+                                        <label style="display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px;">
+                                            <input type="checkbox" data-assigned-manager="${m.uid}" ${assignedManagerIds.includes(m.uid) ? 'checked' : ''} style="width:16px;height:16px;accent-color:#0ea5e9;">
+                                            <span>${m.displayName || m.username}</span>
+                                        </label>
+                                    `).join('') : '<p class="text-xs text-gray-500 px-1">No managers yet.</p>'}
+                                </div>
                             </div>
                             <div>
                                 <label class="text-xs text-gray-400 block mb-1">Assigned Workers (crew)</label>
@@ -2201,8 +2542,15 @@
                 amountPaid: paid,
                 followUpDate: document.getElementById('editFollowUp').value,
                 notes: document.getElementById('editNotes').value.trim(),
-                assignedManager: document.getElementById('editAssignedManager').value || null,
-                assignedWorkers: [...document.querySelectorAll('#editAssignedWorkers [data-assigned-worker]:checked')].map(cb => cb.getAttribute('data-assigned-worker')),
+                assignedManagers: editAssignedManagerIds(),
+                assignedManager: editAssignedManagerIds()[0] || null,
+                assignedWorkers: editAssignedWorkerIds(),
+                // Denormalize the names alongside the uids, exactly as
+                // saveJobCrew() does. This form used to write only the uids,
+                // so a job assigned here showed its crew as the literal word
+                // "Worker" — permanently, for workers, who can't read the
+                // users collection to look the names up.
+                crewNames: Object.assign({}, crewNamesFor(editAssignedWorkerIds()), managerNamesFor(editAssignedManagerIds())),
                 assignedTo: null, // superseded by assignedWorkers; cleared so old readers don't show a stale single assignee
                 beforePhotos: editPhotoState.before,
                 afterPhotos: editPhotoState.after
@@ -2297,7 +2645,14 @@
             if (raw === null) return;
             const amt = parseFloat(String(raw).replace(/[^0-9.]/g, ''));
             if (isNaN(amt) || amt <= 0) { showToast('Enter a valid amount', 'error'); return; }
-            applyPayment(id, info.paid + amt);
+            const newPaid = info.paid + amt;
+            // Nothing used to stop a typo turning a $485 job into $4,850
+            // collected, which then flowed straight into the Money totals.
+            if (info.total > 0 && newPaid > info.total + 0.01) {
+                const over = newPaid - info.total;
+                if (!confirm(`That's $${over.toFixed(2)} more than the $${info.total.toFixed(2)} total.\n\nRecord it anyway?`)) return;
+            }
+            applyPayment(id, newPaid);
             showToast('Payment recorded ✓');
         }
 
@@ -2344,7 +2699,18 @@
 
         function markComplete(id) {
             const job = CL_DATA.findJob(id);
-            CL_DATA.updateJob(id, { status: 'completed' });
+            // Stop a clock that's still running, bank the time, and clear the
+            // arrival state — a finished job is no longer "on site".
+            const st = getJobTimerState(id);
+            if (st.isRunning) {
+                st.elapsedMs = timerElapsedMs(st);
+                st.isRunning = false;
+                st.startedAt = null;
+                setJobTimerState(id, st);
+                writeJobActual(id, st.elapsedMs || 0);
+                stopJobTimerTicker();
+            }
+            CL_DATA.updateJob(id, { status: 'completed', arrival: null });
             if (CL_FIREBASE && CL_FIREBASE.isSignedIn) {
                 CL_FIREBASE.syncToCloud();
                 CL_FIREBASE.logActivity('job.status_changed', { entityType: 'job', entityId: id, entityLabel: job && job.customerName, message: 'completed' });
@@ -2357,6 +2723,7 @@
             updateStats();
             renderJobs();
             syncJobToCalendarIfEnabled(id);
+            showToast('Job marked complete ✓');
         }
 
         function markScheduled(id) {

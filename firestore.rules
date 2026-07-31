@@ -124,21 +124,52 @@ service cloud.firestore {
     //   - contain ONLY those uids (no stray readers added).
     // This lets a manager shrink accessUids when removing a worker while
     // still preventing anyone from locking out the Owner/creator/manager.
+    // Managers granted `canViewAllJobs` are readers of EVERY job. A list
+    // rule can't call get(), so the only way to widen a query is the
+    // accessUids array itself — their uids are mirrored into
+    // settings/global.globalViewerUids and stamped onto every job by the
+    // client. Reading that doc here is fine: this helper is only used by
+    // update rules, never by a list rule.
+    function globalViewers() {
+      return exists(/databases/$(db)/documents/settings/global)
+        && get(/databases/$(db)/documents/settings/global).data.globalViewerUids is list
+        ? get(/databases/$(db)/documents/settings/global).data.globalViewerUids
+        : [];
+    }
+
+    // A job may name several managers. `assignedManagers` (list) is the
+    // source of truth; `assignedManager` (string) is kept in step as the
+    // first entry for older clients and the rules below.
+    function newManagers() {
+      return request.resource.data.assignedManagers is list
+        ? request.resource.data.assignedManagers
+        : (request.resource.data.assignedManager == null ? [] : [request.resource.data.assignedManager]);
+    }
+    function oldManagers() {
+      return resource.data.assignedManagers is list
+        ? resource.data.assignedManagers
+        : (resource.data.assignedManager == null ? [] : [resource.data.assignedManager]);
+    }
+    function isAssignedManager() {
+      return isManager() && uid() in oldManagers();
+    }
+
     function accessUidsConsistent() {
       return request.resource.data.accessUids is list
         && request.resource.data.accessUids.hasAll([ownerUid()])
         && (resource.data.createdBy == null
             || request.resource.data.accessUids.hasAll([resource.data.createdBy]))
-        && (resource.data.assignedManager == null
-            || request.resource.data.accessUids.hasAll([resource.data.assignedManager]))
+        && request.resource.data.accessUids.hasAll(oldManagers())
         && (request.resource.data.assignedWorkers is list
             ? request.resource.data.accessUids.hasAll(request.resource.data.assignedWorkers)
             : true)
         && request.resource.data.accessUids.removeAll(
              [ownerUid()]
                .concat(resource.data.createdBy == null ? [] : [resource.data.createdBy])
-               .concat(resource.data.assignedManager == null ? [] : [resource.data.assignedManager])
+               .concat(oldManagers())
+               .concat(newManagers())
                .concat(request.resource.data.assignedWorkers is list ? request.resource.data.assignedWorkers : [])
+               .concat(globalViewers())
            ).size() == 0;
     }
 
@@ -150,7 +181,7 @@ service cloud.firestore {
         && (isOwner()
             || resource.data.accessUids is list && uid() in resource.data.accessUids
             || resource.data.createdBy == uid()
-            || resource.data.assignedManager == uid());
+            || isAssignedManager());
 
       // list: PROVABLE from the client's where('accessUids','array-contains',
       // uid) query. NO get(). The `is list` type-check is intentionally
@@ -186,8 +217,7 @@ service cloud.firestore {
       allow update: if isOwner()
         || (accessUidsConsistent()
             && request.resource.data.createdBy == resource.data.createdBy
-            && ((isManager()
-                  && resource.data.assignedManager == uid())
+            && (isAssignedManager()
                 || (isCrew()
                   && (resource.data.createdBy == uid() || isAssignedWorker()))));
 
@@ -203,8 +233,9 @@ service cloud.firestore {
         && request.resource.data.accessUids == resource.data.accessUids
         && request.resource.data.assignedWorkers == resource.data.assignedWorkers
         && request.resource.data.assignedManager == resource.data.assignedManager
+        && newManagers() == oldManagers()
         && request.resource.data.createdBy == resource.data.createdBy
-        && ((isManager() && resource.data.assignedManager == uid())
+        && (isAssignedManager()
             || (isCrew() && (resource.data.createdBy == uid() || uid() in resource.data.accessUids)));
 
       allow delete: if isOwner();

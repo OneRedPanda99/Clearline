@@ -9,13 +9,13 @@
     <meta name="theme-color" content="#1a1c1f">
     <title>Calendar - Clearline</title>
     <script src="config.js"></script>
-    <script src="utils.js?v=15"></script>
-    <link rel="stylesheet" href="tailwind.css?v=15">
-    <link rel="stylesheet" href="app.css?v=15">
+    <script src="utils.js?v=16"></script>
+    <link rel="stylesheet" href="tailwind.css?v=16">
+    <link rel="stylesheet" href="app.css?v=16">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="data-migration.js?v=15"></script>
-    <script src="firebase-sync.js?v=15"></script>
+    <script src="data-migration.js?v=16"></script>
+    <script src="firebase-sync.js?v=16"></script>
     <style>
         .calendar-day {
             aspect-ratio: 1;
@@ -567,8 +567,13 @@ localStorage.setItem('cl-calendar-view', view);
             const endOfWeek = new Date(startOfWeek);
             endOfWeek.setDate(endOfWeek.getDate() + 6);
             
-            document.getElementById('dateTitle').textContent = 
-                `${monthNames[startOfWeek.getMonth()]} ${startOfWeek.getDate()} - ${endOfWeek.getDate()}`;
+            // A week that crosses a month or year boundary used to read
+            // "July 26 - 1", which hides where the week actually ends.
+            const sameMonth = startOfWeek.getMonth() === endOfWeek.getMonth()
+                && startOfWeek.getFullYear() === endOfWeek.getFullYear();
+            document.getElementById('dateTitle').textContent = sameMonth
+                ? `${monthNames[startOfWeek.getMonth()]} ${startOfWeek.getDate()} – ${endOfWeek.getDate()}`
+                : `${monthNames[startOfWeek.getMonth()].slice(0, 3)} ${startOfWeek.getDate()} – ${monthNames[endOfWeek.getMonth()].slice(0, 3)} ${endOfWeek.getDate()}`;
             document.getElementById('dateSubtitle').textContent = 'Week view';
 
             const today = new Date();
@@ -743,7 +748,7 @@ localStorage.setItem('cl-calendar-view', view);
                                 <h4 class="font-bold text-[17px] leading-tight truncate">${escHtml(job.name)}</h4>
                                 <p class="text-sm text-gray-400 mt-0.5">${escHtml(job.serviceType || 'Service')}</p>
                                 <p class="text-xs text-blue-300 mt-1.5">
-                                    ${job.jobTime ? `<i class="fas fa-clock mr-1"></i>${escHtml(job.jobTime)}${job.jobDuration ? ` (${escHtml(job.jobDuration)})` : ''}` : '<i class="fas fa-clock mr-1"></i>Time not set'}
+                                    ${job.jobTime ? `<i class="fas fa-clock mr-1"></i>${escHtml(job.jobTime)}${job.jobDuration ? ` · ${escHtml(String(job.jobDuration))} hr` : ''}` : '<i class="fas fa-clock mr-1"></i>Time not set'}
                                     ${job.address ? ` &nbsp;•&nbsp; <i class="fas fa-location-dot mr-1"></i>${escHtml(job.address)}` : ''}
                                 </p>
                             </div>
@@ -758,8 +763,11 @@ localStorage.setItem('cl-calendar-view', view);
                         ` : ''}
 
                         <div class="day-job-actions">
-                            ${job.customerPhone ? `<a href="tel:${String(job.customerPhone).replace(/\D/g, '')}" class="day-job-btn call"><i class="fas fa-phone mr-1"></i>Call</a>` : `<span class="day-job-btn view">No phone</span>`}
-                            ${job.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="day-job-btn nav"><i class="fas fa-paper-plane mr-1"></i>Navigate</a>` : `<span class="day-job-btn view">No address</span>`}
+                            <!-- These were dead "No phone" / "No address"
+                                 chips styled exactly like the live buttons
+                                 beside them. Offer the fix instead. -->
+                            ${job.customerPhone ? `<a href="tel:${String(job.customerPhone).replace(/\D/g, '')}" class="day-job-btn call"><i class="fas fa-phone mr-1"></i>Call</a>` : `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&edit=1" class="day-job-btn view"><i class="fas fa-plus mr-1"></i>Add phone</a>`}
+                            ${job.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(job.address)}" target="_blank" class="day-job-btn nav"><i class="fas fa-paper-plane mr-1"></i>Navigate</a>` : `<a href="jobs.html?highlight=${encodeURIComponent(job.id)}&edit=1" class="day-job-btn view"><i class="fas fa-plus mr-1"></i>Add address</a>`}
                             <a href="jobs.html?highlight=${encodeURIComponent(job.id)}" class="day-job-btn view"><i class="fas fa-file-lines mr-1"></i>View details</a>
                             ${job.type === 'followup'
                                 ? `<a href="estimate.html?jobId=${encodeURIComponent(job.id)}" class="day-job-btn estimate"><i class="fas fa-file-invoice mr-1"></i>Open estimate</a>`
@@ -975,8 +983,14 @@ localStorage.setItem('cl-calendar-view', view);
                 .filter(j => j.status === 'new' && j.followUpDate)
                 .map(j => ({ ...j, dateObj: new Date(j.followUpDate + 'T12:00:00'), kind: 'lead' }));
 
+            // Start from tomorrow. Today's work already has its own "Today"
+            // section directly above this one, and listing it twice ate most
+            // of a phone screen repeating itself.
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
             const upcoming = [...scheduled, ...leadVisits]
-                .filter(j => j.dateObj >= today)
+                .filter(j => j.dateObj >= tomorrow)
                 .sort((a, b) => a.dateObj - b.dateObj)
                 .slice(0, 8);
 
@@ -984,7 +998,7 @@ localStorage.setItem('cl-calendar-view', view);
                 container.innerHTML = `
                     <div class="glass-card rounded-xl p-4 text-center text-gray-400">
                         <i class="fas fa-calendar-check text-3xl mb-2"></i>
-                        <p>No upcoming jobs or estimate visits</p>
+                        <p>Nothing booked after today</p>
                     </div>
                 `;
                 return;

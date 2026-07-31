@@ -11,7 +11,13 @@
 
     /* ── M3 color roles (Clearline brand mapping) ─────────────────── */
     --md-sys-color-primary: #4f8cff;
-    --md-sys-color-on-primary: #ffffff;
+    /* Dark on-primary, per M3's dark-theme convention (a tone-80 primary
+       pairs with a tone-20 on-primary) and for sun readability: white on
+       #4f8cff measures 3.22:1, below the 4.5:1 minimum, on every primary
+       button in the app. This navy-black reaches ~6:1 — near the ceiling
+       this blue allows — and matches how --md-sys-color-on-secondary and
+       --md-sys-color-on-tertiary are already set. */
+    --md-sys-color-on-primary: #0a1020;
     --md-sys-color-primary-container: #1e3a6e;
     --md-sys-color-on-primary-container: #d6e3ff;
     --md-sys-color-secondary: #8ab4ff;
@@ -106,6 +112,15 @@
    use the `hidden` attribute stay collapsed instead of covering the page). */
 [hidden] { display: none !important; }
 
+/* Same for the `.hidden` utility class. Tailwind's `.hidden{display:none}`
+   and the component rules below (.empty-state, .stats-grid, .page-tabs,
+   .sheet-link, .header-action-btn …) have identical specificity, and
+   tailwind.css is linked first — so without !important the component wins
+   and the element stays on screen while carrying `hidden`. That is what
+   left the "No jobs in this view" empty state rendering underneath a full
+   job list, and the owner-only stats row visible to workers. */
+.hidden { display: none !important; }
+
 /* Remove ALL list markers/bullets */
 *, *::before, *::after,
 ul, ol, li {
@@ -174,6 +189,12 @@ body {
 
 .header-btn {
     position: absolute;
+    /* Was padding-only, which left a 26x38 hit area. */
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 8px;
     color: var(--primary);
     border-radius: 6px;
@@ -716,8 +737,8 @@ a.header-icon-btn {
 }
 
 .account-btn {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     border-radius: 999px;
     border: 1px solid var(--app-border, rgba(255, 255, 255, 0.14));
     background: rgba(255, 255, 255, 0.06);
@@ -795,7 +816,7 @@ a.header-icon-btn {
     cursor: pointer;
     text-decoration: none;
     background: linear-gradient(135deg, var(--electric, #2e7bff), var(--electric-dim, #1d4ed8));
-    color: #fff;
+    color: var(--md-sys-color-on-primary);
 }
 .btn-hero-secondary {
     display: flex;
@@ -1227,6 +1248,161 @@ textarea {
     border: 1px solid rgba(248, 113, 113, 0.5);
     font-weight: 600;
 }
+
+/* ── Other crews' jobs (manager with "sees every job") ────────────────
+   Everything here is tuned to read as "not yours": grey instead of the
+   brand blue, no filled button, lower contrast, and collapsed by default.
+   A manager scanning their day should never mistake one of these for a
+   job they're expected to show up to. */
+.jobs-none-mine {
+    text-align: center;
+    color: var(--md-sys-color-tertiary, #34d399);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 18px 12px;
+    margin: 0 0 8px;
+}
+.other-crews {
+    margin: 20px 0 8px;
+    border-top: 1px dashed var(--md-sys-color-outline-variant);
+    padding-top: 14px;
+}
+.other-crews__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 48px;
+    padding: 4px 2px;
+    cursor: pointer;
+    list-style: none;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface-variant);
+}
+.other-crews__summary::-webkit-details-marker { display: none; }
+.other-crews__hint {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--md-sys-color-outline, #6b7280);
+    margin-top: 2px;
+}
+.other-crews__chev {
+    font-size: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+    transition: transform var(--md-duration-short) var(--md-easing-standard);
+}
+.other-crews[open] .other-crews__chev { transform: rotate(180deg); }
+.other-crews__list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+.other-job {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 56px;
+    padding: 8px 12px 8px 0;
+    text-align: left;
+    background: var(--md-sys-color-surface-container-low);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-radius-md);
+    cursor: pointer;
+    overflow: hidden;
+}
+.other-job__stripe {
+    width: 4px;
+    align-self: stretch;
+    background: var(--md-sys-color-outline, #6b7280);
+    flex-shrink: 0;
+}
+.other-job__body { min-width: 0; flex: 1; padding-left: 8px; }
+.other-job__name {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface-variant);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.other-job__meta,
+.other-job__crew {
+    display: block;
+    font-size: 11px;
+    color: var(--md-sys-color-outline, #6b7280);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.other-job__state {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.18);
+    color: #cbd5e1;
+}
+
+/* Managers on a job read differently from crew. */
+.crew-chip--manager {
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+    font-weight: 700;
+}
+.crew-pick-heading {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--md-sys-color-on-surface-variant);
+    margin: 0 0 4px;
+}
+
+/* ── Crew arrival state ───────────────────────────────────────────────
+   A job in progress needs to read differently from one that's merely
+   booked, at arm's length in daylight. Amber = moving, green = arrived. */
+.tag-pill--arrival {
+    background: rgba(251, 191, 36, 0.20);
+    color: #fcd34d;
+    font-weight: 700;
+}
+
+/* The single primary action on the job sheet. Full width, tall, and the
+   only filled button in the sheet so there's never a question about what
+   the next step is. */
+.job-primary-action {
+    width: 100%;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 18px;
+    border: none;
+    border-radius: var(--md-radius-full);
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    transition: background-color var(--md-duration-short) var(--md-easing-standard),
+                transform var(--md-duration-short) var(--md-easing-standard);
+}
+.job-primary-action:active { transform: scale(0.985); }
+.job-primary-action--running {
+    background: var(--md-sys-color-tertiary, #34d399);
+    color: var(--md-sys-color-on-tertiary, #06281c);
+}
 .job-card-v2__actions .jc-msg {
     color: #94a3b8;
 }
@@ -1265,7 +1441,12 @@ textarea {
     background: none;
     border: none;
     color: var(--electric, #2e7bff);
-    padding: 2px 4px;
+    /* An A–Z index can't give each letter 44px — 27 letters would be
+       taller than the screen. Widen the horizontal hit area instead
+       (the same trade-off iOS makes) so a thumb landing near the rail
+       still connects. */
+    padding: 3px 10px;
+    min-height: 26px;
     cursor: pointer;
     border-radius: 4px;
     line-height: 1.1;
@@ -1879,8 +2060,8 @@ input::placeholder, textarea::placeholder {
     font-weight: 600;
 }
 .header-tool-btn {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     border-radius: 10px;
     display: inline-flex;
     align-items: center;
@@ -1894,8 +2075,8 @@ input::placeholder, textarea::placeholder {
 }
 .header-tool-btn:active { transform: scale(0.94); }
 .header-action-btn {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     border: none;
     display: inline-flex;
@@ -1971,7 +2152,7 @@ input::placeholder, textarea::placeholder {
 }
 .page-tabs--segmented .page-tab.active {
     background: linear-gradient(135deg, var(--electric, #2e7bff), var(--electric-dim, #1d4ed8));
-    color: #fff;
+    color: var(--md-sys-color-on-primary);
     box-shadow: 0 2px 8px rgba(46, 123, 255, 0.3);
 }
 .page-tabs--pills .page-tab.active {
@@ -2877,7 +3058,7 @@ a.m3-filled:active {
 
 /* Filter chips — M3 stadium shape */
 .jobs-filter-pill {
-    min-height: 32px !important;
+    min-height: 40px !important;
     padding: 0 16px !important;
     border-radius: var(--md-radius-sm) !important;
     border: 1px solid var(--md-sys-color-outline) !important;

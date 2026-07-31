@@ -194,7 +194,9 @@ const CL_FIREBASE = (function() {
             redirectToSignIn();
             return;
         }
-        console.log('User signed in:', user.email);
+        // Log the event, not the identity — the console is readable by
+        // anyone who plugs the phone into a laptop.
+        console.log('User signed in');
 
         try {
             await _loadOrSeedProfile();
@@ -228,6 +230,10 @@ const CL_FIREBASE = (function() {
         // page while this async profile check is in flight (the installed
         // PWA always opens on index.html regardless of role).
         try { localStorage.setItem('cl-last-role', userProfile.role || ''); } catch (_) {}
+
+        // Which managers can see every job. Needed before the first push so
+        // this device stamps the same accessUids as every other one.
+        await refreshGlobalViewers();
 
         window.dispatchEvent(new CustomEvent('cl-profile-updated', {
             detail: { profile: Object.assign({}, userProfile) }
@@ -505,9 +511,32 @@ const CL_FIREBASE = (function() {
             await auth.signOut();
         }
         currentUser = null;
-        // Clear the cached role so a shared device doesn't instant-redirect
-        // the next person who signs in based on the previous user's role.
-        try { localStorage.removeItem('cl-last-role'); } catch (_) {}
+        userProfile = null;
+        profileLoaded = false;
+        // Wipe this user's data off the device.
+        //
+        // Only `cl-last-role` used to be cleared, so jobs, customers,
+        // settings, timers and job notes all stayed in localStorage. On a
+        // shared phone — an owner handing it to a crew member, or a worker
+        // whose account gets moved — the next person to sign in saw the
+        // previous user's job list, complete with addresses, phone numbers
+        // and quote amounts. Worse, the cloud pull *merges* rather than
+        // replaces and every local write schedules a push, so those records
+        // could be re-uploaded under the new account.
+        //
+        // Everything here is either re-fetched from Firestore on the next
+        // sign-in or is per-device state that shouldn't outlive the session.
+        try {
+            const keep = ['cl-device-id'];
+            const doomed = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.indexOf('cl-') === 0 && keep.indexOf(k) === -1) doomed.push(k);
+            }
+            doomed.forEach(k => localStorage.removeItem(k));
+        } catch (_) {
+            // Never let cleanup failure block the sign-out itself.
+        }
     }
 
     // ------------------------------------------------------------
@@ -526,6 +555,97 @@ const CL_FIREBASE = (function() {
 
     // True once per sign-in: prevents repeated migration attempts.
     let migrationRan = false;
+
+    // ── "Sees every job" managers ───────────────────────────────────────
+    // A manager normally reads only the jobs they're on. The Owner can grant
+    // `canViewAllJobs`, which makes them a reader of every job.
+    //
+    // Firestore list rules cannot call get(), so a role check can't widen a
+    // query — the only mechanism available is the denormalized accessUids
+    // array every job already carries. So the uids of these managers are
+    // mirrored into `settings/global.globalViewerUids` and stamped into
+    // every job on write. Granting or revoking the permission runs a
+    // backfill over the jobs collection (see syncGlobalViewers).
+    const GLOBAL_VIEWERS_KEY = 'cl-global-viewers';
+    function globalViewerUids() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(GLOBAL_VIEWERS_KEY) || '[]');
+            return Array.isArray(raw) ? raw.filter(Boolean) : [];
+        } catch (_) { return []; }
+    }
+    function setGlobalViewerUids(list) {
+        try {
+            localStorage.setItem(GLOBAL_VIEWERS_KEY, JSON.stringify((list || []).filter(Boolean)));
+        } catch (_) {}
+    }
+    // Pull the current list from settings/global so every device stamps the
+    // same readers. Called after the profile loads.
+    async function refreshGlobalViewers() {
+        if (!db) return globalViewerUids();
+        try {
+            const snap = await db.collection('settings').doc('global').get();
+            const list = (snap.exists && Array.isArray(snap.data().globalViewerUids))
+                ? snap.data().globalViewerUids : [];
+            setGlobalViewerUids(list);
+            return list;
+        } catch (_) {
+            return globalViewerUids();
+        }
+    }
+
+    // Owner-only. Recompute the viewer list from users/{uid}.permissions and
+    // push the resulting accessUids change across every job.
+    async function syncGlobalViewers() {
+        if (!db || !userProfile || userProfile.role !== 'owner') {
+            return { ok: false, code: 'not-owner' };
+        }
+        try {
+            const usersSnap = await db.collection('users').get();
+            const viewers = [];
+            usersSnap.forEach(doc => {
+                const u = doc.data() || {};
+                if (u.active === false) return;
+                if (u.role === 'manager' && u.permissions && u.permissions.canViewAllJobs === true) {
+                    viewers.push(doc.id);
+                }
+            });
+            await db.collection('settings').doc('global').set(
+                { globalViewerUids: viewers, updatedAt: new Date().toISOString() },
+                { merge: true }
+            );
+            setGlobalViewerUids(viewers);
+
+            // Backfill accessUids on every job so the change takes effect for
+            // work that already exists, not just jobs created from now on.
+            const jobsSnap = await db.collection('jobs').get();
+            let batch = db.batch();
+            let ops = 0, changed = 0;
+            for (const doc of jobsSnap.docs) {
+                const data = doc.data() || {};
+                const base = new Set();
+                const ownerUid = (window.CL_SECRETS && window.CL_SECRETS.ownerUid) || '';
+                if (ownerUid) base.add(ownerUid);
+                if (data.createdBy) base.add(data.createdBy);
+                if (data.assignedTo) base.add(data.assignedTo);
+                (Array.isArray(data.assignedManagers) ? data.assignedManagers
+                    : (data.assignedManager ? [data.assignedManager] : [])).forEach(u => u && base.add(u));
+                (Array.isArray(data.assignedWorkers) ? data.assignedWorkers : []).forEach(u => u && base.add(u));
+                viewers.forEach(u => base.add(u));
+                const next = Array.from(base);
+                const prev = Array.isArray(data.accessUids) ? data.accessUids : [];
+                const same = next.length === prev.length && next.every(u => prev.includes(u));
+                if (same) continue;
+                batch.update(doc.ref, { accessUids: next, lastUpdated: new Date().toISOString() });
+                ops++; changed++;
+                if (ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0; }
+            }
+            if (ops > 0) await batch.commit();
+            return { ok: true, viewers: viewers.length, jobsUpdated: changed };
+        } catch (err) {
+            console.error('[CL_FIREBASE] syncGlobalViewers failed:', err && err.code, err && err.message);
+            return { ok: false, code: (err && err.code) || 'unknown', message: err && err.message };
+        }
+    }
 
     // Stamp a customer/job with the fields needed for the top-level
     // collection (createdBy + lastUpdated). Never overwrites an
@@ -547,6 +667,15 @@ const CL_FIREBASE = (function() {
             if (out[k] === undefined) out[k] = null;
         });
         if (out.assignedWorkers === undefined) out.assignedWorkers = [];
+        // A job can now carry more than one manager. `assignedManager`
+        // (singular) is kept in step as the first of them so the existing
+        // Firestore rules, queries and older clients keep working.
+        if (out.assignedManagers === undefined) {
+            out.assignedManagers = out.assignedManager ? [out.assignedManager] : [];
+        }
+        if (!Array.isArray(out.assignedManagers)) out.assignedManagers = [];
+        out.assignedManagers = out.assignedManagers.filter(Boolean);
+        out.assignedManager = out.assignedManagers.length ? out.assignedManagers[0] : null;
         if (out.crewNames === undefined) out.crewNames = {};
         if (out.crewConfirmations === undefined) out.crewConfirmations = {};
         // Drop any remaining undefined values so the merge write is valid.
@@ -566,11 +695,18 @@ const CL_FIREBASE = (function() {
             const set = new Set();
             if (ownerUid) set.add(ownerUid);
             if (out.createdBy) set.add(out.createdBy);
-            if (out.assignedManager) set.add(out.assignedManager);
             if (out.assignedTo) set.add(out.assignedTo);
+            (Array.isArray(out.assignedManagers) ? out.assignedManagers : []).forEach(u => {
+                if (u) set.add(u);
+            });
             (Array.isArray(out.assignedWorkers) ? out.assignedWorkers : []).forEach(u => {
                 if (u) set.add(u);
             });
+            // Managers with "sees every job" are readers of every job. The
+            // read query is array-contains on accessUids for every role, so
+            // the only way to widen someone's view is to put them in the
+            // list — there is no get() available inside a list rule.
+            globalViewerUids().forEach(u => { if (u) set.add(u); });
             out.accessUids = Array.from(set);
         }
         return out;
@@ -1023,6 +1159,9 @@ const CL_FIREBASE = (function() {
         logActivity,
         getGlobalSettings,
         updateGlobalSettings,
+        syncGlobalViewers,
+        refreshGlobalViewers,
+        globalViewerUids,
         toAuthEmail,
         USERNAME_EMAIL_SUFFIX,
         can,
